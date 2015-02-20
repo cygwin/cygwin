@@ -126,3 +126,14 @@ set CYGWIN_DEBUG=cat.exe:gdb.exe
    program will crash, probably in small_printf.  At that point, a 'bt'
    command should show you the offending call to strace_printf with the
    improper format string.
+
+9. Debug output without strace
+
+   If you cannot use gdb, or if the program behaves differently using strace
+   for whatever reason, you can still use the small_printf() function to
+   output debugging messages directly to stderr.
+
+   This function accepts slightly different format placeholders than the
+   POSIX printf() function you're used to, for example `%W` instead of `%ls`
+   to print UTF-16 strings (provided via `wchar_t *` pointers). For full
+   details, see the first comment in `winsup/cygwin/smallprint.cc`.
