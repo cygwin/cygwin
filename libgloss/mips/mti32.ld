@@ -55,15 +55,30 @@ SECTIONS
   PROVIDE (etext  =  .);
   _etext  =  .;
 
-  .eh_frame_hdr : { *(.eh_frame_hdr) }
+  .eh_frame_hdr : { *(.eh_frame_hdr) *(.eh_frame_entry .eh_frame_entry.*) }
   .eh_frame : {
     /* The .eh_frame section from the crtend file contains the
        end of eh_frame marker and it must be last.  */
     KEEP (*(EXCLUDE_FILE (*crtend.o) .eh_frame))
     KEEP (*(.eh_frame))
   }
-  .gcc_except_table : { *(.gcc_except_table) }
+  .gcc_except_table : { *(.gcc_except_table .gcc_except_table.*) }
+  .gnu_extab   : { *(.gnu_extab .gnu_extab.*) }
   .jcr : { KEEP (*(.jcr)) }
+  .init_array     :
+  {
+    PROVIDE_HIDDEN (__init_array_start = .);
+    KEEP (*(SORT(.init_array.*)))
+    KEEP (*(.init_array))
+    PROVIDE_HIDDEN (__init_array_end = .);
+  }
+  .fini_array     :
+  {
+    PROVIDE_HIDDEN (__fini_array_start = .);
+    KEEP (*(SORT(.fini_array.*)))
+    KEEP (*(.fini_array))
+    PROVIDE_HIDDEN (__fini_array_end = .);
+  }
   .ctors    :
   {
     /* gcc uses crtbegin.o to find the start of

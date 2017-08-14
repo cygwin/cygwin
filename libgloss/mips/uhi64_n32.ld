@@ -125,10 +125,12 @@ SECTIONS
     . = ALIGN(8);
   } = 0
 
-  PROVIDE (__flash_app_start = SIZEOF(.bootrom) + __flash_start);
+  PROVIDE (__flash_app_start = DEFINED(__xip)
+			       ? ALIGN(__flash_start + SIZEOF(.bootrom), 0x1000)
+			       : __flash_start + SIZEOF(.bootrom));
 
   __aligned_app_start = DEFINED(__xip)
-			? __bev_override + SIZEOF(.bootrom)
+			? ALIGN(__bev_override + SIZEOF(.bootrom), 0x1000)
 			: ALIGN(__app_start, 0x1000);
 
   PROVIDE (__ebase_size = 0x200);
@@ -155,7 +157,7 @@ SECTIONS
     . = ALIGN(8);
   } = 0
 
-  .text . : AT (LOADADDR (.exception_vector) + SIZEOF(.exception_vector)) {
+  .text : {
      _ftext = . ;
     PROVIDE (eprol  =  .);
     *(.text)
@@ -164,13 +166,13 @@ SECTIONS
     *(.mips16.fn.*)
     *(.mips16.call.*)
   }
-  .init . : AT (LOADADDR (.text) + SIZEOF(.text)) {
+  .init : {
     KEEP (*(.init))
   }
-  .fini . : AT (LOADADDR (.init) + SIZEOF(.init)) {
+  .fini : {
     KEEP (*(.fini))
   }
-  .rel.sdata . : AT (LOADADDR (.fini) + SIZEOF(.fini)) {
+  .rel.sdata : {
     PROVIDE (__runtime_reloc_start = .);
     *(.rel.sdata)
     PROVIDE (__runtime_reloc_stop = .);
@@ -178,11 +180,26 @@ SECTIONS
   PROVIDE (etext  =  .);
   _etext  =  .;
 
-  .eh_frame_hdr . : AT (LOADADDR (.rel.sdata) + SIZEOF(.rel.sdata)) { *(.eh_frame_hdr) }
-  .eh_frame . : AT (LOADADDR (.eh_frame_hdr) + SIZEOF(.eh_frame_hdr)) { KEEP (*(.eh_frame)) }
-  .gcc_except_table . : AT (LOADADDR (.eh_frame) + SIZEOF(.eh_frame)) { *(.gcc_except_table) }
-  .jcr . : AT (LOADADDR (.gcc_except_table) + SIZEOF(.gcc_except_table)) { KEEP (*(.jcr)) }
-  .ctors . : AT (LOADADDR (.jcr) + SIZEOF(.jcr))
+  .eh_frame_hdr : { *(.eh_frame_hdr) *(.eh_frame_entry .eh_frame_entry.*) }
+  .eh_frame : { KEEP (*(.eh_frame)) }
+  .gcc_except_table : { *(.gcc_except_table .gcc_except_table.*) }
+  .gnu_extab : { *(.gnu_extab .gnu_extab.*) }
+  .jcr : { KEEP (*(.jcr)) }
+  .init_array :
+  {
+    PROVIDE_HIDDEN (__init_array_start = .);
+    KEEP (*(SORT(.init_array.*)))
+    KEEP (*(.init_array))
+    PROVIDE_HIDDEN (__init_array_end = .);
+  }
+  .fini_array     :
+  {
+    PROVIDE_HIDDEN (__fini_array_start = .);
+    KEEP (*(SORT(.fini_array.*)))
+    KEEP (*(.fini_array))
+    PROVIDE_HIDDEN (__fini_array_end = .);
+  }
+  .ctors    :
   {
     /* gcc uses crtbegin.o to find the start of
        the constructors, so we make sure it is
@@ -206,7 +223,7 @@ SECTIONS
     KEEP (*(.ctors))
   }
 
-  .dtors . : AT (LOADADDR (.ctors) + SIZEOF(.ctors))
+  .dtors :
   {
     KEEP (*crtbegin.o(.dtors))
     KEEP (*(EXCLUDE_FILE (*crtend.o) .dtors))

@@ -148,6 +148,13 @@ $Lcopy_to_ram_done:
 	eret
 
 $Lall_done:
+	/* Allow an exit hook to intercept the end of execution */
+	.weak __boot_exit_hook
+	lui	a2, %hi(__boot_exit_hook)
+	addiu	a2, a2, %lo(__boot_exit_hook)
+	beqz	a2, 1f
+	jalr	a2
+1:
 	/*
 	 * If _start returns it will return to this point.
 	 * Just spin here reporting the exit.

@@ -73,6 +73,8 @@ $Lnot_nmi:
 	/* Init CP0 Status, Count, Compare, Watch*, and Cause */
 	jal	__init_cp0
 
+#if !defined(HCI)
+
 #if (defined(SLINE_ENC) && SLINE_ENC != 0) || (defined(MEM_MAPPED_L2C) && MEM_MAPPED_L2C != 0)
 	/*
 	 * Initialise L2/L3 cache
@@ -81,10 +83,12 @@ $Lnot_nmi:
 	jal	 __init_l23cache
 #endif
 
-
 #if defined(ILINE_ENC) && ILINE_ENC != 0
 	/* Initialize the L1 instruction cache */
 	jal	  __init_icache
+#endif
+
+#endif /* !defined(HCI) */
 
 	/*
 	 * The changing of Kernel mode cacheability must be done from KSEG1
@@ -97,7 +101,8 @@ $Lnot_nmi:
 	li	a1, 0xf
 	ins	a2, a1, 29, 1		/* changed to KSEG1 address by setting bit 29 */
 	jalr	a2
-#endif
+
+#if !defined(HCI)
 
 #if (defined(SLINE_ENC) && SLINE_ENC != 0) || (defined(MEM_MAPPED_L2C) && MEM_MAPPED_L2C != 0)
 	/* Support initialising L2 with L1 cache enabled */
@@ -108,6 +113,8 @@ $Lnot_nmi:
 	/* Initialize the L1 data cache */
 	jal	__init_dcache
 #endif
+
+#endif /* !defined(HCI) */
 
 #if defined(HAVE_TLB) && HAVE_TLB
 	/* Initialize the TLB */
@@ -168,6 +175,13 @@ $Lcopy_to_ram_done:
 	eret
 
 $Lall_done:
+	/* Allow an exit hook to intercept the end of execution */
+	.weak __boot_exit_hook
+	lui	a2, %hi(__boot_exit_hook)
+	addiu	a2, a2, %lo(__boot_exit_hook)
+	beqz	a2, 1f
+	jalr	a2
+1:
 	/*
 	 * If _start returns it will return to this point.
 	 * Just spin here reporting the exit.
