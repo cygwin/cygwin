@@ -81,6 +81,8 @@ $Lnot_nmi:
 	 * This could be done from cached code if there is a cca override or similar
 	 */
 	jal	 __init_l23cache
+	/* Save the L2 config register */
+	move	 s0, a0
 #endif
 
 #if defined(ILINE_ENC) && ILINE_ENC != 0
@@ -105,6 +107,8 @@ $Lnot_nmi:
 #if !defined(HCI)
 
 #if (defined(SLINE_ENC) && SLINE_ENC != 0) || (defined(MEM_MAPPED_L2C) && MEM_MAPPED_L2C != 0)
+	/* Pass in the L2 config register */
+	move	a0, s0
 	/* Support initialising L2 with L1 cache enabled */
 	jal	__init_l23cache_cached
 #endif

@@ -41,7 +41,7 @@ MIPS_NOMIPS16
 # ifndef C0_CMGCRBASE_VALUE
 #  error "Static CM3 cache initialization decisions require C0_CMGCRBASE_VALUE"
 # else
-#  define C0_CMGCRBASE_ADDR ((C0_CMGCRBASE_VALUE << 4) | (0xb << 28))
+#  define C0_CMGCRBASE_ADDR ((C0_CMGCRBASE_VALUE << 4) | (0xa << 28))
 #  ifndef GCR_L2_CONFIG_VALUE
 #   error "Static CM3 cache initialization decisions require GCR_L2_CONFIG_VALUE"
 #  endif
@@ -54,9 +54,9 @@ MIPS_NOMIPS16
 #undef SSET_SIZE
 #undef SASSOC
 
-#define SLINE_ENC    ((GCR_L2_CONFIG_VALUE & GCR_L2_SL_MASK) >> GCRL2_CFG_SL_SHIFT)
-#define SSET_ENC    ((GCR_L2_CONFIG_VALUE & GCR_L2_SS_MASK) >> GCRL2_CFG_SS_SHIFT)
-#define SASSOC_ENC    ((GCR_L2_CONFIG_VALUE & GCR_L2_SA_MASK) >> GCRL2_CFG_SA_SHIFT)
+#define SLINE_ENC    ((GCR_L2_CONFIG_VALUE & GCR_L2_SL_MASK) >> GCR_L2_CFG_SL_SHIFT)
+#define SSET_ENC    ((GCR_L2_CONFIG_VALUE & GCR_L2_SS_MASK) >> GCR_L2_CFG_SS_SHIFT)
+#define SASSOC_ENC    ((GCR_L2_CONFIG_VALUE & GCR_L2_SA_MASK) >> GCR_L2_CFG_SA_SHIFT)
 #define SLINE_SIZE   (2 << SLINE_ENC)
 #define SSET_SIZE    (64 << SSET_ENC)
 #define SASSOC	      (SASSOC_ENC + 1)
@@ -65,10 +65,11 @@ MIPS_NOMIPS16
 LEAF(__init_l23cache)
 	li	CM3_BASE, C0_CMGCRBASE_ADDR
 	/* Disable L2 cache */
-	PTR_L	t0, GCR_L2_CONFIG(CM3_BASE)
-	li	a2, 1
-	ins	t0, a2, GCR_L2_BYPASS_SHIFT, GCR_L2_BYPASS_BITS
+	/* Reg exists, L2 cache does TAG/DATA ECC. */
+	/* LRU is updated on store tag operation */
+	li	t0, GCR_L2_CONFIG_VALUE | GCR_L2_BYPASS_MASK
 	PTR_S	t0, GCR_L2_CONFIG(CM3_BASE)
+	sync
 
 	jr	ra
 END(__init_l23cache)
@@ -96,16 +97,10 @@ LEAF(__init_l23cache_cached)
 	sw	zero, (GCR_TAG_DATA+4)(CM3_BASE)
 	sw	zero, GCR_TAG_ECC(CM3_BASE)
 	sw	zero, (GCR_TAG_ECC+4)(CM3_BASE)
-
-	/* Reg exists, L2 cache does TAG/DATA ECC. */
-	li	t1, (GCR_L2_CONFIG_VALUE & 0x8000FFFF)
-	/* LRU is updated on store tag operation */
-	li	t0, (1<<GCR_L2_LRU_WE_SHIFT)
-	or	t1, t1, t0
-	sw	t1, GCR_L2_CONFIG(CM3_BASE)
 	sync
 
-	lui	a2, 0x8000
+	li	a2, 0x80000000
+
 next_cm3l2cache_tag:
 	cache	Index_Store_Tag_S, 0(a2)
 	addiu	a0, a0, -1
@@ -114,10 +109,9 @@ next_cm3l2cache_tag:
 #endif /* SLINE_ENC != 0 */
 
 done_cm3l2cache:
-	move	a2, zero
-	PTR_L	t0, GCR_L2_CONFIG(CM3_BASE)
-	ins	t0, a2, GCR_L2_BYPASS_SHIFT, GCR_L2_BYPASS_BITS
+	li	t0, GCR_L2_CONFIG_VALUE
 	PTR_S	t0, GCR_L2_CONFIG(CM3_BASE)
+	sync
 
 	jr	ra
 END(__init_l23cache_cached)

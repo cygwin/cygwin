@@ -73,6 +73,8 @@ $Lnot_nmi:
 	 * This could be done from cached code if there is a cca override or similar
 	 */
 	jal	__init_l23cache
+	/* Save the L2 config register */
+	move	s0, a0
 
 	/* Initialize the L1 instruction cache */
 	jal	__init_icache
@@ -93,6 +95,8 @@ $Lnot_nmi:
 	lui	a2, %hi(__init_l23cache_cached)
 	addiu	a2, a2, %lo(__init_l23cache_cached)
 	beqz	a2, 1f
+	/* Pass in the L2 config register */
+	move	a0, s0
 	jalr	a2
 1:
 	/* Initialize the L1 data cache */

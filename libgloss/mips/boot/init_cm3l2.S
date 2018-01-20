@@ -66,14 +66,15 @@ disable_cache:
 	/* Read CMGCRBase to find CMGCR_BASE_ADDR */
 	PTR_MFC0 t1,C0_CMGCRBASE
 	sll	t1, t1, CMGCR_BASE_ADDR_LSHIFT
-	li	CM3_BASE, 0xb0000000		/* Make it virtual */
+	li	CM3_BASE, 0xa0000000		/* Make it virtual */
 	or	CM3_BASE, CM3_BASE, t1
 
 	/* Disable L2 cache by setting it to bypass mode */
-	PTR_L	t0, GCR_L2_CONFIG(CM3_BASE)
+	PTR_L	a0, GCR_L2_CONFIG(CM3_BASE)
 	li	a2, 1
-	ins	t0, a2, GCR_L2_BYPASS_SHIFT, GCR_L2_BYPASS_BITS
-	PTR_S	t0, GCR_L2_CONFIG(CM3_BASE)
+	ins	a0, a2, GCR_L2_BYPASS_SHIFT, GCR_L2_BYPASS_BITS
+	PTR_S	a0, GCR_L2_CONFIG(CM3_BASE)
+	sync
 ret:
 	jr	ra
 END(__init_l23cache)
@@ -82,11 +83,11 @@ LEAF(__init_l23cache_cached)
 	/* Read CMGCRBase to find CMGCR_BASE_ADDR */
 	PTR_MFC0 t3,C0_CMGCRBASE
 	sll	t3, t3, CMGCR_BASE_ADDR_LSHIFT
-	li	CM3_BASE, 0xb0000000		/* Make it virtual */
+	li	CM3_BASE, 0xa0000000		/* Make it virtual */
 	or	CM3_BASE, CM3_BASE, t3
 
 	/* Read GCR_L2_CONFIG */
-	PTR_L	t2, GCR_L2_CONFIG(CM3_BASE)
+	move	t2, a0
 	ext	t3, t2, GCR_L2_SL_SHIFT, GCR_L2_SL_BITS
 	beqz	t3, done_cm3l2cache		# No L2 cache
 
@@ -116,15 +117,6 @@ LEAF(__init_l23cache_cached)
 	sw	zero, (GCR_TAG_DATA+4)(CM3_BASE)
 	sw	zero, GCR_TAG_ECC(CM3_BASE)
 	sw	zero, (GCR_TAG_ECC+4)(CM3_BASE)
-	sync
-
-	/* Reg exists, L2 cache does TAG/DATA ECC. */
-	li	t0, 0x8000FFFF
-	and	t2, t2, t0
-	/* LRU is updated on store tag operation */
-	li	t0, (1<<GCR_L2_LRU_WE_SHIFT)
-	or	t2, t2, t0
-	sw	t2, GCR_L2_CONFIG(CM3_BASE)
 	sync
 
 	li	a2, 0x80000000
