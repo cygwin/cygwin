@@ -111,8 +111,10 @@ endif
 
 ifeq ($(OS),Windows_NT)
   CROSS_COMPILE=$(subst \,/,$(MIPS_ELF_ROOT))/bin/$(MIPS_TOOLCHAIN)-
+  SREC2HEX=$(subst \,/,$(MIPS_ELF_ROOT))/share/mips/rules/srec2hex.pl
 else
   CROSS_COMPILE=$(MIPS_ELF_ROOT)/bin/$(MIPS_TOOLCHAIN)-
+  SREC2HEX=$(MIPS_ELF_ROOT)/share/mips/rules/srec2hex.pl
 endif
 
 CC = $(CROSS_COMPILE)gcc
@@ -125,3 +127,9 @@ OBJCOPY = $(CROSS_COMPILE)objcopy
 READELF = $(CROSS_COMPILE)readelf
 NM = $(CROSS_COMPILE)nm
 STRIP = $(CROSS_COMPILE)strip
+
+%.rec: %.elf
+	$(OBJCOPY) -O srec $^ $@
+
+%.hex: %.rec
+	$(SREC2HEX) -EL $^ > $@

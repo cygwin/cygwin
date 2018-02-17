@@ -369,6 +369,7 @@ install:
 	done
 	mkdir -p $(DESTDIR)$(exec_prefix)/share/mips/rules
 	@$(INSTALL_DATA) ${srcdir}/rules/mipshal.mk $(DESTDIR)$(exec_prefix)/share/mips/rules/
+	@$(INSTALL_PROGRAM) ${srcdir}/rules/srec2hex.pl $(DESTDIR)$(exec_prefix)/share/mips/rules/
 
 info:
 install-info:
