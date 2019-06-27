@@ -85,11 +85,20 @@ fhandler_fifo::open (int flags, mode_t)
   bool reader, writer, duplexer;
   DWORD open_mode = FILE_FLAG_OVERLAPPED;
 
+  if (flags & O_PATH)
+    {
+      query_open (query_read_attributes);
+      nohandle (true);
+    }
+
   /* Determine what we're doing with this fhandler: reading, writing, both */
   switch (flags & O_ACCMODE)
     {
     case O_RDONLY:
-      reader = true;
+      if (query_open ())
+	reader = false;
+      else
+	reader = true;
       writer = false;
       duplexer = false;
       break;
