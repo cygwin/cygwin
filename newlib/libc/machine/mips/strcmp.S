@@ -217,10 +217,13 @@ L(worddiff):
 	beq	a0, zero, L(wexit01)
 	bne	a0, a1, L(wexit01)
 
-	/* The other bytes are identical, so just subract the 2 words
-	  and return the difference.  */
+# if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+	srl a0, a2, 24
+	srl a1, a3, 24
+# else /* __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ */
 	move a0, a2
 	move a1, a3
+# endif /* __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ */
 
 L(wexit01):
 	subu	va0, a0, a1
