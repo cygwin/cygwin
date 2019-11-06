@@ -1837,6 +1837,7 @@ enum cltype
 class dev_console
 {
   pid_t owner;
+  bool is_legacy;
 
   WORD default_color, underline_color, dim_color;
 
