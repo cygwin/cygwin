@@ -1490,10 +1490,10 @@ fhandler_socket_unix::socketpair (int af, int type, int protocol, int flags,
 fh_open_pipe_failed:
   NtClose (ph);
 create_pipe_failed:
-  NtUnmapViewOfSection (GetCurrentProcess (), fh->shmem);
+  NtUnmapViewOfSection (NtCurrentProcess (), fh->shmem);
   NtClose (fh->shmem_handle);
 fh_shmem_failed:
-  NtUnmapViewOfSection (GetCurrentProcess (), shmem);
+  NtUnmapViewOfSection (NtCurrentProcess (), shmem);
   NtClose (shmem_handle);
   return -1;
 }
@@ -1851,7 +1851,7 @@ fhandler_socket_unix::close ()
     NtClose (shm);
   param = InterlockedExchangePointer ((PVOID *) &shmem, NULL);
   if (param)
-    NtUnmapViewOfSection (GetCurrentProcess (), param);
+    NtUnmapViewOfSection (NtCurrentProcess (), param);
   return 0;
 }
 
