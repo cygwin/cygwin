@@ -1495,7 +1495,7 @@ public:
   void owner_lock () { shmem->owner_lock (); }
   void owner_unlock () { shmem->owner_unlock (); }
 
-  void take_ownership ();
+  DWORD take_ownership ();
   void reading_lock () { shmem->reading_lock (); }
   void reading_unlock () { shmem->reading_unlock (); }
 
