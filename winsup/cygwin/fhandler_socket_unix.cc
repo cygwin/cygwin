@@ -8,9 +8,17 @@
    Cygwin license.  Please consult the file "CYGWIN_LICENSE" for
    details. */
 
+#include "winsup.h"
+
+GUID __cygwin_socket_guid = {
+  .Data1 = 0xefc1714d,
+  .Data2 = 0x7b19,
+  .Data3 = 0x4407,
+  .Data4 = { 0xba, 0xb3, 0xc5, 0xb1, 0xf9, 0x2c, 0xb8, 0x8c }
+};
+
 #ifdef __WITH_AF_UNIX
 
-#include "winsup.h"
 #include <w32api/winioctl.h>
 #include <asm/byteorder.h>
 #include <unistd.h>
@@ -156,13 +164,6 @@ AF_UNIX_PKT_DATA_APPEND (af_unix_pkt_hdr_t *phdr, void *data, uint16_t dlen)
   phdr->data_len += dlen;
   return true;
 }
-
-GUID __cygwin_socket_guid = {
-  .Data1 = 0xefc1714d,
-  .Data2 = 0x7b19,
-  .Data3 = 0x4407,
-  .Data4 = { 0xba, 0xb3, 0xc5, 0xb1, 0xf9, 0x2c, 0xb8, 0x8c }
-};
 
 /* Some error conditions on pipes have multiple status codes, unfortunately. */
 #define STATUS_PIPE_NO_INSTANCE_AVAILABLE(status)	\
