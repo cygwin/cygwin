@@ -1939,8 +1939,376 @@ fhandler_socket_unix::evaluate_cmsg_data (af_unix_pkt_hdr_t *packet,
 ssize_t
 fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
 {
-  set_errno (EAFNOSUPPORT);
-  return -1;
+  size_t nbytes_read = 0;
+  ssize_t ret = -1;
+  NTSTATUS status;
+  IO_STATUS_BLOCK io;
+  WCHAR pipe_name_buf[CYGWIN_PIPE_SOCKET_NAME_LEN + 1];
+  UNICODE_STRING pipe_name;
+  HANDLE fh = NULL;
+  HANDLE ph = NULL;
+  HANDLE evt = NULL;
+  PVOID peek_buffer = NULL;	/* For MSG_PEEK. */
+  size_t tot;
+  bool waitall = false;
+  bool disconnect = false;
+
+  __try
+    {
+      /* Valid flags: MSG_DONTWAIT, MSG_PEEK, MSG_WAITALL.
+
+	 FIXME: Do we want to support MSG_TRUNC?  It's not in POSIX,
+	 but it's in Linux since 3.4. */
+      if (flags & ~(MSG_DONTWAIT | MSG_PEEK | MSG_WAITALL))
+	{
+	  set_errno (EOPNOTSUPP);
+	  __leave;
+	}
+      if (!(evt = create_event ()))
+	__leave;
+
+      /* Make local copy of scatter-gather array and calculate number
+	 of bytes to be read. */
+      size_t my_iovlen = msg->msg_iovlen;
+      struct iovec my_iov[my_iovlen];
+      struct iovec *my_iovptr = my_iov + my_iovlen;
+      const struct iovec *iovptr = msg->msg_iov + msg->msg_iovlen;
+      tot = 0;
+      while (--my_iovptr >= my_iov)
+	{
+	  *my_iovptr = *(--iovptr);
+	  tot += iovptr->iov_len;
+	}
+
+      if (get_socket_type () == SOCK_STREAM)
+	{
+	  /* FIXME: I'm copying sendmsg, but the Linux man page
+	     doesn't mention EISCONN as a possible errno here, in
+	     contrast to the sendmsg case. */
+	  if (msg->msg_namelen)
+	    {
+	      set_errno (connect_state () == connected ? EISCONN : EOPNOTSUPP);
+	      __leave;
+	    }
+	  if (connect_state () != connected)
+	    {
+	      set_errno (ENOTCONN);
+	      __leave;
+	    }
+	  if (saw_shutdown () & _SHUT_RECV || tot == 0)
+	    {
+	      ret = 0;
+	      __leave;
+	    }
+	  if ((flags & MSG_WAITALL) && !(flags & (MSG_PEEK | MSG_DONTWAIT))
+	      && !is_nonblocking ())
+	    waitall = true;
+	}
+      else
+	{
+	  if (connect_state () == connected)
+	    {
+	      /* FIXME: We're tacitly assuming that the peer is bound.
+		 Is that legitimate? */
+	      sun_name_t sun = *peer_sun_path ();
+	      int peer_type;
+
+	      RtlInitEmptyUnicodeString (&pipe_name, pipe_name_buf,
+					 sizeof pipe_name_buf);
+	      fh = open_socket (&sun, peer_type, &pipe_name);
+	      if (!fh)
+		__leave;
+	      if (peer_type != SOCK_DGRAM)
+		{
+		  set_errno (EPROTOTYPE);
+		  __leave;
+		}
+	      status = open_pipe (ph, &pipe_name);
+	      if (!NT_SUCCESS (status))
+		{
+		  __seterrno_from_nt_status (status);
+		  __leave;
+		}
+	    }
+	  else if (binding_state () == bound)
+	    /* We've created the pipe and we need to wait for a sender
+	       to connect to it. */
+	    {
+	      if (listen_pipe () < 0)
+		__leave;
+	      /* We'll need to disconnect at the end so that we can
+		 accept another connection later. */
+	      disconnect = true;
+	    }
+	  else
+	    {
+	      /* We have no pipe handle to read from. */
+	      set_errno (ENOTCONN);
+	      __leave;
+	    }
+	}
+      if (flags & MSG_PEEK)
+	{
+	  /* Not yet implemented. */
+	  set_errno (EOPNOTSUPP);
+	  __leave;
+	}
+
+      tmp_pathbuf tp;
+      PVOID buffer = tp.w_get ();
+      my_iovptr = my_iov;
+      bool first_iteration = true;
+      while (tot)
+	{
+	  ULONG length;		/* For NtReadFile. */
+	  ULONG nbytes_now = 0;
+	  bool maybe_restart = false;
+	  af_unix_pkt_hdr_t *packet = (af_unix_pkt_hdr_t *) buffer;
+
+	  if (get_socket_type () == SOCK_DGRAM)
+	    length = MAX_AF_PKT_LEN;
+	  else if (get_unread ())
+	    {
+	      /* There's data in the pipe from a partial read of a packet. */
+	      length = tot;
+	      packet = NULL;
+	    }
+	  else
+	    {
+	      /* We'll need to peek at the header before setting length. */
+	      PFILE_PIPE_PEEK_BUFFER pbuf = (PFILE_PIPE_PEEK_BUFFER) buffer;
+	      ULONG psize = offsetof (FILE_PIPE_PEEK_BUFFER, Data)
+		+ sizeof (af_unix_pkt_hdr_t);
+	      ULONG ret_len;
+
+	      if (is_nonblocking () || (flags & MSG_DONTWAIT))
+		{
+		  io_lock ();
+		  status = peek_pipe (pbuf, psize, evt, ret_len);
+		  io_unlock ();
+		  if (!ret_len)
+		    {
+		      if (nbytes_read)
+			break;
+		      else if (status == STATUS_PIPE_BROKEN)
+			{
+			  ret = nbytes_read;
+			  __leave;
+			}
+		      else if (!NT_SUCCESS (status))
+			{
+			  __seterrno_from_nt_status (status);
+			  __leave;
+			}
+		      else
+			{
+			  set_errno (EAGAIN);
+			  __leave;
+			}
+		    }
+		}
+	      else
+		{
+restart1:
+		  status = peek_pipe_poll (pbuf, MAX_PATH, evt, ret_len);
+		  switch (status)
+		    {
+		    case STATUS_SUCCESS:
+		      break;
+		    case STATUS_PIPE_BROKEN:
+		      ret = nbytes_read;
+		      __leave;
+		    case STATUS_THREAD_CANCELED:
+		      __leave;
+		    case STATUS_THREAD_SIGNALED:
+		      maybe_restart = _my_tls.call_signal_handler ();
+		      if (nbytes_read)
+			{
+			  ret = nbytes_read;
+			  __leave;
+			}
+		      else if (maybe_restart)
+			goto restart1;
+		      else
+			{
+			  set_errno (EINTR);
+			  __leave;
+			}
+		      break;
+		    default:
+		      __seterrno_from_nt_status (status);
+		      __leave;
+		    }
+		}
+	      if (pbuf->NumberOfMessages == 0
+		  || ret_len < sizeof (af_unix_pkt_hdr_t))
+		{
+		  set_errno (EIO);
+		  __leave;
+		}
+	      af_unix_pkt_hdr_t *pkt = (af_unix_pkt_hdr_t *) pbuf->Data;
+	      ULONG dont_read = 0;
+	      if (tot < pkt->data_len)
+		dont_read = pkt->data_len - tot;
+	      length = pkt->pckt_len - dont_read;
+	    }
+
+	  io_lock ();
+	  /* Handle MSG_DONTWAIT in blocking mode. */
+	  if (!is_nonblocking () && (flags & MSG_DONTWAIT))
+	    set_pipe_non_blocking (true);
+	  status = NtReadFile (ph ?: get_handle (), evt, NULL, NULL, &io,
+			       buffer, length, NULL, NULL);
+	  if (!is_nonblocking () && (flags & MSG_DONTWAIT))
+	    set_pipe_non_blocking (false);
+	  io_unlock ();
+	  debug_printf ("NtReadFile status %y", status);
+	  if (status == STATUS_PENDING)
+	    {
+restart2:
+	      DWORD waitret = cygwait (evt, cw_infinite,
+				       cw_cancel | cw_sig_eintr);
+	      switch (waitret)
+		{
+		case WAIT_OBJECT_0:
+		  status = io.Status;
+		  break;
+		case WAIT_SIGNALED:
+		  status = STATUS_THREAD_SIGNALED;
+		  break;
+		case WAIT_CANCELED:
+		  status = STATUS_THREAD_CANCELED;
+		  break;
+		default:
+		  break;
+		}
+	    }
+	  if (status == STATUS_THREAD_SIGNALED)
+	    {
+	      maybe_restart = _my_tls.call_signal_handler ();
+	      if (nbytes_read)
+		{
+		  ret = nbytes_read;
+		  __leave;
+		}
+	      else if (maybe_restart)
+		goto restart2;
+	      else
+		{
+		  set_errno (EINTR);
+		  __leave;
+		}
+	    }
+	  set_unread (false);
+	  switch (status)
+	    {
+	    case STATUS_BUFFER_OVERFLOW:
+	    case STATUS_MORE_PROCESSING_REQUIRED:
+	      /* Partial read. */
+	      set_unread (true);
+	      fallthrough;
+	    case STATUS_SUCCESS:
+	      if (packet && io.Information
+		  < (ULONG_PTR) AF_UNIX_PKT_OFFSETOF_DATA (packet))
+		{
+		  set_errno (EIO);
+		  __leave;
+		}
+	      nbytes_now = packet
+		? io.Information - AF_UNIX_PKT_OFFSETOF_DATA (packet)
+		: io.Information;
+	      if (!nbytes_now)
+		{
+		  /* 0-length datagrams are allowed. */
+		  if (get_socket_type () == SOCK_DGRAM)
+		    {
+		      ret = 0;
+		      __leave;
+		    }
+		  else
+		    {
+		      set_errno (EIO);
+		      __leave;
+		    }
+		}
+	      nbytes_read += nbytes_now;
+	      if (first_iteration && packet)
+		{
+		  if (msg->msg_controllen)
+		    /* Handle the cmsg data. */
+		    ;
+		  if (msg->msg_name)
+		    {
+		      sun_name_t sun ((struct sockaddr *) AF_UNIX_PKT_NAME (packet),
+				      packet->name_len);
+		      memcpy (msg->msg_name, &sun.un,
+			      MIN (msg->msg_namelen, sun.un_len + 1));
+		      msg->msg_namelen = sun.un_len;
+		    }
+		}
+	      break;
+	    case STATUS_PIPE_BROKEN:
+	      ret = nbytes_read;
+	      __leave;
+	    case STATUS_THREAD_CANCELED:
+	      __leave;
+	    default:
+	      __seterrno_from_nt_status (status);
+	      __leave;
+	    }
+
+	  /* For a datagram socket, truncate the data to what was requested. */
+	  if (get_socket_type () == SOCK_DGRAM && tot < nbytes_read)
+	    nbytes_now = nbytes_read = tot;
+	  /* Copy data to scatter-gather buffers. */
+	  char *ptr = (char *) (packet ? AF_UNIX_PKT_DATA (packet) : buffer);
+	  while (nbytes_now && my_iovlen)
+	    {
+	      if (my_iovptr->iov_len > nbytes_now)
+		{
+		  memcpy (my_iovptr->iov_base, ptr, nbytes_now);
+		  my_iovptr->iov_base = (char *) my_iovptr->iov_base
+		    + nbytes_now;
+		  my_iovptr->iov_len -= nbytes_now;
+		  nbytes_now = 0;
+		}
+	      else
+		{
+		  memcpy (my_iovptr->iov_base, ptr, my_iovptr->iov_len);
+		  ++my_iovptr;
+		  --my_iovlen;
+		  ptr += my_iovptr->iov_len;
+		  nbytes_now -= my_iovptr->iov_len;
+		}
+	    }
+	  if (!(waitall && my_iovlen))
+	    break;
+	  if (saw_shutdown () & _SHUT_RECV)
+	    {
+	      ret = nbytes_read;
+	      __leave;
+	    }
+	  if (first_iteration)
+	    first_iteration = false;
+	}
+      if (nbytes_read)
+	ret = nbytes_read;
+    }
+  __except (EFAULT)
+  __endtry
+    if (ph)
+      NtClose (ph);
+  if (fh)
+    NtClose (fh);
+  if (evt)
+    NtClose (evt);
+  if (disconnect)
+    disconnect_pipe (get_handle ());
+  if (peek_buffer)
+    free (peek_buffer);
+  if (status == STATUS_THREAD_CANCELED)
+    pthread::static_cancel_self ();
+  return ret;
 }
 
 ssize_t
@@ -1969,8 +2337,6 @@ fhandler_socket_unix::recvfrom (void *ptr, size_t len, int flags,
 void __reg3
 fhandler_socket_unix::read (void *ptr, size_t& len)
 {
-  set_errno (EAFNOSUPPORT);
-  len = 0;
   struct iovec iov;
   struct msghdr msg;
 
