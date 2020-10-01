@@ -2065,6 +2065,7 @@ fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
       io_unlock ();
       if (evt && status == STATUS_PENDING)
 	{
+wait:
 	  DWORD ret = cygwait (evt, cw_infinite, cw_cancel | cw_sig_eintr);
 	  switch (ret)
 	    {
@@ -2097,6 +2098,13 @@ fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
 	  if (get_socket_type () == SOCK_STREAM && !(flags & MSG_NOSIGNAL))
 	    raise (SIGPIPE);
 	}
+      else if (status == STATUS_THREAD_SIGNALED)
+	{
+	  if (_my_tls.call_signal_handler ())
+	    goto wait;
+	  else
+	    set_errno (EINTR);
+	}
       else
 	__seterrno_from_nt_status (status);
     }
@@ -2108,9 +2116,7 @@ fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
     NtClose (fh);
   if (evt)
     NtClose (evt);
-  if (status == STATUS_THREAD_SIGNALED && !_my_tls.call_signal_handler ())
-    set_errno (EINTR);
-  else if (status == STATUS_THREAD_CANCELED)
+  if (status == STATUS_THREAD_CANCELED)
     pthread::static_cancel_self ();
   return ret;
 }
