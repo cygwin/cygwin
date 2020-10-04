@@ -2090,7 +2090,7 @@ wait:
 	  if (io.Information == 0)
 	    set_errno (EAGAIN);
 	  else
-	    ret = io.Information;
+	    ret = io.Information - AF_UNIX_PKT_OFFSETOF_DATA (packet);
 	}
       else if (STATUS_PIPE_IS_CLOSED (status))
 	{
