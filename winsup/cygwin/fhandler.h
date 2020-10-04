@@ -1019,8 +1019,8 @@ class fhandler_socket_unix : public fhandler_socket
   static NTSTATUS npfs_handle (HANDLE &nph);
   HANDLE create_pipe (bool single_instance);
   HANDLE create_pipe_instance ();
-  NTSTATUS open_pipe (HANDLE &ph, PUNICODE_STRING pipe_name,
-		      bool xchg_sock_info);
+  NTSTATUS open_pipe (HANDLE &ph, PUNICODE_STRING pipe_name);
+  void xchg_sock_info ();
   int wait_pipe (PUNICODE_STRING pipe_name);
   int connect_pipe (PUNICODE_STRING pipe_name);
   int listen_pipe ();
