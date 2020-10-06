@@ -2053,7 +2053,15 @@ fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
       for (int i = 0; i < msg->msg_iovlen; ++i)
 	if (!AF_UNIX_PKT_DATA_APPEND (packet, msg->msg_iov[i].iov_base,
 				      msg->msg_iov[i].iov_len))
-	  break;
+	  {
+	    if (packet->data_len == 0)
+	      {
+		set_errno (EMSGSIZE);
+		__leave;
+	      }
+	    else
+	      break;
+	  }
       io_lock ();
       /* Handle MSG_DONTWAIT in blocking mode */
       if (!is_nonblocking () && (flags & MSG_DONTWAIT))
