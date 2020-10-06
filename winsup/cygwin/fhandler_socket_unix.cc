@@ -2074,8 +2074,8 @@ fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
       if (evt && status == STATUS_PENDING)
 	{
 wait:
-	  DWORD ret = cygwait (evt, cw_infinite, cw_cancel | cw_sig_eintr);
-	  switch (ret)
+	  DWORD waitret = cygwait (evt, cw_infinite, cw_cancel | cw_sig_eintr);
+	  switch (waitret)
 	    {
 	    case WAIT_OBJECT_0:
 	      status = io.Status;
