@@ -1665,7 +1665,7 @@ fhandler_socket_unix::accept4 (struct sockaddr *peer, int *len, int flags)
 			      if (sun)
 				{
 				  memcpy (peer, &sun->un,
-					  MIN (*len, sun->un_len));
+					  MIN (*len, sun->un_len + 1));
 				  *len = sun->un_len;
 				}
 			      else if (len)
