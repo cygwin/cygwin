@@ -723,7 +723,9 @@ fhandler_socket_unix::grab_admin_pkg ()
   if (!(evt = create_event ()))
     return 0;
   io_lock ();
-  ULONG ret_len = peek_pipe (pbuf, MAX_PATH, evt);
+  ULONG ret_len;
+  status = peek_pipe (pbuf, MAX_PATH, evt, ret_len);
+  /* FIXME: Check status and handle error. */
   if (pbuf->NumberOfMessages == 0 || ret_len < sizeof (af_unix_pkt_hdr_t))
     {
       io_unlock ();
@@ -1138,9 +1140,9 @@ fhandler_socket_unix::listen_pipe ()
   return ret;
 }
 
-ULONG
+NTSTATUS
 fhandler_socket_unix::peek_pipe (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize,
-				 HANDLE evt)
+				 HANDLE evt, ULONG &ret_len)
 {
   NTSTATUS status;
   IO_STATUS_BLOCK io;
@@ -1154,9 +1156,10 @@ fhandler_socket_unix::peek_pipe (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize,
       if (NT_SUCCESS (status))
 	status = io.Status;
     }
-  return NT_SUCCESS (status) ? (io.Information
-				- offsetof (FILE_PIPE_PEEK_BUFFER, Data))
-			     : 0;
+  ret_len = (NT_SUCCESS (status)
+	     ? (io.Information - offsetof (FILE_PIPE_PEEK_BUFFER, Data))
+	     : 0);
+  return status;
 }
 
 int
