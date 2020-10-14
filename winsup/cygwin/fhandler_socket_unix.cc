@@ -2547,6 +2547,12 @@ fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
 	    else
 	      break;
 	  }
+      /* A packet can have 0 length only on a datagram socket. */
+      if (packet->data_len == 0 && get_socket_type () == SOCK_STREAM)
+	{
+	  ret = 0;
+	  __leave;
+	}
       io_lock ();
       /* Handle MSG_DONTWAIT in blocking mode */
       if (!is_nonblocking () && (flags & MSG_DONTWAIT))
