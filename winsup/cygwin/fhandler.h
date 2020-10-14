@@ -939,6 +939,7 @@ class af_unix_shmem_t
   LONG _so_passcred;		/* SO_PASSCRED */
   LONG _reuseaddr;		/* dummy */
   int  _type;			/* socket type */
+  bool _unread;		        /* left in pipe from partial read of packet */
   sun_name_t _sun_path;
   sun_name_t _peer_sun_path;
   struct ucred _sock_cred;	/* filled at listen time */
@@ -979,6 +980,9 @@ class af_unix_shmem_t
 
   void set_socket_type (int val) { _type = val; }
   int get_socket_type () const { return _type; }
+
+  void set_unread (bool val) { _unread = val; }
+  bool get_unread () const { return _unread; }
 
   void sun_path (struct sockaddr_un *un, __socklen_t unlen)
     { _sun_path.set (un, unlen); }
@@ -1032,6 +1036,8 @@ class fhandler_socket_unix : public fhandler_socket
   int reuseaddr () const { return shmem->reuseaddr (); }
   void set_socket_type (int val) { shmem->set_socket_type (val); }
   int get_socket_type () const { return shmem->get_socket_type (); }
+  void set_unread (bool val) { shmem->set_unread (val); }
+  bool get_unread () const { return shmem->get_unread (); }
 
   int create_shmem ();
   int reopen_shmem ();
