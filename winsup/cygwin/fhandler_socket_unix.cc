@@ -2047,13 +2047,91 @@ fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
 	      __leave;
 	    }
 	}
+      /* FIXME: This currently doesn't work for unbound datagram
+	 sockets because peek_pipe calls get_handle. */
       if (flags & MSG_PEEK)
 	{
-	  /* Not yet implemented. */
-	  set_errno (EOPNOTSUPP);
+	  ULONG psize = offsetof (FILE_PIPE_PEEK_BUFFER, Data)
+	    + MAX_AF_PKT_LEN;
+
+	  peek_buffer = malloc (psize);
+	  if (!peek_buffer)
+	    {
+	      set_errno (ENOMEM);
+	      __leave;
+	    }
+	  PFILE_PIPE_PEEK_BUFFER pbuf = (PFILE_PIPE_PEEK_BUFFER) peek_buffer;
+	  ULONG ret_len;
+
+	  if (is_nonblocking () || (flags & MSG_DONTWAIT))
+	    {
+	      io_lock ();
+	      status = peek_pipe (pbuf, psize, evt, ret_len);
+	      io_unlock ();
+	      if (!ret_len)
+		{
+		  set_errno (EAGAIN);
+		  __leave;
+		}
+	    }
+	  else
+	    {
+restart:
+	      status = peek_pipe_poll (pbuf, MAX_PATH, evt, ret_len);
+	      switch (status)
+		{
+		case STATUS_SUCCESS:
+		  break;
+		case STATUS_PIPE_BROKEN:
+		  ret = 0;	/* EOF */
+		  __leave;
+		case STATUS_THREAD_CANCELED:
+		  __leave;
+		case STATUS_THREAD_SIGNALED:
+		  if (_my_tls.call_signal_handler ())
+		    goto restart;
+		  else
+		    {
+		      set_errno (EINTR);
+		      __leave;
+		    }
+		default:
+		  __seterrno_from_nt_status (status);
+		  __leave;
+		}
+	    }
+	  char *ptr;
+	  if (get_unread ())
+	    {
+	      ret = MIN (tot, ret_len);
+	      ptr = pbuf->Data;
+	    }
+	  else
+	    {
+	      af_unix_pkt_hdr_t *packet = (af_unix_pkt_hdr_t *) pbuf->Data;
+	      if (ret_len < AF_UNIX_PKT_OFFSETOF_DATA (packet))
+		{
+		  set_errno (EIO);
+		  __leave;
+		}
+	      ret = MIN (tot, ret_len - AF_UNIX_PKT_OFFSETOF_DATA (packet));
+	      ptr = (char *) AF_UNIX_PKT_DATA (packet);
+	    }
+	  if (ret > 0)
+	    {
+	      size_t nbytes = ret;
+	      for (struct iovec *iovptr = msg->msg_iov; nbytes > 0; ++iovptr)
+		{
+		  size_t frag = MIN (nbytes, iovptr->iov_len);
+		  memcpy (iovptr->iov_base, ptr, frag);
+		  ptr += frag;
+		  nbytes -= frag;
+		}
+	    }
 	  __leave;
 	}
 
+      /* MSG_PEEK is not set.  We're reading. */
       tmp_pathbuf tp;
       PVOID buffer = tp.w_get ();
       my_iovptr = my_iov;
