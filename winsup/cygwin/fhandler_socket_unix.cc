@@ -1848,7 +1848,9 @@ fhandler_socket_unix::shutdown (int how)
     {
       /* Send shutdown info to peer.  Note that it's not necessarily fatal
 	 if the info isn't sent here.  The info will be reproduced by any
-	 followup package sent to the peer. */
+	 followup package sent to the peer.
+
+         FIXME: Where is this done? */
       af_unix_pkt_hdr_t packet (true, (shut_state) new_shutdown_mask, 0, 0, 0);
       io_lock ();
       set_pipe_non_blocking (true);
@@ -1936,6 +1938,8 @@ fhandler_socket_unix::evaluate_cmsg_data (af_unix_pkt_hdr_t *packet,
   return true;
 }
 
+/* FIXME: Should recvmsg call grab_admin_pkg at appropriate places to
+   check whether peer has called shutdown?  */
 ssize_t
 fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
 {
