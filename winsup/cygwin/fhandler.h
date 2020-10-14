@@ -1067,6 +1067,8 @@ class fhandler_socket_unix : public fhandler_socket
   int listen_pipe ();
   NTSTATUS peek_pipe (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize, HANDLE evt,
 		      ULONG &ret_len);
+  NTSTATUS peek_pipe_poll (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize,
+			   HANDLE evt, ULONG &ret_len);
   int disconnect_pipe (HANDLE ph);
   /* The NULL pointer check is required for FS methods like fstat.  When
      called via stat or lstat, there's no shared memory, just a path in pc. */

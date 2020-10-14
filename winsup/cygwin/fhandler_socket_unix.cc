@@ -1162,6 +1162,34 @@ fhandler_socket_unix::peek_pipe (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize,
   return status;
 }
 
+/* Like peek_pipe, but poll until there's data, an error, or a signal. */
+NTSTATUS
+fhandler_socket_unix::peek_pipe_poll (PFILE_PIPE_PEEK_BUFFER pbuf,
+				      ULONG psize, HANDLE evt, ULONG &ret_len)
+{
+  NTSTATUS status;
+
+  while (1)
+    {
+      DWORD sleep_time = 0;
+      DWORD waitret;
+
+      io_lock ();
+      status = peek_pipe (pbuf, psize, evt, ret_len);
+      io_unlock ();
+      if (ret_len || !NT_SUCCESS (status))
+	break;
+      waitret = cygwait (NULL, sleep_time >> 3, cw_cancel | cw_sig_eintr);
+      if (waitret == WAIT_CANCELED)
+	return STATUS_THREAD_CANCELED;
+      if (waitret == WAIT_SIGNALED)
+	return STATUS_THREAD_SIGNALED;
+      if (sleep_time < 80)
+	++sleep_time;
+    }
+  return status;
+}
+
 int
 fhandler_socket_unix::disconnect_pipe (HANDLE ph)
 {
