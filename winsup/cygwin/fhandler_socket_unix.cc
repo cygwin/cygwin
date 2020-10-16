@@ -2493,7 +2493,11 @@ fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
 	    }
 	  if (saw_shutdown () & _SHUT_SEND)
 	    {
-	      set_errno (ESHUTDOWN);
+	      set_errno (EPIPE);
+	      /* FIXME: Linux calls for SIGPIPE here, but Posix
+		 doesn't.  Should we follow Linux? */
+	      if (!(flags & MSG_NOSIGNAL))
+		raise (SIGPIPE);
 	      __leave;
 	    }
 	}
