@@ -2357,10 +2357,10 @@ restart2:
 	      else
 		{
 		  memcpy (my_iovptr->iov_base, ptr, my_iovptr->iov_len);
-		  ++my_iovptr;
-		  --my_iovlen;
 		  ptr += my_iovptr->iov_len;
 		  nbytes_now -= my_iovptr->iov_len;
+		  ++my_iovptr;
+		  --my_iovlen;
 		}
 	    }
 	  if (!(waitall && my_iovlen))
