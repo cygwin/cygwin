@@ -1954,8 +1954,6 @@ fhandler_socket_unix::evaluate_cmsg_data (af_unix_pkt_hdr_t *packet,
   return true;
 }
 
-/* FIXME: Should recvmsg call grab_admin_pkt at appropriate places to
-   check whether peer has called shutdown?  */
 ssize_t
 fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
 {
@@ -2015,6 +2013,9 @@ fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
 	      set_errno (ENOTCONN);
 	      __leave;
 	    }
+	  /* FIXME: Should the shutdown check be done for connected
+	     datagram sockets too? */
+	  grab_admin_pkt ();
 	  if (saw_shutdown () & _SHUT_RECV || tot == 0)
 	    {
 	      ret = 0;
@@ -2070,6 +2071,7 @@ fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
       /* FIXME: This currently doesn't work for unbound datagram
 	 sockets because peek_pipe calls get_handle. */
       if (flags & MSG_PEEK)
+	while (1)
 	{
 	  ULONG psize = offsetof (FILE_PIPE_PEEK_BUFFER, Data)
 	    + MAX_AF_PKT_LEN;
@@ -2129,6 +2131,17 @@ restart:
 	  else
 	    {
 	      af_unix_pkt_hdr_t *packet = (af_unix_pkt_hdr_t *) pbuf->Data;
+	      if (packet->admin_pkt)
+		{
+		  /* FIXME: Check for error? */
+		  grab_admin_pkt (false);
+		  if (saw_shutdown () & _SHUT_RECV)
+		    {
+		      ret = 0;
+		      __leave;
+		    }
+		  continue;
+		}
 	      if (ret_len < AF_UNIX_PKT_OFFSETOF_DATA (packet))
 		{
 		  set_errno (EIO);
@@ -2245,6 +2258,17 @@ restart1:
 		  __leave;
 		}
 	      af_unix_pkt_hdr_t *pkt = (af_unix_pkt_hdr_t *) pbuf->Data;
+	      if (pkt->admin_pkt)
+		{
+		  /* FIXME: Check for error? */
+		  grab_admin_pkt (false);
+		  if (saw_shutdown () & _SHUT_RECV)
+		    {
+		      ret = nbytes_read;
+		      __leave;
+		    }
+		  continue;
+		}
 	      ULONG dont_read = 0;
 	      if (tot < pkt->data_len)
 		dont_read = pkt->data_len - tot;
@@ -2306,15 +2330,44 @@ restart2:
 	      set_unread (true);
 	      fallthrough;
 	    case STATUS_SUCCESS:
-	      if (packet && io.Information
-		  < (ULONG_PTR) AF_UNIX_PKT_OFFSETOF_DATA (packet))
+	      if (packet)
 		{
-		  set_errno (EIO);
-		  __leave;
+		  if (packet->admin_pkt)
+		    {
+		      process_admin_pkt (packet);
+		      if (saw_shutdown () & _SHUT_RECV)
+			{
+			  ret = nbytes_read;
+			  __leave;
+			}
+		      continue;
+		    }
+		  if (first_iteration)
+		    {
+		      if (msg->msg_controllen)
+			/* Handle the cmsg data. */
+			;
+		      if (msg->msg_name)
+			{
+			  sun_name_t
+			    sun ((struct sockaddr *) AF_UNIX_PKT_NAME (packet),
+				 packet->name_len);
+			  memcpy (msg->msg_name, &sun.un,
+				  MIN (msg->msg_namelen, sun.un_len + 1));
+			  msg->msg_namelen = sun.un_len;
+			}
+		    }
+		  if (io.Information
+		      < (ULONG_PTR) AF_UNIX_PKT_OFFSETOF_DATA (packet))
+		    {
+		      set_errno (EIO);
+		      __leave;
+		    }
+		  nbytes_now = io.Information
+		    - AF_UNIX_PKT_OFFSETOF_DATA (packet);
 		}
-	      nbytes_now = packet
-		? io.Information - AF_UNIX_PKT_OFFSETOF_DATA (packet)
-		: io.Information;
+	      else
+		nbytes_now = io.Information;
 	      if (!nbytes_now)
 		{
 		  /* 0-length datagrams are allowed. */
@@ -2330,20 +2383,6 @@ restart2:
 		    }
 		}
 	      nbytes_read += nbytes_now;
-	      if (first_iteration && packet)
-		{
-		  if (msg->msg_controllen)
-		    /* Handle the cmsg data. */
-		    ;
-		  if (msg->msg_name)
-		    {
-		      sun_name_t sun ((struct sockaddr *) AF_UNIX_PKT_NAME (packet),
-				      packet->name_len);
-		      memcpy (msg->msg_name, &sun.un,
-			      MIN (msg->msg_namelen, sun.un_len + 1));
-		      msg->msg_namelen = sun.un_len;
-		    }
-		}
 	      break;
 	    case STATUS_PIPE_BROKEN:
 	      ret = nbytes_read;
@@ -2381,11 +2420,6 @@ restart2:
 	    }
 	  if (!(waitall && my_iovlen))
 	    break;
-	  if (saw_shutdown () & _SHUT_RECV)
-	    {
-	      ret = nbytes_read;
-	      __leave;
-	    }
 	  if (first_iteration)
 	    first_iteration = false;
 	}
