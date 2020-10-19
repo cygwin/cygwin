@@ -1848,9 +1848,7 @@ fhandler_socket_unix::shutdown (int how)
     {
       /* Send shutdown info to peer.  Note that it's not necessarily fatal
 	 if the info isn't sent here.  The info will be reproduced by any
-	 followup package sent to the peer.
-
-         FIXME: Where is this done? */
+	 followup package sent to the peer. */
       af_unix_pkt_hdr_t packet (true, (shut_state) new_shutdown_mask, 0, 0, 0);
       io_lock ();
       set_pipe_non_blocking (true);
@@ -2535,12 +2533,13 @@ fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
       packet = (af_unix_pkt_hdr_t *) tp.w_get ();
       if (get_socket_type () == SOCK_DGRAM && binding_state () == bound)
 	{
-	  packet->init (false, _SHUT_NONE, sun_path ()->un_len, 0, 0);
+	  packet->init (false, (shut_state) saw_shutdown (),
+			sun_path ()->un_len, 0, 0);
 	  memcpy (AF_UNIX_PKT_NAME (packet), &sun_path ()->un,
 		  sun_path ()->un_len);
 	}
       else
-	packet->init (false, _SHUT_NONE, 0, 0, 0);
+	packet->init (false, (shut_state) saw_shutdown (), 0, 0, 0);
       if (msg->msg_controllen && !create_cmsg_data (packet, msg))
 	__leave;
       for (int i = 0; i < msg->msg_iovlen; ++i)
