@@ -1055,7 +1055,9 @@ class fhandler_socket_unix : public fhandler_socket
   wchar_t get_type_char ();
   void set_pipe_non_blocking (bool nonblocking);
   int send_sock_info (bool from_bind);
-  int grab_admin_pkg ();
+  void record_shut_info (af_unix_pkt_hdr_t *packet);
+  void process_admin_pkt (af_unix_pkt_hdr_t *packet);
+  int grab_admin_pkt (bool peek = true);
   int recv_peer_info ();
   static NTSTATUS npfs_handle (HANDLE &nph);
   HANDLE create_pipe (bool single_instance);

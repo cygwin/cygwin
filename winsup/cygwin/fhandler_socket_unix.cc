@@ -76,10 +76,10 @@ GUID __cygwin_socket_guid = {
    for the entire packet, as well as for all three data blocks.  The
    combined maximum size of a packet is 64K, including the header.
 
-   A connecting, bound STREAM socket sends it's local sun_path once after
+   A connecting, bound STREAM socket sends its local sun_path once after
    a successful connect.  An already connected socket also sends its local
    sun_path after a successful bind (border case, but still...).  These
-   packages don't contain any other data (cmsg_len == 0, data_len == 0).
+   packets don't contain any other data (cmsg_len == 0, data_len == 0).
 
    A bound DGRAM socket sends its sun_path with each sendmsg/sendto.
 */
@@ -90,7 +90,7 @@ class af_unix_pkt_hdr_t
 {
  public:
   uint16_t	pckt_len;	/* size of packet including header	*/
-  bool		admin_pkg : 1;	/* admin packets are marked as such	*/
+  bool		admin_pkt : 1;	/* admin packets are marked as such	*/
   shut_state	shut_info : 2;	/* _SHUT_RECV /_SHUT_SEND.		*/
   uint8_t	name_len;	/* size of name, a sockaddr_un		*/
   uint16_t	cmsg_len;	/* size of ancillary data block		*/
@@ -100,7 +100,7 @@ class af_unix_pkt_hdr_t
     { init (a, s, n, c, d); }
   void init (bool a, shut_state s, uint8_t n, uint16_t c, uint16_t d)
     {
-      admin_pkg = a;
+      admin_pkt = a;
       shut_info = s;
       name_len = n;
       cmsg_len = c;
@@ -710,73 +710,91 @@ fhandler_socket_unix::send_sock_info (bool from_bind)
   return 0;
 }
 
-/* Checks if the next packet in the pipe is an administrative packet.
-   If so, it reads it from the pipe, handles it.  Returns an error code. */
+void
+fhandler_socket_unix::record_shut_info (af_unix_pkt_hdr_t *packet)
+{
+  if (packet->shut_info)
+    {
+      state_lock ();
+      /* Peer's shutdown sends the SHUT flags as used by the peer.
+	 They have to be reversed for our side. */
+      int shut_info = saw_shutdown ();
+      if (packet->shut_info & _SHUT_RECV)
+	shut_info |= _SHUT_SEND;
+      if (packet->shut_info & _SHUT_SEND)
+	shut_info |= _SHUT_RECV;
+      saw_shutdown (shut_info);
+      /* FIXME: anything else here? */
+      state_unlock ();
+    }
+}
+
+void
+fhandler_socket_unix::process_admin_pkt (af_unix_pkt_hdr_t *packet)
+{
+  record_shut_info (packet);
+  state_lock ();
+  if (packet->name_len > 0)
+    peer_sun_path (AF_UNIX_PKT_NAME (packet), packet->name_len);
+  if (packet->cmsg_len > 0)
+    {
+      struct cmsghdr *cmsg = (struct cmsghdr *)
+	alloca (packet->cmsg_len);
+      memcpy (cmsg, AF_UNIX_PKT_CMSG (packet), packet->cmsg_len);
+      if (cmsg->cmsg_level == SOL_SOCKET
+	  && cmsg->cmsg_type == SCM_CREDENTIALS)
+	peer_cred ((struct ucred *) CMSG_DATA(cmsg));
+    }
+  state_unlock ();
+}
+
+/* Reads an administrative packet from the pipe and handles it.  If
+   PEEK is true, checks first to see if the next packet in the pipe is
+   an administrative packet; otherwise the caller must check this.
+   Returns an error code.
+
+   FIXME: Currently we always return 0, and no callers check for error. */
 int
-fhandler_socket_unix::grab_admin_pkg ()
+fhandler_socket_unix::grab_admin_pkt (bool peek)
 {
   HANDLE evt;
   NTSTATUS status;
   IO_STATUS_BLOCK io;
   /* MAX_PATH is more than sufficient for admin packets. */
-  PFILE_PIPE_PEEK_BUFFER pbuf = (PFILE_PIPE_PEEK_BUFFER) alloca (MAX_PATH);
+  void *buffer = alloca (MAX_PATH);
+  af_unix_pkt_hdr_t *packet;
+
   if (!(evt = create_event ()))
     return 0;
-  io_lock ();
-  ULONG ret_len;
-  status = peek_pipe (pbuf, MAX_PATH, evt, ret_len);
-  /* FIXME: Check status and handle error. */
-  if (pbuf->NumberOfMessages == 0 || ret_len < sizeof (af_unix_pkt_hdr_t))
+  if (peek)
     {
+      PFILE_PIPE_PEEK_BUFFER pbuf = (PFILE_PIPE_PEEK_BUFFER) buffer;
+      io_lock ();
+      ULONG ret_len;
+      status = peek_pipe (pbuf, MAX_PATH, evt, ret_len);
+      /* FIXME: Check status and handle error? */
       io_unlock ();
-      NtClose (evt);
-      return 0;
+      packet = (af_unix_pkt_hdr_t *) pbuf->Data;
+      if (pbuf->NumberOfMessages == 0 || ret_len < sizeof (af_unix_pkt_hdr_t)
+	  || !packet->admin_pkt)
+	goto out;
     }
-  af_unix_pkt_hdr_t *packet = (af_unix_pkt_hdr_t *) pbuf->Data;
-  if (!packet->admin_pkg)
-    io_unlock ();
   else
+    packet = (af_unix_pkt_hdr_t *) buffer;
+  io_lock ();
+  status = NtReadFile (get_handle (), evt, NULL, NULL, &io, packet,
+		       MAX_PATH, NULL, NULL);
+  if (status == STATUS_PENDING)
     {
-      packet = (af_unix_pkt_hdr_t *) pbuf;
-      status = NtReadFile (get_handle (), evt, NULL, NULL, &io, packet,
-			   MAX_PATH, NULL, NULL);
-      if (status == STATUS_PENDING)
-	{
-	  /* Very short-lived */
-	  status = NtWaitForSingleObject (evt, FALSE, NULL);
-	  if (NT_SUCCESS (status))
-	    status = io.Status;
-	}
-      io_unlock ();
+      /* Very short-lived */
+      status = NtWaitForSingleObject (evt, FALSE, NULL);
       if (NT_SUCCESS (status))
-	{
-	  state_lock ();
-	  if (packet->shut_info)
-	    {
-	      /* Peer's shutdown sends the SHUT flags as used by the peer.
-		 They have to be reversed for our side. */
-	      int shut_info = saw_shutdown ();
-	      if (packet->shut_info & _SHUT_RECV)
-		shut_info |= _SHUT_SEND;
-	      if (packet->shut_info & _SHUT_SEND)
-		shut_info |= _SHUT_RECV;
-	      saw_shutdown (shut_info);
-	      /* FIXME: anything else here? */
-	    }
-	  if (packet->name_len > 0)
-	    peer_sun_path (AF_UNIX_PKT_NAME (packet), packet->name_len);
-	  if (packet->cmsg_len > 0)
-	    {
-	      struct cmsghdr *cmsg = (struct cmsghdr *)
-				     alloca (packet->cmsg_len);
-	      memcpy (cmsg, AF_UNIX_PKT_CMSG (packet), packet->cmsg_len);
-	      if (cmsg->cmsg_level == SOL_SOCKET
-		  && cmsg->cmsg_type == SCM_CREDENTIALS)
-		peer_cred ((struct ucred *) CMSG_DATA(cmsg));
-	    }
-	  state_unlock ();
-	}
+	status = io.Status;
     }
+  io_unlock ();
+  if (NT_SUCCESS (status))
+    process_admin_pkt (packet);
+out:
   NtClose (evt);
   return 0;
 }
@@ -1848,7 +1866,7 @@ fhandler_socket_unix::shutdown (int how)
     {
       /* Send shutdown info to peer.  Note that it's not necessarily fatal
 	 if the info isn't sent here.  The info will be reproduced by any
-	 followup package sent to the peer. */
+	 followup packet sent to the peer. */
       af_unix_pkt_hdr_t packet (true, (shut_state) new_shutdown_mask, 0, 0, 0);
       io_lock ();
       set_pipe_non_blocking (true);
@@ -1936,7 +1954,7 @@ fhandler_socket_unix::evaluate_cmsg_data (af_unix_pkt_hdr_t *packet,
   return true;
 }
 
-/* FIXME: Should recvmsg call grab_admin_pkg at appropriate places to
+/* FIXME: Should recvmsg call grab_admin_pkt at appropriate places to
    check whether peer has called shutdown?  */
 ssize_t
 fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
