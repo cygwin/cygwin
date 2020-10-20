@@ -1420,7 +1420,7 @@ fhandler_dev_null::select_write (select_stuff *ss)
   if (!s->startup)
     {
       s->startup = no_startup;
-      s->verify = no_verify;
+      s->verify = verify_ok;
     }
   s->h = get_handle ();
   s->write_selected = true;
@@ -1864,48 +1864,288 @@ fhandler_socket_wsock::select_except (select_stuff *ss)
 
 #ifdef __WITH_AF_UNIX
 
+static int
+peek_socket_unix (select_record *me, bool)
+{
+  /* Call grab_admin_pkt?
+     If listening, check for connection.
+     If connected, check for data in pipe.  Use get_unread and peek_pipe.
+     If writing, check whether there's room for a packet of size MAX_AF_PKT_LEN.
+     Look at peek_socket for other things to check.
+   */
+  int gotone = 0;
+  fhandler_socket_unix *fh = (fhandler_socket_unix *) me->fh;
+  if (me->read_selected)
+    {
+      if (me->read_ready)
+	{
+	  select_printf ("%s, already ready for read", fh->get_name ());
+	  gotone = 1;
+	  goto out;
+	}
+      if (fh->get_unread ())
+	{
+	  select_printf ("read: %s, ready for read", fh->get_name ());
+	  gotone += me->read_ready = true;
+	  goto out;
+	}
+      if (fh->connect_state () == connected)
+	while (1)
+	  {
+	    PFILE_PIPE_PEEK_BUFFER pbuf
+	      = (PFILE_PIPE_PEEK_BUFFER) alloca (MAX_PATH);
+	    ULONG ret_len;
+	    /* FIXME: Is it OK to call peek_pipe with NULL evt? */
+	    NTSTATUS status = fh->peek_pipe (pbuf, MAX_PATH, NULL, ret_len);
+	    if (ret_len)
+	      {
+		af_unix_pkt_hdr_t *packet = (af_unix_pkt_hdr_t *) pbuf->Data;
+		if (packet->admin_pkt)
+		  {
+		    /* FIXME: Check for error? */
+		    fh->grab_admin_pkt (false);
+		    if (fh->saw_shutdown () & _SHUT_RECV)
+		      {
+			select_printf ("read: %s, saw shutdown",
+				       fh->get_name ());
+			gotone += me->read_ready = true;
+			if (me->except_selected)
+			  gotone += me->except_ready = true;
+			goto out;
+		      }
+		    continue;
+		  }
+		if (packet->data_len)
+		  {
+		    select_printf ("read: %s, ready for read: avail %d",
+				   fh->get_name (), packet->data_len);
+		    gotone += me->read_ready = true;
+		    goto out;
+		  }
+		else if (fh->get_socket_type () == SOCK_DGRAM)
+		  {
+		    select_printf ("read: %s, ready for read: 0-length datagram packet",
+				   fh->get_name ());
+		    gotone += me->read_ready = true;
+		    goto out;
+		  }
+		else
+		  {
+		    select_printf ("read: %s, 0-length stream socket packet",
+				   fh->get_name ());
+		    gotone += me->read_ready = true;
+		    if (me->except_selected)
+		      gotone += me->except_ready = true;
+		    goto out;
+		  }
+	      }
+	    else if (!NT_SUCCESS (status))
+	      {
+		select_printf ("peek_pipe status %y", status);
+		gotone += me->read_ready = true;
+		if (me->except_selected)
+		  gotone += me->except_ready = true;
+		goto out;
+	      }
+	    else
+	      break;
+	  }
+      else if (fh->connect_state () == listener)
+	{
+	  IO_STATUS_BLOCK io;
+	  FILE_PIPE_LOCAL_INFORMATION fpli;
+	  NTSTATUS status
+	    = NtQueryInformationFile (fh->get_handle (), &io,
+				      &fpli, sizeof (fpli),
+				      FilePipeLocalInformation);
+	  if (!NT_SUCCESS (status))
+	    {
+	      select_printf ("%s, NtQueryInformationFile failed, status %y",
+			     fh->get_name (), status);
+	      goto out;
+	    }
+	  if (fpli.NamedPipeState == FILE_PIPE_CONNECTED_STATE)
+	    {
+	      select_printf ("%s, pipe has connected", fh->get_name ());
+	      gotone += me->read_ready = true;
+	      goto out;
+	    }
+	}
+    }
+out:
+  if (me->write_selected)
+    {
+      if (me->write_ready)
+	{
+	  select_printf ("%s, already ready for write", fh->get_name ());
+	  gotone += 1;
+	}
+      else
+	{
+	  /* FIXME: I'm not calling pipe_data_available because its
+	     for space available in the buffer doesn't make sense to
+	     me.  Also, we probably don't want to consider the socket
+	     writable if there's only one byte available in the
+	     buffer.  But maybe I've gone too far in insisting on
+	     MAX_AF_PKT_LEN bytes available. */
+	  IO_STATUS_BLOCK io;
+	  FILE_PIPE_LOCAL_INFORMATION fpli;
+	  NTSTATUS status
+	    = NtQueryInformationFile (fh->get_handle (), &io,
+				      &fpli, sizeof (fpli),
+				      FilePipeLocalInformation);
+	  if (!NT_SUCCESS (status))
+	    {
+	      select_printf ("%s, NtQueryInformationFile failed, status %y",
+			     fh->get_name (), status);
+	      /* See the comment in pipe_data_available. */
+	      gotone += me->write_ready = true;
+	    }
+	  else if (fpli.WriteQuotaAvailable >= MAX_AF_PKT_LEN)
+	    {
+	      select_printf ("%s, read for write", fh->get_name ());
+	      gotone += me->write_ready = true;
+	    }
+	  else
+	    select_printf ("%s, WriteQuotaAvailable %PRIu32", fh->get_name (),
+			   fpli.WriteQuotaAvailable);
+	}
+    }
+  return gotone;
+}
+
+static int start_thread_socket_unix (select_record *, select_stuff *);
+
+static DWORD WINAPI
+thread_socket_unix (void *arg)
+{
+  select_socket_unix_info *si = (select_socket_unix_info *) arg;
+  DWORD sleep_time = 0;
+  bool looping = true;
+
+  while (looping)
+    {
+      for (select_record *s = si->start; (s = s->next); )
+	if (s->startup == start_thread_socket_unix)
+	  {
+	    if (peek_socket_unix (s, true))
+	      looping = false;
+	    if (si->stop_thread)
+	      {
+		select_printf ("stopping");
+		looping = false;
+		break;
+	      }
+	  }
+      if (!looping)
+	break;
+      cygwait (si->bye, sleep_time >> 3);
+      if (sleep_time < 80)
+	++sleep_time;
+      if (si->stop_thread)
+	break;
+    }
+  return 0;
+}
+
+static int
+start_thread_socket_unix (select_record *me, select_stuff *stuff)
+{
+  select_socket_unix_info *si = stuff->device_specific_socket_unix;
+  if (si->start)
+    me->h = *((select_socket_unix_info *) stuff->device_specific_socket_unix)->thread;
+  else
+    {
+      si->start = &stuff->start;
+      si->stop_thread = false;
+      si->bye = CreateEvent (&sec_none_nih, TRUE, FALSE, NULL);
+      si->thread = new cygthread (thread_socket_unix, si, "sockunsel");
+      me->h = *si->thread;
+      if (!me->h)
+	return 0;
+    }
+  return 1;
+}
+
+static void
+socket_unix_cleanup (select_record *, select_stuff *stuff)
+{
+  select_socket_unix_info *si = (select_socket_unix_info *) stuff->device_specific_socket_unix;
+  if (!si)
+    return;
+  if (si->thread)
+    {
+      si->stop_thread = true;
+      SetEvent (si->bye);
+      si->thread->detach ();
+      CloseHandle (si->bye);
+    }
+  delete si;
+  stuff->device_specific_socket_unix = NULL;
+}
+
+/* FIXME: Initial select state depends on shutdown, as in wsock case. */
+
 select_record *
 fhandler_socket_unix::select_read (select_stuff *ss)
 {
+  if (!ss->device_specific_socket_unix
+      && (ss->device_specific_socket_unix = new select_socket_unix_info) == NULL)
+    return NULL;
   select_record *s = ss->start.next;
-  if (!s->startup)
-    {
-      s->startup = no_startup;
-      s->verify = verify_ok;
-    }
-  s->h = get_handle_cyg ();
+  s->startup = start_thread_socket_unix;
+  s->peek = peek_socket_unix;
+  s->verify = verify_ok;
+  s->cleanup = socket_unix_cleanup;
   s->read_selected = true;
-  s->read_ready = true;
+  grab_admin_pkt ();
+  /* FIXME: Is this right?  The test for being connected isn't done
+     for wsock sockets. */
+  s->read_ready = (saw_shutdown () & _SHUT_RECV)
+    || connect_state () != connected;
   return s;
 }
 
 select_record *
 fhandler_socket_unix::select_write (select_stuff *ss)
 {
+  if (!ss->device_specific_socket_unix
+      && (ss->device_specific_socket_unix = new select_socket_unix_info) == NULL)
+    return NULL;
   select_record *s = ss->start.next;
-  if (!s->startup)
-    {
-      s->startup = no_startup;
-      s->verify = verify_ok;
-    }
-  s->h = get_handle ();
+  s->startup = start_thread_socket_unix;
+  s->peek = peek_socket_unix;
+  s->verify = verify_ok;
+  s->cleanup = socket_unix_cleanup;
   s->write_selected = true;
-  s->write_ready = true;
+  s->write_ready = (saw_shutdown () & _SHUT_SEND)
+    || connect_state () == unconnected;
+  if (connect_state () != unconnected)
+    {
+      /* FIXME: I copied this from the wsock case, but it doesn't seem
+	 right.  Why are we setting except_ready here? */
+      s->except_ready = saw_shutdown ();
+      s->except_on_write = true;
+    }
   return s;
 }
 
 select_record *
 fhandler_socket_unix::select_except (select_stuff *ss)
 {
+  if (!ss->device_specific_socket_unix
+      && (ss->device_specific_socket_unix = new select_socket_unix_info) == NULL)
+    return NULL;
   select_record *s = ss->start.next;
-  if (!s->startup)
-    {
-      s->startup = no_startup;
-      s->verify = verify_ok;
-    }
-  s->h = NULL;
+  s->startup = start_thread_socket_unix;
+  s->peek = peek_socket_unix;
+  s->verify = verify_ok;
+  s->cleanup = socket_unix_cleanup;
   s->except_selected = true;
-  s->except_ready = false;
+  /* FIXME: Is this right? */
+  s->except_ready = saw_shutdown ();
+  grab_admin_pkt ();
+
   return s;
 }
 

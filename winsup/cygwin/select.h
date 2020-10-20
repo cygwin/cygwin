@@ -82,6 +82,15 @@ struct select_socket_info: public select_info
   select_socket_info (): select_info (), num_w4 (0), ser_num (0), w4 (NULL) {}
 };
 
+#ifdef __WITH_AF_UNIX
+
+struct select_socket_unix_info: public select_info
+{
+  select_socket_unix_info (): select_info () {}
+};
+
+#endif
+
 class select_stuff
 {
 public:
@@ -107,6 +116,10 @@ public:
   select_fifo_info *device_specific_fifo;
   select_socket_info *device_specific_socket;
 
+#ifdef __WITH_AF_UNIX
+  select_socket_unix_info *device_specific_socket_unix;
+#endif
+
   bool test_and_set (int, fd_set *, fd_set *, fd_set *);
   int poll (fd_set *, fd_set *, fd_set *);
   wait_states wait (fd_set *, fd_set *, fd_set *, LONGLONG);
@@ -119,6 +132,9 @@ public:
 		   device_specific_ptys (NULL),
 		   device_specific_fifo (NULL),
 		   device_specific_socket (NULL)
+#ifdef __WITH_AF_UNIX
+		 , device_specific_socket_unix (NULL)
+#endif
 		   {}
 };
 
