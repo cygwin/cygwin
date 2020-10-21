@@ -1044,24 +1044,15 @@ class fhandler_socket_unix : public fhandler_socket
   void state_unlock () { shmem->state_unlock (); }
   void io_lock () { shmem->io_lock (); }
   void io_unlock () { shmem->io_unlock (); }
-  conn_state connect_state (conn_state val)
-    { return shmem->connect_state (val); }
-  conn_state connect_state () const { return shmem->connect_state (); }
   bind_state binding_state (bind_state val)
     { return shmem->binding_state (val); }
   bind_state binding_state () const { return shmem->binding_state (); }
-  int saw_shutdown (int shut) { return shmem->shutdown (shut); }
-  int saw_shutdown () const { return shmem->shutdown (); }
   int so_error (int err) { return shmem->so_error (err); }
   int so_error () const { return shmem->so_error (); }
   bool so_passcred (bool pc) { return shmem->so_passcred (pc); }
   bool so_passcred () const { return shmem->so_passcred (); }
   int reuseaddr (int err) { return shmem->reuseaddr (err); }
   int reuseaddr () const { return shmem->reuseaddr (); }
-  void set_socket_type (int val) { shmem->set_socket_type (val); }
-  int get_socket_type () const { return shmem->get_socket_type (); }
-  void set_unread (bool val) { shmem->set_unread (val); }
-  bool get_unread () const { return shmem->get_unread (); }
 
   int create_shmem ();
   int reopen_shmem ();
@@ -1081,7 +1072,6 @@ class fhandler_socket_unix : public fhandler_socket
   int send_sock_info (bool from_bind);
   void record_shut_info (af_unix_pkt_hdr_t *packet);
   void process_admin_pkt (af_unix_pkt_hdr_t *packet);
-  int grab_admin_pkt (bool peek = true);
   int recv_peer_info ();
   static NTSTATUS npfs_handle (HANDLE &nph);
   HANDLE create_pipe (bool single_instance);
@@ -1091,10 +1081,6 @@ class fhandler_socket_unix : public fhandler_socket
   int wait_pipe (PUNICODE_STRING pipe_name);
   int connect_pipe (PUNICODE_STRING pipe_name);
   int listen_pipe ();
-  NTSTATUS peek_pipe (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize, HANDLE evt,
-		      ULONG &ret_len);
-  NTSTATUS peek_pipe_poll (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize,
-			   HANDLE evt, ULONG &ret_len);
   int disconnect_pipe (HANDLE ph);
   /* The NULL pointer check is required for FS methods like fstat.  When
      called via stat or lstat, there's no shared memory, just a path in pc. */
@@ -1135,9 +1121,16 @@ class fhandler_socket_unix : public fhandler_socket
   int listen (int backlog);
   int accept4 (struct sockaddr *peer, int *len, int flags);
   int connect (const struct sockaddr *name, int namelen);
+  conn_state connect_state (conn_state val)
+    { return shmem->connect_state (val); }
+  conn_state connect_state () const { return shmem->connect_state (); }
   int getsockname (struct sockaddr *name, int *namelen);
   int getpeername (struct sockaddr *name, int *namelen);
+  void set_socket_type (int val) { shmem->set_socket_type (val); }
+  int get_socket_type () const { return shmem->get_socket_type (); }
   int shutdown (int how);
+  int saw_shutdown (int shut) { return shmem->shutdown (shut); }
+  int saw_shutdown () const { return shmem->shutdown (); }
   int close ();
   int getpeereid (pid_t *pid, uid_t *euid, gid_t *egid);
   bool evaluate_cmsg_data (af_unix_pkt_hdr_t *packet, bool);
@@ -1147,6 +1140,13 @@ class fhandler_socket_unix : public fhandler_socket
   void __reg3 read (void *ptr, size_t& len);
   ssize_t __stdcall readv (const struct iovec *const iov, int iovcnt,
 			   ssize_t tot = -1);
+  void set_unread (bool val) { shmem->set_unread (val); }
+  bool get_unread () const { return shmem->get_unread (); }
+  NTSTATUS peek_pipe (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize, HANDLE evt,
+		      ULONG &ret_len);
+  NTSTATUS peek_pipe_poll (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize,
+			   HANDLE evt, ULONG &ret_len);
+  int grab_admin_pkt (bool peek = true);
 
   bool create_cmsg_data (af_unix_pkt_hdr_t *packet, const struct msghdr *msg);
   ssize_t sendmsg (const struct msghdr *msg, int flags);
