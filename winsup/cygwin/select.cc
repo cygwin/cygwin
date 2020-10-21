@@ -512,7 +512,7 @@ set_bits (select_record *me, fd_set *readfds, fd_set *writefds,
 	  fd_set *exceptfds)
 {
   int ready = 0;
-  fhandler_socket_wsock *sock;
+  fhandler_socket *sock;
   select_printf ("me %p, testing fd %d (%s)", me, me->fd, me->fh->get_name ());
   if (me->read_selected && me->read_ready)
     {
@@ -522,7 +522,7 @@ set_bits (select_record *me, fd_set *readfds, fd_set *writefds,
   if (me->write_selected && me->write_ready)
     {
       UNIX_FD_SET (me->fd, writefds);
-      if (me->except_on_write && (sock = me->fh->is_wsock_socket ()))
+      if (me->except_on_write && (sock = me->fh->is_socket ()))
 	{
 	  /* Set readfds entry in case of a failed connect. */
 	  if (!me->read_ready && me->read_selected

@@ -589,6 +589,8 @@ class fhandler_socket: public fhandler_base
 			  __socklen_t optlen) = 0;
   virtual int getsockopt (int level, int optname, const void *optval,
 			  __socklen_t *optlen) = 0;
+  virtual conn_state connect_state (conn_state val) = 0;
+  virtual conn_state connect_state () const = 0;
 
   virtual int ioctl (unsigned int cmd, void *);
   virtual int fcntl (int cmd, intptr_t);
