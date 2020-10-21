@@ -997,7 +997,31 @@ class af_unix_shmem_t
   struct ucred *peer_cred () { return &_peer_cred; }
 };
 
-struct af_unix_pkt_hdr_t;
+/* See the commentary in fhandler_socket_unix.cc. */
+class af_unix_pkt_hdr_t
+{
+ public:
+  uint16_t	pckt_len;	/* size of packet including header	*/
+  bool		admin_pkt : 1;	/* admin packets are marked as such	*/
+  shut_state	shut_info : 2;	/* _SHUT_RECV /_SHUT_SEND.		*/
+  uint8_t	name_len;	/* size of name, a sockaddr_un		*/
+  uint16_t	cmsg_len;	/* size of ancillary data block		*/
+  uint16_t	data_len;	/* size of user data			*/
+
+  af_unix_pkt_hdr_t (bool a, shut_state s, uint8_t n, uint16_t c, uint16_t d)
+    { init (a, s, n, c, d); }
+  void init (bool a, shut_state s, uint8_t n, uint16_t c, uint16_t d)
+    {
+      admin_pkt = a;
+      shut_info = s;
+      name_len = n;
+      cmsg_len = c;
+      data_len = d;
+      pckt_len = sizeof (*this) + name_len + cmsg_len + data_len;
+    }
+};
+
+#define MAX_AF_PKT_LEN	65536
 
 class fhandler_socket_unix : public fhandler_socket
 {
