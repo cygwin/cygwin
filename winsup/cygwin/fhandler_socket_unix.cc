@@ -2541,6 +2541,7 @@ fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
 	      set_errno (ENOTCONN);
 	      __leave;
 	    }
+	  grab_admin_pkt ();
 	  if (saw_shutdown () & _SHUT_SEND)
 	    {
 	      set_errno (EPIPE);
