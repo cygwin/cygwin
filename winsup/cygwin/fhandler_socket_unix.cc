@@ -1498,7 +1498,7 @@ fhandler_socket_unix::socketpair (int af, int type, int protocol, int flags,
   fh->set_cred ();
   set_unique_id ();
   set_ino (get_unique_id ());
-  /* bind/listen 1st socket */
+  /* create and connect pipe */
   gen_pipe_name ();
   ph = create_pipe (true);
   if (!ph)
@@ -1506,7 +1506,7 @@ fhandler_socket_unix::socketpair (int af, int type, int protocol, int flags,
   set_handle (ph);
   sun_path (&sun);
   fh->peer_sun_path (&sun);
-  connect_state (listener);
+  connect_state (connected);
   /* connect 2nd socket, even for DGRAM.  There's no difference as far
      as socketpairs are concerned. */
   if (fh->open_pipe (ph2, pc.get_nt_native_path ()) < 0)
