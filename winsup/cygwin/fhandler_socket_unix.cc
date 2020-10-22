@@ -233,11 +233,11 @@ int
 fhandler_socket_unix::reopen_shmem ()
 {
   NTSTATUS status;
-  SIZE_T viewsize = PAGESIZE;
+  SIZE_T viewsize = sizeof (af_unix_shmem_t);
   PVOID addr = NULL;
 
   status = NtMapViewOfSection (shmem_handle, NtCurrentProcess (), &addr, 0,
-			       PAGESIZE, NULL, &viewsize, ViewShare, 0,
+			       viewsize, NULL, &viewsize, ViewShare, 0,
 			       PAGE_READWRITE);
   if (!NT_SUCCESS (status))
     {
