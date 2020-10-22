@@ -1509,6 +1509,8 @@ fhandler_socket_unix::socketpair (int af, int type, int protocol, int flags,
     goto fh_open_pipe_failed;
   fh->set_handle (ph2);
   fh->connect_state (connected);
+  set_flags (O_RDWR | O_BINARY);
+  fh->set_flags (O_RDWR | O_BINARY);
   if (flags & SOCK_NONBLOCK)
     {
       set_nonblocking (true);
