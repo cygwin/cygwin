@@ -1867,14 +1867,9 @@ fhandler_socket_wsock::select_except (select_stuff *ss)
 static int
 peek_socket_unix (select_record *me, bool)
 {
-  /* Call grab_admin_pkt?
-     If listening, check for connection.
-     If connected, check for data in pipe.  Use get_unread and peek_pipe.
-     If writing, check whether there's room for a packet of size MAX_AF_PKT_LEN.
-     Look at peek_socket for other things to check.
-   */
   int gotone = 0;
   fhandler_socket_unix *fh = (fhandler_socket_unix *) me->fh;
+
   if (me->read_selected)
     {
       if (me->read_ready)
@@ -1958,15 +1953,21 @@ peek_socket_unix (select_record *me, bool)
 	    = NtQueryInformationFile (fh->get_handle (), &io,
 				      &fpli, sizeof (fpli),
 				      FilePipeLocalInformation);
+	  /* The socket is considered readable if accept would not
+	     block.  If NtQueryInformationFile fails, it seems likely
+	     that fh->listen_pipe would also fail, so accept would not
+	     block. */
 	  if (!NT_SUCCESS (status))
 	    {
 	      select_printf ("%s, NtQueryInformationFile failed, status %y",
 			     fh->get_name (), status);
+	      gotone += me->read_ready = true;
 	      goto out;
 	    }
-	  if (fpli.NamedPipeState == FILE_PIPE_CONNECTED_STATE)
+	  if (fpli.NamedPipeState != FILE_PIPE_LISTENING_STATE)
 	    {
-	      select_printf ("%s, pipe has connected", fh->get_name ());
+	      select_printf ("%s, pipe state %d", fh->get_name (),
+			     fpli.NamedPipeState);
 	      gotone += me->read_ready = true;
 	      goto out;
 	    }
@@ -1983,9 +1984,9 @@ out:
       else
 	{
 	  /* FIXME: I'm not calling pipe_data_available because its
-	     for space available in the buffer doesn't make sense to
-	     me.  Also, we probably don't want to consider the socket
-	     writable if there's only one byte available in the
+	     test for space available in the buffer doesn't make sense
+	     to me.  Also, we probably don't want to consider the
+	     socket writable if there's only one byte available in the
 	     buffer.  But maybe I've gone too far in insisting on
 	     MAX_AF_PKT_LEN bytes available. */
 	  IO_STATUS_BLOCK io;
