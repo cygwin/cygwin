@@ -1928,10 +1928,27 @@ fhandler_socket_unix::getpeereid (pid_t *pid, uid_t *euid, gid_t *egid)
   return ret;
 }
 
+/* FIXME:  Not sure what this is supposed to do.  For now, just
+   support an ancillary data block consisting of a single cmsghdr,
+   containing SCM_CREDENTIALS. */
 bool
 fhandler_socket_unix::evaluate_cmsg_data (af_unix_pkt_hdr_t *packet,
-					  bool clocexec)
+					  struct msghdr *msg, bool cloexec)
 {
+  if (packet->cmsg_len != CMSG_SPACE (sizeof (struct ucred))
+      || msg->msg_controllen < packet->cmsg_len)
+    return false;
+  struct cmsghdr *cmsg = AF_UNIX_PKT_CMSG (packet);
+  if (!cmsg || cmsg->cmsg_len != CMSG_LEN (sizeof (struct ucred))
+      || cmsg->cmsg_level != SOL_SOCKET
+      || cmsg->cmsg_type != SCM_CREDENTIALS)
+    return false;
+  /* FIXME: Is this right?  Do we just do nothing with no error
+     indication?  Or should we return false, causing recvmsg to fail?
+     In that case what errno should we set? */
+  if (!so_passcred ())
+    return true;
+  memcpy (msg->msg_control, AF_UNIX_PKT_CMSG (packet), packet->cmsg_len);
   return true;
 }
 
@@ -2325,9 +2342,6 @@ restart2:
 		    }
 		  if (first_iteration)
 		    {
-		      if (msg->msg_controllen)
-			/* Handle the cmsg data. */
-			;
 		      if (msg->msg_name)
 			{
 			  sun_name_t
@@ -2337,6 +2351,9 @@ restart2:
 				  MIN (msg->msg_namelen, sun.un_len + 1));
 			  msg->msg_namelen = sun.un_len;
 			}
+		      if (msg->msg_controllen
+			  && !evaluate_cmsg_data (packet, msg))
+			__leave;
 		    }
 		  if (io.Information
 		      < (ULONG_PTR) AF_UNIX_PKT_OFFSETOF_DATA (packet))
