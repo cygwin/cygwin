@@ -1937,11 +1937,15 @@ fhandler_socket_unix::evaluate_cmsg_data (af_unix_pkt_hdr_t *packet,
 {
   if (packet->cmsg_len != CMSG_SPACE (sizeof (struct ucred))
       || msg->msg_controllen < packet->cmsg_len)
+    /* FIXME: What errno should we set?  For example, if
+       packet->cmsg_len == 0, then we were expecting ancillary data
+       but didn't get any. */
     return false;
   struct cmsghdr *cmsg = AF_UNIX_PKT_CMSG (packet);
   if (!cmsg || cmsg->cmsg_len != CMSG_LEN (sizeof (struct ucred))
       || cmsg->cmsg_level != SOL_SOCKET
       || cmsg->cmsg_type != SCM_CREDENTIALS)
+    /* FIXME: What errno should we set? */
     return false;
   /* FIXME: Is this right?  Do we just do nothing with no error
      indication?  Or should we return false, causing recvmsg to fail?
