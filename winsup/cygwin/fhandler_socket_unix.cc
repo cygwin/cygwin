@@ -2521,6 +2521,9 @@ fhandler_socket_unix::create_cmsg_data (af_unix_pkt_hdr_t *packet,
   return true;
 }
 
+/* FIXME: If peer has set so_passcred, every packet we send should
+   contain SCM_CREDENTIALS ancillary data.
+   https://man7.org/linux/man-pages/man7/unix.7.html */
 ssize_t
 fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
 {
