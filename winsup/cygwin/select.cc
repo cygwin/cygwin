@@ -2100,10 +2100,7 @@ fhandler_socket_unix::select_read (select_stuff *ss)
   s->cleanup = socket_unix_cleanup;
   s->read_selected = true;
   grab_admin_pkt ();
-  /* FIXME: Is this right?  The test for being connected isn't done
-     for wsock sockets. */
-  s->read_ready = (saw_shutdown () & _SHUT_RECV)
-    || connect_state () != connected;
+  s->read_ready = (saw_shutdown () & _SHUT_RECV);
   return s;
 }
 
