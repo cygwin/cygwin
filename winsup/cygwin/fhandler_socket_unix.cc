@@ -2197,14 +2197,12 @@ restart:
 	    {
 	      /* We'll need to peek at the header before setting length. */
 	      PFILE_PIPE_PEEK_BUFFER pbuf = (PFILE_PIPE_PEEK_BUFFER) buffer;
-	      ULONG psize = offsetof (FILE_PIPE_PEEK_BUFFER, Data)
-		+ sizeof (af_unix_pkt_hdr_t);
 	      ULONG ret_len;
 
 	      if (is_nonblocking () || (flags & MSG_DONTWAIT))
 		{
 		  io_lock ();
-		  status = peek_pipe (pbuf, psize, evt, ret_len);
+		  status = peek_pipe (pbuf, MAX_PATH, evt, ret_len);
 		  io_unlock ();
 		  if (!ret_len)
 		    {
