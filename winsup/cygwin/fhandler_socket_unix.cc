@@ -1685,6 +1685,7 @@ fhandler_socket_unix::accept4 (struct sockaddr *peer, int *len, int flags)
 
 		  sock->set_addr_family (AF_UNIX);
 		  sock->set_socket_type (get_socket_type ());
+		  sock->set_flags (O_RDWR | O_BINARY);
 		  if (flags & SOCK_NONBLOCK)
 		    sock->set_nonblocking (true);
 		  if (flags & SOCK_CLOEXEC)
