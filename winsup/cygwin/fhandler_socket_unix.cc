@@ -1152,9 +1152,12 @@ fhandler_socket_unix::peek_pipe (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize,
       if (NT_SUCCESS (status))
 	status = io.Status;
     }
-  ret_len = (NT_SUCCESS (status)
-	     ? (io.Information - offsetof (FILE_PIPE_PEEK_BUFFER, Data))
-	     : 0);
+  if (NT_SUCCESS (status) || status == STATUS_BUFFER_OVERFLOW)
+    {
+      ret_len = io.Information - offsetof (FILE_PIPE_PEEK_BUFFER, Data);
+      return STATUS_SUCCESS;
+    }
+  ret_len = 0;
   return status;
 }
 
