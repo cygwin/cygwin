@@ -1890,7 +1890,6 @@ peek_socket_unix (select_record *me, bool)
 	    PFILE_PIPE_PEEK_BUFFER pbuf
 	      = (PFILE_PIPE_PEEK_BUFFER) alloca (MAX_PATH);
 	    ULONG ret_len;
-	    /* FIXME: Is it OK to call peek_pipe with NULL evt? */
 	    NTSTATUS status = fh->peek_pipe (pbuf, MAX_PATH, NULL, ret_len);
 	    if (ret_len)
 	      {
@@ -2078,8 +2077,6 @@ socket_unix_cleanup (select_record *, select_stuff *stuff)
   stuff->device_specific_socket_unix = NULL;
 }
 
-/* FIXME: Initial select state depends on shutdown, as in wsock case. */
-
 select_record *
 fhandler_socket_unix::select_read (select_stuff *ss)
 {
@@ -2114,7 +2111,8 @@ fhandler_socket_unix::select_write (select_stuff *ss)
   if (connect_state () != unconnected)
     {
       /* FIXME: I copied this from the wsock case, but it doesn't seem
-	 right.  Why are we setting except_ready here? */
+	 right.  Why are we setting except_ready here rather than in
+	 select_except? */
       s->except_ready = saw_shutdown ();
       s->except_on_write = true;
     }
