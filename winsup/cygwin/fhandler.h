@@ -1023,7 +1023,7 @@ class af_unix_pkt_hdr_t
     }
 };
 
-#define MAX_AF_PKT_LEN	65536
+#define MAX_AF_PKT_LEN	UINT16_MAX
 
 class fhandler_socket_unix : public fhandler_socket
 {
