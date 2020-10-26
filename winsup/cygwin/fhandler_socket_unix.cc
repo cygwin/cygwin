@@ -739,6 +739,9 @@ fhandler_socket_unix::grab_admin_pkt (bool peek)
   void *buffer = alloca (MAX_PATH);
   af_unix_pkt_hdr_t *packet;
 
+  if (get_unread ())
+    /* There's data in the pipe from a previous partial read of a packet. */
+    return 0;
   if (!(evt = create_event ()))
     return 0;
   if (peek)
