@@ -1874,13 +1874,13 @@ peek_socket_unix (select_record *me, bool)
     {
       if (me->read_ready)
 	{
-	  select_printf ("%s, already ready for read", fh->get_name ());
+	  select_printf ("already ready for read");
 	  gotone = 1;
 	  goto out;
 	}
       if (fh->get_unread ())
 	{
-	  select_printf ("read: %s, ready for read", fh->get_name ());
+	  select_printf ("ready for read");
 	  gotone += me->read_ready = true;
 	  goto out;
 	}
@@ -1901,8 +1901,7 @@ peek_socket_unix (select_record *me, bool)
 		    fh->grab_admin_pkt (false);
 		    if (fh->saw_shutdown () & _SHUT_RECV)
 		      {
-			select_printf ("read: %s, saw shutdown",
-				       fh->get_name ());
+			select_printf ("read: saw shutdown");
 			gotone += me->read_ready = true;
 			if (me->except_selected)
 			  gotone += me->except_ready = true;
@@ -1912,22 +1911,20 @@ peek_socket_unix (select_record *me, bool)
 		  }
 		if (packet->data_len)
 		  {
-		    select_printf ("read: %s, ready for read: avail %d",
-				   fh->get_name (), packet->data_len);
+		    select_printf ("read: ready for read: avail %d",
+				   packet->data_len);
 		    gotone += me->read_ready = true;
 		    goto out;
 		  }
 		else if (fh->get_socket_type () == SOCK_DGRAM)
 		  {
-		    select_printf ("read: %s, ready for read: 0-length datagram packet",
-				   fh->get_name ());
+		    select_printf ("read: ready for read: 0-length datagram packet");
 		    gotone += me->read_ready = true;
 		    goto out;
 		  }
 		else
 		  {
-		    select_printf ("read: %s, 0-length stream socket packet",
-				   fh->get_name ());
+		    select_printf ("read: 0-length stream socket packet");
 		    gotone += me->read_ready = true;
 		    if (me->except_selected)
 		      gotone += me->except_ready = true;
@@ -1959,15 +1956,14 @@ peek_socket_unix (select_record *me, bool)
 	     block. */
 	  if (!NT_SUCCESS (status))
 	    {
-	      select_printf ("%s, NtQueryInformationFile failed, status %y",
-			     fh->get_name (), status);
+	      select_printf ("NtQueryInformationFile failed, status %y",
+			     status);
 	      gotone += me->read_ready = true;
 	      goto out;
 	    }
 	  if (fpli.NamedPipeState != FILE_PIPE_LISTENING_STATE)
 	    {
-	      select_printf ("%s, pipe state %d", fh->get_name (),
-			     fpli.NamedPipeState);
+	      select_printf ("pipe state %d", fpli.NamedPipeState);
 	      gotone += me->read_ready = true;
 	      goto out;
 	    }
@@ -1978,7 +1974,7 @@ out:
     {
       if (me->write_ready)
 	{
-	  select_printf ("%s, already ready for write", fh->get_name ());
+	  select_printf ("already ready for write");
 	  gotone += 1;
 	}
       else
@@ -1997,19 +1993,16 @@ out:
 				      FilePipeLocalInformation);
 	  if (!NT_SUCCESS (status))
 	    {
-	      select_printf ("%s, NtQueryInformationFile failed, status %y",
-			     fh->get_name (), status);
+	      select_printf ("NtQueryInformationFile failed, status %y",
+			     status);
 	      /* See the comment in pipe_data_available. */
 	      gotone += me->write_ready = true;
 	    }
 	  else if (fpli.WriteQuotaAvailable >= MAX_AF_PKT_LEN)
 	    {
-	      select_printf ("%s, read for write", fh->get_name ());
+	      select_printf ("read for write");
 	      gotone += me->write_ready = true;
 	    }
-	  else
-	    select_printf ("%s, WriteQuotaAvailable %PRIu32", fh->get_name (),
-			   fpli.WriteQuotaAvailable);
 	}
     }
   return gotone;
