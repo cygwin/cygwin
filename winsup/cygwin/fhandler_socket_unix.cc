@@ -1942,24 +1942,42 @@ bool
 fhandler_socket_unix::evaluate_cmsg_data (af_unix_pkt_hdr_t *packet,
 					  struct msghdr *msg, bool cloexec)
 {
-  if (packet->cmsg_len != CMSG_SPACE (sizeof (struct ucred))
-      || msg->msg_controllen < packet->cmsg_len)
-    /* FIXME: What errno should we set?  For example, if
-       packet->cmsg_len == 0, then we were expecting ancillary data
-       but didn't get any. */
-    return false;
+  if (!msg->msg_control
+      || msg->msg_controllen < (int) CMSG_SPACE (sizeof (struct ucred)))
+    {
+      /* Discard ancillary data. */
+      msg->msg_flags |= MSG_CTRUNC;
+      msg->msg_controllen = 0;
+      return true;
+    }
   struct cmsghdr *cmsg = AF_UNIX_PKT_CMSG (packet);
-  if (!cmsg || cmsg->cmsg_len != CMSG_LEN (sizeof (struct ucred))
+  if (cmsg->cmsg_len != CMSG_LEN (sizeof (struct ucred))
       || cmsg->cmsg_level != SOL_SOCKET
       || cmsg->cmsg_type != SCM_CREDENTIALS)
-    /* FIXME: What errno should we set? */
-    return false;
+    /* FIXME: Is this the right errno? */
+    {
+      set_errno (EOPNOTSUPP);
+      msg->msg_controllen = 0;
+      return false;
+    }
   /* FIXME: Is this right?  Do we just do nothing with no error
-     indication?  Or should we return false, causing recvmsg to fail?
-     In that case what errno should we set? */
+     indication other than setting msg_controllen = 0?  Or should we
+     return false, causing recvmsg to fail?  In that case what errno
+     should we set? */
   if (!so_passcred ())
-    return true;
-  memcpy (msg->msg_control, AF_UNIX_PKT_CMSG (packet), packet->cmsg_len);
+    {
+      msg-> msg_controllen = 0;
+      return true;
+    }
+  if (packet->cmsg_len > CMSG_SPACE (sizeof (struct ucred)))
+    /* FIXME: We're discarding some data, but not for the reasons
+       specified at
+       https://man7.org/linux/man-pages/man2/recvmsg.2.html.  Do we
+       still set MSG_CTRUNC? */
+    msg->msg_flags |= MSG_CTRUNC;
+  memcpy (msg->msg_control, AF_UNIX_PKT_CMSG (packet),
+	  CMSG_LEN (sizeof (struct ucred)));
+  msg->msg_controllen = CMSG_LEN (sizeof (struct ucred));
   return true;
 }
 
