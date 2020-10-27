@@ -2178,6 +2178,7 @@ restart:
       PVOID buffer = tp.w_get ();
       my_iovptr = my_iov;
       bool first_iteration = true;
+      msg->msg_flags = 0;
       while (tot)
 	{
 	  ULONG length;		/* For NtReadFile. */
@@ -2403,7 +2404,10 @@ restart2:
 
 	  /* For a datagram socket, truncate the data to what was requested. */
 	  if (get_socket_type () == SOCK_DGRAM && tot < nbytes_read)
-	    nbytes_now = nbytes_read = tot;
+	    {
+	      nbytes_now = nbytes_read = tot;
+	      msg->msg_flags |= MSG_TRUNC;
+	    }
 	  /* Copy data to scatter-gather buffers. */
 	  char *ptr = (char *) (packet ? AF_UNIX_PKT_DATA (packet) : buffer);
 	  while (nbytes_now && my_iovlen)
