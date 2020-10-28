@@ -2532,20 +2532,32 @@ fhandler_socket_unix::readv (const struct iovec *const iov, int iovcnt,
 /* For now, just support an ancillary data block consisting of a
    single cmsghdr, containing SCM_CREDENTIALS.
 
+   FIXME: Check errnos below.
+
    FIXME: We're supposed to check the credentials.
    https://man7.org/linux/man-pages/man7/unix.7.html */
 bool
 fhandler_socket_unix::create_cmsg_data (af_unix_pkt_hdr_t *packet,
 					const struct msghdr *msg)
 {
-  if (msg->msg_controllen != CMSG_SPACE (sizeof (struct ucred))
-      || packet->pckt_len + msg->msg_controllen > MAX_AF_PKT_LEN)
-    return false;
+  if (msg->msg_controllen != CMSG_SPACE (sizeof (struct ucred)))
+    {
+      set_errno (EOPNOTSUPP);
+      return false;
+    }
+  if (packet->pckt_len + msg->msg_controllen > MAX_AF_PKT_LEN)
+    {
+      set_errno (EMSGSIZE);
+      return false;
+    }
   struct cmsghdr *cmsg = (struct cmsghdr *) msg->msg_control;
   if (!cmsg || cmsg->cmsg_len != CMSG_LEN (sizeof (struct ucred))
       || cmsg->cmsg_level != SOL_SOCKET
       || cmsg->cmsg_type != SCM_CREDENTIALS)
-    return false;
+    {
+      set_errno (EOPNOTSUPP);
+      return false;
+    }
   memcpy (AF_UNIX_PKT_CMSG (packet), msg->msg_control, msg->msg_controllen);
   packet->pckt_len += msg->msg_controllen;
   packet->cmsg_len = msg->msg_controllen;
