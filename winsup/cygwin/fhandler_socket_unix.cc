@@ -1997,6 +1997,7 @@ fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
   size_t tot;
   bool waitall = false;
   bool disconnect = false;
+  bool name_read = false;
 
   __try
     {
@@ -2195,7 +2196,6 @@ restart:
       tmp_pathbuf tp;
       PVOID buffer = tp.w_get ();
       my_iovptr = my_iov;
-      bool first_iteration = true;
       msg->msg_flags = 0;
       while (tot)
 	{
@@ -2368,20 +2368,24 @@ restart2:
 			}
 		      continue;
 		    }
-		  if (first_iteration)
+		  if (msg->msg_name && !name_read)
 		    {
-		      if (msg->msg_name)
-			{
-			  sun_name_t
-			    sun ((struct sockaddr *) AF_UNIX_PKT_NAME (packet),
-				 packet->name_len);
-			  memcpy (msg->msg_name, &sun.un,
-				  MIN (msg->msg_namelen, sun.un_len + 1));
-			  msg->msg_namelen = sun.un_len;
-			}
-		      if (msg->msg_controllen
-			  && !evaluate_cmsg_data (packet, msg))
+		      sun_name_t
+			sun ((struct sockaddr *) AF_UNIX_PKT_NAME (packet),
+			     packet->name_len);
+		      memcpy (msg->msg_name, &sun.un,
+			      MIN (msg->msg_namelen, sun.un_len + 1));
+		      msg->msg_namelen = sun.un_len;
+		      name_read = true;
+		    }
+		  if (msg->msg_controllen)
+		    {
+		      if (!evaluate_cmsg_data (packet, msg))
 			__leave;
+		      /* https://man7.org/linux/man-pages/man7/unix.7.html
+			 says that ancillary data is a barrier to
+			 further reading. */
+		      waitall = false;
 		    }
 		  if (io.Information
 		      < (ULONG_PTR) AF_UNIX_PKT_OFFSETOF_DATA (packet))
@@ -2449,14 +2453,14 @@ restart2:
 	    }
 	  if (!(waitall && my_iovlen))
 	    break;
-	  if (first_iteration)
-	    first_iteration = false;
 	}
       if (nbytes_read)
 	ret = nbytes_read;
     }
   __except (EFAULT)
   __endtry
+  if (msg->msg_name && !name_read)
+    msg->msg_namelen = 0;
   if (ph)
     NtClose (ph);
   if (fh)
