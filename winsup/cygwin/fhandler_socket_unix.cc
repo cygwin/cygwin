@@ -1506,6 +1506,13 @@ fhandler_socket_unix::socketpair (int af, int type, int protocol, int flags,
   set_ino (get_unique_id ());
   /* create and connect pipe */
   gen_pipe_name ();
+  set_flags (O_RDWR | O_BINARY);
+  fh->set_flags (O_RDWR | O_BINARY);
+  if (flags & SOCK_NONBLOCK)
+    {
+      set_nonblocking (true);
+      fh->set_nonblocking (true);
+    }
   ph = create_pipe (true);
   if (!ph)
     goto create_pipe_failed;
@@ -1519,18 +1526,12 @@ fhandler_socket_unix::socketpair (int af, int type, int protocol, int flags,
     goto fh_open_pipe_failed;
   fh->set_handle (ph2);
   fh->connect_state (connected);
-  set_flags (O_RDWR | O_BINARY);
-  fh->set_flags (O_RDWR | O_BINARY);
-  if (flags & SOCK_NONBLOCK)
-    {
-      set_nonblocking (true);
-      fh->set_nonblocking (true);
-    }
   if (flags & SOCK_CLOEXEC)
     {
       set_close_on_exec (true);
       fh->set_close_on_exec (true);
     }
+  fh->set_pipe_non_blocking (fh->is_nonblocking ());
   return 0;
 
 fh_open_pipe_failed:
