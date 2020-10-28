@@ -2537,10 +2537,7 @@ fhandler_socket_unix::readv (const struct iovec *const iov, int iovcnt,
 /* For now, just support an ancillary data block consisting of a
    single cmsghdr, containing SCM_CREDENTIALS.
 
-   FIXME: Check errnos below.
-
-   FIXME: We're supposed to check the credentials.
-   https://man7.org/linux/man-pages/man7/unix.7.html */
+   FIXME: Check errnos below. */
 bool
 fhandler_socket_unix::create_cmsg_data (af_unix_pkt_hdr_t *packet,
 					const struct msghdr *msg)
@@ -2561,6 +2558,35 @@ fhandler_socket_unix::create_cmsg_data (af_unix_pkt_hdr_t *packet,
       || cmsg->cmsg_type != SCM_CREDENTIALS)
     {
       set_errno (EOPNOTSUPP);
+      return false;
+    }
+  /* Check credentials. */
+  struct ucred *cred = (struct ucred *) CMSG_DATA (cmsg);
+  /* FIXME: check_token_membership returns false even when running in
+     a privileged shell.  Why? */
+  bool perms = check_token_membership (&well_known_admins_sid);
+  if (!perms)
+    {
+      tmp_pathbuf tp;
+      gid_t *gids = (gid_t *) tp.w_get ();
+      int num = getgroups (65536 / sizeof (*gids), gids);
+
+      for (int idx = 0; idx < num; ++idx)
+	if (gids[idx] == 544)
+	  {
+	    perms = true;
+	    break;
+	  }
+    }
+  if (perms)
+    /* FIXME: We don't have to check uid and gid, but we should still
+       check that the specified pid is the pid of an existing
+       process. */
+    ;
+  else if (cred->pid != myself->pid || cred->uid != myself->uid
+	   || cred->gid != myself->gid)
+    {
+      set_errno (EPERM);
       return false;
     }
   memcpy (AF_UNIX_PKT_CMSG (packet), msg->msg_control, msg->msg_controllen);
