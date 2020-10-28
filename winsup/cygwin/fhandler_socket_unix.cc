@@ -2569,9 +2569,11 @@ fhandler_socket_unix::create_cmsg_data (af_unix_pkt_hdr_t *packet,
   return true;
 }
 
-/* FIXME: If peer has set so_passcred, every packet we send should
-   contain SCM_CREDENTIALS ancillary data.
-   https://man7.org/linux/man-pages/man7/unix.7.html */
+/* FIXME: According to
+   https://man7.org/linux/man-pages/man7/unix.7.html, every packet we
+   send should contain SCM_CREDENTIALS ancillary data if peer has set
+   so_passcred.  But how can we know?  Should we arrange for the peer
+   to send this info in an admin packet? */
 ssize_t
 fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
 {

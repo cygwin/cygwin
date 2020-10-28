@@ -2077,6 +2077,8 @@ socket_unix_cleanup (select_record *, select_stuff *stuff)
   stuff->device_specific_socket_unix = NULL;
 }
 
+/* FIXME: Where in what follows should we be checking so_error? */
+
 select_record *
 fhandler_socket_unix::select_read (select_stuff *ss)
 {
