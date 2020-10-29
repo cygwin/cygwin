@@ -2578,13 +2578,11 @@ fhandler_socket_unix::create_cmsg_data (af_unix_pkt_hdr_t *packet,
 	    break;
 	  }
     }
-  if (perms)
-    /* FIXME: We don't have to check uid and gid, but we should still
-       check that the specified pid is the pid of an existing
-       process. */
-    ;
-  else if (cred->pid != myself->pid || cred->uid != myself->uid
-	   || cred->gid != myself->gid)
+  /* An administrator can specify any uid and gid, but the specified
+     pid must be the pid of an existing process. */
+  if ((perms && !pinfo (cred->pid))
+      || (!perms && (cred->pid != myself->pid || cred->uid != myself->uid
+		    || cred->gid != myself->gid)))
     {
       set_errno (EPERM);
       return false;

@@ -121,6 +121,15 @@
    in the recv program.  This needs to be fixed.  Set appropriate
    errno if recvmsg is expecting ancillary data but doesn't get it.
 
+   scm_cred_send can also specify credentials:
+
+   $ ./scm_cred_send.exe data 1 3 5
+
+   This should fail with EPERM if the specified credentials are not
+   the actual credentials of the sender, unless the sender is an
+   administrator.  In that case the specified pid must be the pid of
+   an existing process, but the uid and gid can be arbitrary.
+
 7. fork/socketpair test.
 
    $ ./fork_socketpair.exe
