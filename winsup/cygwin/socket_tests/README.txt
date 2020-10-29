@@ -114,12 +114,8 @@
    not supported for datagram sockets unless they are created using
    socketpair.
 
-   But if we use -n in the send program, we get
-
-   ERROR [?UNKNOWN? No error] recvmsg
-
-   in the recv program.  This needs to be fixed.  Set appropriate
-   errno if recvmsg is expecting ancillary data but doesn't get it.
+   If we use -n in the send program, credentials will be sent even
+   though the caller didn't specify control message data.
 
    scm_cred_send can also specify credentials:
 

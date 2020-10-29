@@ -2597,7 +2597,10 @@ fhandler_socket_unix::create_cmsg_data (af_unix_pkt_hdr_t *packet,
    https://man7.org/linux/man-pages/man7/unix.7.html, every packet we
    send should contain SCM_CREDENTIALS ancillary data if peer has set
    so_passcred.  But how can we know?  Should we arrange for the peer
-   to send this info in an admin packet? */
+   to send this info in an admin packet?  Alternatively, we can just
+   add credentials to every packet that doesn't already have them.
+   Then it's up to recvmsg to enforce the so_passcred requirement.
+   I'll do this for now. */
 ssize_t
 fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
 {
@@ -2684,8 +2687,22 @@ fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
 	}
       else
 	packet->init (false, (shut_state) saw_shutdown (), 0, 0, 0);
-      if (msg->msg_controllen && !create_cmsg_data (packet, msg))
-	__leave;
+      if (msg->msg_controllen)
+	{
+	  if (!create_cmsg_data (packet, msg))
+	    __leave;
+	}
+      else
+	{
+	  /* Send credentials. */
+	  struct cmsghdr *cmsg = (struct cmsghdr *) AF_UNIX_PKT_CMSG (packet);
+	  cmsg->cmsg_len = CMSG_LEN (sizeof (struct ucred));
+	  cmsg->cmsg_level = SOL_SOCKET;
+	  cmsg->cmsg_type = SCM_CREDENTIALS;
+	  memcpy (CMSG_DATA (cmsg), sock_cred (), sizeof (struct ucred));
+	  packet->cmsg_len = CMSG_SPACE (sizeof (struct ucred));
+	  packet->pckt_len += packet->cmsg_len;
+	}
       for (int i = 0; i < msg->msg_iovlen; ++i)
 	if (!AF_UNIX_PKT_DATA_APPEND (packet, msg->msg_iov[i].iov_base,
 				      msg->msg_iov[i].iov_len))
