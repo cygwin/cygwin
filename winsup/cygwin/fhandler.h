@@ -1146,9 +1146,9 @@ class fhandler_socket_unix : public fhandler_socket
   void set_unread (bool val) { shmem->set_unread (val); }
   bool get_unread () const { return shmem->get_unread (); }
   NTSTATUS peek_pipe (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize, HANDLE evt,
-		      ULONG &ret_len);
+		      ULONG &ret_len, HANDLE ph = NULL);
   NTSTATUS peek_pipe_poll (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize,
-			   HANDLE evt, ULONG &ret_len);
+			   HANDLE evt, ULONG &ret_len, HANDLE ph = NULL);
   int grab_admin_pkt (bool peek = true);
 
   bool create_cmsg_data (af_unix_pkt_hdr_t *packet, const struct msghdr *msg);

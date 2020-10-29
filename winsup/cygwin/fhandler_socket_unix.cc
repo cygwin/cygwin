@@ -1138,12 +1138,12 @@ fhandler_socket_unix::listen_pipe ()
 
 NTSTATUS
 fhandler_socket_unix::peek_pipe (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize,
-				 HANDLE evt, ULONG &ret_len)
+				 HANDLE evt, ULONG &ret_len, HANDLE ph)
 {
   NTSTATUS status;
   IO_STATUS_BLOCK io;
 
-  status = NtFsControlFile (get_handle (), evt, NULL, NULL, &io,
+  status = NtFsControlFile (ph ?: get_handle (), evt, NULL, NULL, &io,
 			    FSCTL_PIPE_PEEK, NULL, 0, pbuf, psize);
   if (status == STATUS_PENDING)
     {
@@ -1164,7 +1164,8 @@ fhandler_socket_unix::peek_pipe (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize,
 /* Like peek_pipe, but poll until there's data, an error, or a signal. */
 NTSTATUS
 fhandler_socket_unix::peek_pipe_poll (PFILE_PIPE_PEEK_BUFFER pbuf,
-				      ULONG psize, HANDLE evt, ULONG &ret_len)
+				      ULONG psize, HANDLE evt, ULONG &ret_len,
+				      HANDLE ph)
 {
   NTSTATUS status;
 
@@ -1174,7 +1175,7 @@ fhandler_socket_unix::peek_pipe_poll (PFILE_PIPE_PEEK_BUFFER pbuf,
       DWORD waitret;
 
       io_lock ();
-      status = peek_pipe (pbuf, psize, evt, ret_len);
+      status = peek_pipe (pbuf, psize, evt, ret_len, ph);
       io_unlock ();
       if (ret_len || !NT_SUCCESS (status))
 	break;
@@ -2094,8 +2095,6 @@ fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
 	      __leave;
 	    }
 	}
-      /* FIXME: This currently doesn't work for unbound datagram
-	 sockets because peek_pipe calls get_handle. */
       if (flags & MSG_PEEK)
 	while (1)
 	  {
@@ -2114,7 +2113,8 @@ fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
 	    if (is_nonblocking () || (flags & MSG_DONTWAIT))
 	      {
 		io_lock ();
-		status = peek_pipe (pbuf, psize, evt, ret_len);
+		status = peek_pipe (pbuf, psize, evt, ret_len,
+				    ph ?: get_handle ());
 		io_unlock ();
 		if (!ret_len)
 		  {
@@ -2125,7 +2125,8 @@ fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
 	    else
 	      {
 restart:
-		status = peek_pipe_poll (pbuf, MAX_PATH, evt, ret_len);
+		status = peek_pipe_poll (pbuf, MAX_PATH, evt, ret_len,
+					 ph ?: get_handle ());
 		switch (status)
 		  {
 		  case STATUS_SUCCESS:
