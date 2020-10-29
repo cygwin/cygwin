@@ -2002,11 +2002,8 @@ fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
 
   __try
     {
-      /* Valid flags: MSG_DONTWAIT, MSG_PEEK, MSG_WAITALL.
-
-	 FIXME: Do we want to support MSG_TRUNC?  It's not in POSIX,
-	 but it's in Linux since 3.4. */
-      if (flags & ~(MSG_DONTWAIT | MSG_PEEK | MSG_WAITALL))
+      /* Valid flags: MSG_DONTWAIT, MSG_PEEK, MSG_WAITALL, MSG_TRUNC. */
+      if (flags & ~(MSG_DONTWAIT | MSG_PEEK | MSG_WAITALL | MSG_TRUNC))
 	{
 	  set_errno (EOPNOTSUPP);
 	  __leave;
@@ -2428,7 +2425,9 @@ restart2:
 	  /* For a datagram socket, truncate the data to what was requested. */
 	  if (get_socket_type () == SOCK_DGRAM && tot < nbytes_read)
 	    {
-	      nbytes_now = nbytes_read = tot;
+	      nbytes_now = tot;
+	      if (!(flags & MSG_TRUNC))
+		nbytes_read = tot;
 	      msg->msg_flags |= MSG_TRUNC;
 	    }
 	  /* Copy data to scatter-gather buffers. */
