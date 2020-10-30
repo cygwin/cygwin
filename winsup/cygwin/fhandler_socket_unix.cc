@@ -1937,49 +1937,61 @@ fhandler_socket_unix::getpeereid (pid_t *pid, uid_t *euid, gid_t *egid)
   return ret;
 }
 
-/* FIXME:  Not sure what this is supposed to do.  For now, just
-   support an ancillary data block consisting of a single cmsghdr,
-   containing SCM_CREDENTIALS. */
+/* FIXME: Check all errnos below. */
 bool
 fhandler_socket_unix::evaluate_cmsg_data (af_unix_pkt_hdr_t *packet,
 					  struct msghdr *msg, bool cloexec)
 {
-  if (!msg->msg_control
-      || msg->msg_controllen < (int) CMSG_SPACE (sizeof (struct ucred)))
+  size_t len = 0;
+  struct msghdr msg1, msg2;
+  tmp_pathbuf tp;
+
+  /* Massage the received control messages. */
+  msg1.msg_control = tp.w_get ();
+  msg1.msg_controllen = packet->cmsg_len + CMSG_SPACE (0);
+  memset (msg1.msg_control, 0, msg1.msg_controllen);
+  msg2.msg_control = AF_UNIX_PKT_CMSG (packet);
+  msg2.msg_controllen = packet->cmsg_len;
+
+  /* Copy from msg2 to msg1. */
+  struct cmsghdr *p = CMSG_FIRSTHDR (&msg1);
+  for (struct cmsghdr *q = CMSG_FIRSTHDR (&msg2); q != NULL;
+       q = CMSG_NXTHDR (&msg2, q))
     {
-      /* Discard ancillary data. */
-      msg->msg_flags |= MSG_CTRUNC;
+      struct cmsghdr *p1;	/* Lags behind p. */
+
+      switch (q->cmsg_type)
+	{
+	case SCM_CREDENTIALS:
+	  if (so_passcred ())
+	    memcpy (p, q, q->cmsg_len);
+	  else
+	    continue;
+	  break;
+	case SCM_RIGHTS:
+	  /* Deserialize, check length, copy new cmsghdr block, update
+	     len.  For now, just copy without deserialization for
+	     testing purposes. */
+	  memcpy (p, q, q->cmsg_len);
+	  break;
+	default:
+	  set_errno (EINVAL);
+	  return false;
+	}
+      p1 = p;
+      p = CMSG_NXTHDR (&msg1, p);
+      len += (PBYTE) p - (PBYTE) p1;
+    }
+  if (msg->msg_controllen < (int) len)
+    {
+      msg->msg_flags |= MSG_TRUNC;
       msg->msg_controllen = 0;
-      return true;
     }
-  struct cmsghdr *cmsg = AF_UNIX_PKT_CMSG (packet);
-  if (cmsg->cmsg_len != CMSG_LEN (sizeof (struct ucred))
-      || cmsg->cmsg_level != SOL_SOCKET
-      || cmsg->cmsg_type != SCM_CREDENTIALS)
-    /* FIXME: Is this the right errno? */
+  else
     {
-      set_errno (EOPNOTSUPP);
-      msg->msg_controllen = 0;
-      return false;
+      memcpy (msg->msg_control, msg1.msg_control, len);
+      msg->msg_controllen = len;
     }
-  /* FIXME: Is this right?  Do we just do nothing with no error
-     indication other than setting msg_controllen = 0?  Or should we
-     return false, causing recvmsg to fail?  In that case what errno
-     should we set? */
-  if (!so_passcred ())
-    {
-      msg-> msg_controllen = 0;
-      return true;
-    }
-  if (packet->cmsg_len > CMSG_SPACE (sizeof (struct ucred)))
-    /* FIXME: We're discarding some data, but not for the reasons
-       specified at
-       https://man7.org/linux/man-pages/man2/recvmsg.2.html.  Do we
-       still set MSG_CTRUNC? */
-    msg->msg_flags |= MSG_CTRUNC;
-  memcpy (msg->msg_control, AF_UNIX_PKT_CMSG (packet),
-	  CMSG_LEN (sizeof (struct ucred)));
-  msg->msg_controllen = CMSG_LEN (sizeof (struct ucred));
   return true;
 }
 
@@ -2534,62 +2546,115 @@ fhandler_socket_unix::readv (const struct iovec *const iov, int iovcnt,
   return recvmsg (&msg, 0);
 }
 
-/* For now, just support an ancillary data block consisting of a
-   single cmsghdr, containing SCM_CREDENTIALS.
-
-   FIXME: Check errnos below. */
+/* FIXME: Check errnos below. */
 bool
 fhandler_socket_unix::create_cmsg_data (af_unix_pkt_hdr_t *packet,
 					const struct msghdr *msg)
 {
-  if (msg->msg_controllen != CMSG_SPACE (sizeof (struct ucred)))
-    {
-      set_errno (EOPNOTSUPP);
-      return false;
-    }
-  if (packet->pckt_len + msg->msg_controllen > MAX_AF_PKT_LEN)
-    {
-      set_errno (EMSGSIZE);
-      return false;
-    }
-  struct cmsghdr *cmsg = (struct cmsghdr *) msg->msg_control;
-  if (!cmsg || cmsg->cmsg_len != CMSG_LEN (sizeof (struct ucred))
-      || cmsg->cmsg_level != SOL_SOCKET
-      || cmsg->cmsg_type != SCM_CREDENTIALS)
-    {
-      set_errno (EOPNOTSUPP);
-      return false;
-    }
-  /* Check credentials. */
-  struct ucred *cred = (struct ucred *) CMSG_DATA (cmsg);
-  /* FIXME: check_token_membership returns false even when running in
-     a privileged shell.  Why? */
-  bool perms = check_token_membership (&well_known_admins_sid);
-  if (!perms)
-    {
-      tmp_pathbuf tp;
-      gid_t *gids = (gid_t *) tp.w_get ();
-      int num = getgroups (65536 / sizeof (*gids), gids);
+  bool saw_scm_cred = false;
+  size_t len = 0;
+  struct msghdr msgh;
+  tmp_pathbuf tp;
 
-      for (int idx = 0; idx < num; ++idx)
-	if (gids[idx] == 544)
-	  {
-	    perms = true;
-	    break;
-	  }
-    }
-  /* An administrator can specify any uid and gid, but the specified
-     pid must be the pid of an existing process. */
-  if ((perms && !pinfo (cred->pid))
-      || (!perms && (cred->pid != myself->pid || cred->uid != myself->uid
-		    || cred->gid != myself->gid)))
+  /* Massage the specified control messages.  We need to serialize any
+     SCM_RIGHTS message and, if necessary, append an SCM_CREDENTIALS
+     message. */
+
+  msgh.msg_control = tp.w_get ();
+  msgh.msg_controllen = 2 * NT_MAX_PATH;
+  memset (msgh.msg_control, 0, msgh.msg_controllen);
+
+  /* Copy from msg to msgh. */
+  struct cmsghdr *p = CMSG_FIRSTHDR (&msgh);
+  for (struct cmsghdr *q = CMSG_FIRSTHDR (msg); q != NULL;
+       q = CMSG_NXTHDR (msg, q))
     {
-      set_errno (EPERM);
-      return false;
+      struct cmsghdr *p1;	/* Lags behind p. */
+      struct ucred *cred = NULL;
+      bool admin = false;
+
+      switch (q->cmsg_type)
+	{
+	case SCM_CREDENTIALS:
+	  saw_scm_cred = true;
+	  if (q->cmsg_len != CMSG_LEN (sizeof (struct ucred)))
+	    {
+	      set_errno (EINVAL);
+	      return false;
+	    }
+	  /* Check credentials. */
+	  cred = (struct ucred *) CMSG_DATA (q);
+	  admin = check_token_membership (&well_known_admins_sid);
+	  /* FIXME: check_token_membership returns false even when
+	     running in a privileged shell.  Why?  Here's a temporary
+	     hack to get around that, but it's probably insecure. */
+	  if (!admin)
+	    {
+	      tmp_pathbuf tp;
+	      gid_t *gids = (gid_t *) tp.w_get ();
+	      int num = getgroups (65536 / sizeof (*gids), gids);
+
+	      for (int idx = 0; idx < num; ++idx)
+		if (gids[idx] == 544)
+		  {
+		    admin = true;
+		    break;
+		  }
+	    }
+	  /* An administrator can specify any uid and gid, but the
+	     specified pid must be the pid of an existing process. */
+	  if (admin)
+	    {
+	      if (!pinfo (cred->pid))
+		{
+		  set_errno (ESRCH);
+		  return false;
+		}
+	    }
+	  else if (cred->pid != myself->pid || cred->uid != myself->uid
+		   || cred->gid != myself->gid)
+	    {
+	      set_errno (EPERM);
+	      return false;
+	    }
+	  memcpy (p, q, q->cmsg_len);
+	  break;
+	case SCM_RIGHTS:
+	  /* Serialize the fds.  For now, just send the list of fds. */
+	  memcpy (p, q, q->cmsg_len);
+	  break;
+	default:
+	  set_errno (EINVAL);
+	  return false;
+	}
+      p1 = p;
+      p = CMSG_NXTHDR (&msgh, p);
+      if (p)
+	len += (PBYTE) p - (PBYTE) p1;
+      if (!p || packet->pckt_len + len > MAX_AF_PKT_LEN)
+	{
+	  set_errno (EMSGSIZE);
+	  return false;
+	}
     }
-  memcpy (AF_UNIX_PKT_CMSG (packet), msg->msg_control, msg->msg_controllen);
-  packet->pckt_len += msg->msg_controllen;
-  packet->cmsg_len = msg->msg_controllen;
+  if (!saw_scm_cred)
+    {
+      /* Append a credentials block. */
+      if (packet->pckt_len + len + CMSG_SPACE (sizeof (struct ucred))
+	  > MAX_AF_PKT_LEN)
+	{
+	  set_errno (EMSGSIZE);
+	  return false;
+	}
+      p->cmsg_len = CMSG_LEN (sizeof (struct ucred));
+      p->cmsg_level = SOL_SOCKET;
+      p->cmsg_type = SCM_CREDENTIALS;
+      memcpy (CMSG_DATA (p), sock_cred (), sizeof (struct ucred));
+      len += CMSG_SPACE (sizeof (struct ucred));
+    }
+  memcpy (AF_UNIX_PKT_CMSG (packet), msgh.msg_control, len);
+  packet->cmsg_len = len;
+  packet->pckt_len += len;
   return true;
 }
 
@@ -2600,7 +2665,7 @@ fhandler_socket_unix::create_cmsg_data (af_unix_pkt_hdr_t *packet,
    to send this info in an admin packet?  Alternatively, we can just
    add credentials to every packet that doesn't already have them.
    Then it's up to recvmsg to enforce the so_passcred requirement.
-   I'll do this for now. */
+   I've done the latter for now, in create_cmsg_data. */
 ssize_t
 fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
 {
@@ -2687,22 +2752,10 @@ fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
 	}
       else
 	packet->init (false, (shut_state) saw_shutdown (), 0, 0, 0);
-      if (msg->msg_controllen)
-	{
-	  if (!create_cmsg_data (packet, msg))
-	    __leave;
-	}
-      else
-	{
-	  /* Send credentials. */
-	  struct cmsghdr *cmsg = (struct cmsghdr *) AF_UNIX_PKT_CMSG (packet);
-	  cmsg->cmsg_len = CMSG_LEN (sizeof (struct ucred));
-	  cmsg->cmsg_level = SOL_SOCKET;
-	  cmsg->cmsg_type = SCM_CREDENTIALS;
-	  memcpy (CMSG_DATA (cmsg), sock_cred (), sizeof (struct ucred));
-	  packet->cmsg_len = CMSG_SPACE (sizeof (struct ucred));
-	  packet->pckt_len += packet->cmsg_len;
-	}
+      /* Always add control data.  If there was none specified, this
+	 will just consist of credentials. */
+      if (!create_cmsg_data (packet, msg))
+	__leave;
       for (int i = 0; i < msg->msg_iovlen; ++i)
 	if (!AF_UNIX_PKT_DATA_APPEND (packet, msg->msg_iov[i].iov_base,
 				      msg->msg_iov[i].iov_len))

@@ -86,7 +86,7 @@
 
    [Need to kill msg_peek_cl.]
 
-6. SCM_CREDENTIALS test.  In two terminals:
+6. Ancillary data test.  In two terminals:
 
    # Terminal 1:
    $ ./scm_cred_recv.exe
@@ -125,6 +125,10 @@
    the actual credentials of the sender, unless the sender is an
    administrator.  In that case the specified pid must be the pid of
    an existing process, but the uid and gid can be arbitrary.
+
+   We can also begin testing SCM_RIGHTS with
+   scm_rights_recv/scm_rights_send and scm_multi_recv/scm_multi_send,
+   but this doesn't do much at the moment.
 
 7. fork/socketpair test.
 

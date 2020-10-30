@@ -151,17 +151,17 @@ main(int argc, char *argv[])
     if (NumReceived > 0)
         printf("Received data = %d\n", data);
 
-    if (optControlMsgSize != -1) {
-        char cbuf[1000];
+    /* if (optControlMsgSize != -1) { */
+    /*     char cbuf[1000]; */
 
-        /* Display this process's set of open file descriptors via
-           /proc/PID/fd */
+    /*     Display this process's set of open file descriptors via */
+    /*        /proc/PID/fd */
 
-        printf("=================================\n");
-        snprintf(cbuf, sizeof(cbuf), "ls -l /proc/%ld/fd", (long) getpid());
-        system(cbuf);
-        printf("=================================\n");
-    }
+    /*     printf("=================================\n"); */
+    /*     snprintf(cbuf, sizeof(cbuf), "ls -l /proc/%ld/fd", (long) getpid()); */
+    /*     system(cbuf); */
+    /*     printf("=================================\n"); */
+    /* } */
 
     /* Check to see if the ancillary data was truncated */
 
@@ -206,22 +206,22 @@ main(int argc, char *argv[])
             for (j = 0; j < fdCnt; j++) {
                 printf("--- [%d] Received FD %d\n", j, fdList[j]);
 
-                for (;;) {
-                    char buf[BUF_SIZE];
-                    ssize_t numRead;
+                /* for (;;) { */
+                /*     char buf[BUF_SIZE]; */
+                /*     ssize_t numRead; */
 
-                    numRead = read(fdList[j], buf, BUF_SIZE);
-                    if (numRead == -1)
-                        errExit("read");
+                /*     numRead = read(fdList[j], buf, BUF_SIZE); */
+                /*     if (numRead == -1) */
+                /*         errExit("read"); */
 
-                    if (numRead == 0)
-                        break;
+                /*     if (numRead == 0) */
+                /*         break; */
 
-                    write(STDOUT_FILENO, buf, numRead);
-                }
+                /*     write(STDOUT_FILENO, buf, numRead); */
+                /* } */
 
-                if (close(fdList[j]) == -1)
-                    errExit("close");
+                /* if (close(fdList[j]) == -1) */
+                /*     errExit("close"); */
             }
             break;
 
