@@ -799,12 +799,12 @@ fhandler_socket_unix::recv_peer_info ()
 		       NULL, NULL);
   if (status == STATUS_PENDING)
     {
-      DWORD ret;
+      DWORD waitret;
       LARGE_INTEGER timeout;
 
       timeout.QuadPart = AF_UNIX_CONNECT_TIMEOUT;
-      ret = cygwait (evt, &timeout, cw_sig_eintr);
-      switch (ret)
+      waitret = cygwait (evt, &timeout, cw_sig_eintr);
+      switch (waitret)
 	{
 	case WAIT_OBJECT_0:
 	  status = io.Status;
