@@ -1948,7 +1948,7 @@ fhandler_socket_unix::evaluate_cmsg_data (af_unix_pkt_hdr_t *packet,
 
   /* Massage the received control messages. */
   msg1.msg_control = tp.w_get ();
-  msg1.msg_controllen = packet->cmsg_len + CMSG_SPACE (0);
+  msg1.msg_controllen = MIN (msg->msg_controllen, packet->cmsg_len);
   memset (msg1.msg_control, 0, msg1.msg_controllen);
   msg2.msg_control = AF_UNIX_PKT_CMSG (packet);
   msg2.msg_controllen = packet->cmsg_len;
@@ -1958,40 +1958,30 @@ fhandler_socket_unix::evaluate_cmsg_data (af_unix_pkt_hdr_t *packet,
   for (struct cmsghdr *q = CMSG_FIRSTHDR (&msg2); q != NULL;
        q = CMSG_NXTHDR (&msg2, q))
     {
-      struct cmsghdr *p1;	/* Lags behind p. */
-
       switch (q->cmsg_type)
 	{
 	case SCM_CREDENTIALS:
-	  if (so_passcred ())
-	    memcpy (p, q, q->cmsg_len);
-	  else
+	  if (!so_passcred ())
 	    continue;
-	  break;
 	case SCM_RIGHTS:
-	  /* Deserialize, check length, copy new cmsghdr block, update
-	     len.  For now, just copy without deserialization for
-	     testing purposes. */
-	  memcpy (p, q, q->cmsg_len);
+	  /* FIXME: Deserialize and change fds. */
 	  break;
 	default:
 	  set_errno (EINVAL);
 	  return false;
 	}
-      p1 = p;
+      if (!p || len + CMSG_ALIGN (q->cmsg_len) > (size_t) msg1.msg_controllen)
+	{
+	  msg->msg_flags |= MSG_CTRUNC;
+	  goto out;
+	}
+      memcpy (p, q, q->cmsg_len);
+      len += CMSG_ALIGN (q->cmsg_len);
       p = CMSG_NXTHDR (&msg1, p);
-      len += (PBYTE) p - (PBYTE) p1;
     }
-  if (msg->msg_controllen < (int) len)
-    {
-      msg->msg_flags |= MSG_TRUNC;
-      msg->msg_controllen = 0;
-    }
-  else
-    {
-      memcpy (msg->msg_control, msg1.msg_control, len);
-      msg->msg_controllen = len;
-    }
+out:
+  memcpy (msg->msg_control, msg1.msg_control, len);
+  msg->msg_controllen = len;
   return true;
 }
 
@@ -2551,17 +2541,15 @@ bool
 fhandler_socket_unix::create_cmsg_data (af_unix_pkt_hdr_t *packet,
 					const struct msghdr *msg)
 {
-  bool saw_scm_cred = false;
+  bool saw_scm_cred = false, saw_scm_rights = false;
   size_t len = 0;
   struct msghdr msgh;
   tmp_pathbuf tp;
 
-  /* Massage the specified control messages.  We need to serialize any
-     SCM_RIGHTS message and, if necessary, append an SCM_CREDENTIALS
-     message. */
+  /* Massage the specified control messages. */
 
   msgh.msg_control = tp.w_get ();
-  msgh.msg_controllen = 2 * NT_MAX_PATH;
+  msgh.msg_controllen = MAX_AF_PKT_LEN - packet->pckt_len;
   memset (msgh.msg_control, 0, msgh.msg_controllen);
 
   /* Copy from msg to msgh. */
@@ -2569,15 +2557,20 @@ fhandler_socket_unix::create_cmsg_data (af_unix_pkt_hdr_t *packet,
   for (struct cmsghdr *q = CMSG_FIRSTHDR (msg); q != NULL;
        q = CMSG_NXTHDR (msg, q))
     {
-      struct cmsghdr *p1;	/* Lags behind p. */
       struct ucred *cred = NULL;
       bool admin = false;
 
       switch (q->cmsg_type)
 	{
 	case SCM_CREDENTIALS:
+	  if (saw_scm_cred)
+	    {
+	      set_errno (EINVAL);
+	      return false;
+	    }
 	  saw_scm_cred = true;
-	  if (q->cmsg_len != CMSG_LEN (sizeof (struct ucred)))
+	  if (q->cmsg_len != CMSG_LEN (sizeof (struct ucred))
+	      || q->cmsg_level != SOL_SOCKET)
 	    {
 	      set_errno (EINVAL);
 	      return false;
@@ -2617,31 +2610,34 @@ fhandler_socket_unix::create_cmsg_data (af_unix_pkt_hdr_t *packet,
 	      set_errno (EPERM);
 	      return false;
 	    }
-	  memcpy (p, q, q->cmsg_len);
 	  break;
 	case SCM_RIGHTS:
-	  /* Serialize the fds.  For now, just send the list of fds. */
-	  memcpy (p, q, q->cmsg_len);
+	  if (saw_scm_rights)
+	    {
+	      set_errno (EINVAL);
+	      return false;
+	    }
+	  saw_scm_rights = true;
+	  /* FIXME: Serialize the fds. */
 	  break;
 	default:
 	  set_errno (EINVAL);
 	  return false;
 	}
-      p1 = p;
-      p = CMSG_NXTHDR (&msgh, p);
-      if (p)
-	len += (PBYTE) p - (PBYTE) p1;
-      if (!p || packet->pckt_len + len > MAX_AF_PKT_LEN)
+      if (!p || len + CMSG_ALIGN (q->cmsg_len) > (size_t) msgh.msg_controllen)
 	{
 	  set_errno (EMSGSIZE);
 	  return false;
 	}
+      memcpy (p, q, q->cmsg_len);
+      len += CMSG_ALIGN (q->cmsg_len);
+      p = CMSG_NXTHDR (&msgh, p);
     }
   if (!saw_scm_cred)
     {
       /* Append a credentials block. */
-      if (packet->pckt_len + len + CMSG_SPACE (sizeof (struct ucred))
-	  > MAX_AF_PKT_LEN)
+      if (!p || len + CMSG_SPACE (sizeof (struct ucred))
+	  > (size_t) msgh.msg_controllen)
 	{
 	  set_errno (EMSGSIZE);
 	  return false;
