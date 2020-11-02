@@ -18,4 +18,4 @@
 #include "unix_sockets.h"       /* Declares our unix*() socket functions */
 #include "af_unix_hdr.h"
 
-#define SOCK_PATH "scm_rights"
+#define SOCK_PATH "/tmp/scm_rights"

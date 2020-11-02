@@ -21,6 +21,6 @@
 #include "unix_sockets.h"       /* Declares our socket functions */
 #include "af_unix_hdr.h"
 
-#define SOCK_PATH "scm_multi"
+#define SOCK_PATH "/tmp/scm_multi"
 #define MAX_FDS 1024            /* Maximum number of file descriptors we'll
                                    attempt to exchange in ancillary data */
