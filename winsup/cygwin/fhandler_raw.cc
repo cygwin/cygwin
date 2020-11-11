@@ -79,7 +79,7 @@ fhandler_dev_raw::open (int flags, mode_t)
 }
 
 int
-fhandler_dev_raw::dup (fhandler_base *child, int flags)
+fhandler_dev_raw::dup (fhandler_base *child, int flags, DWORD)
 {
   int ret = fhandler_base::dup (child, flags);
 

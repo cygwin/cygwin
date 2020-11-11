@@ -164,7 +164,7 @@ fhandler_timerfd::get_timerfd_handle ()
 }
 
 int
-fhandler_timerfd::dup (fhandler_base *child, int flags)
+fhandler_timerfd::dup (fhandler_base *child, int flags, DWORD)
 {
   int ret = fhandler_base::dup (child, flags);
 

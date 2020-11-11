@@ -1071,7 +1071,7 @@ fhandler_console::scroll_buffer_screen (int x1, int y1, int x2, int y2,
 }
 
 int
-fhandler_console::dup (fhandler_base *child, int flags)
+fhandler_console::dup (fhandler_base *child, int flags, DWORD)
 {
   /* See comments in fhandler_pty_slave::dup */
   if (myself->ctty != -2)

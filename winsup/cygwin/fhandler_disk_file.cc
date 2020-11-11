@@ -1435,16 +1435,24 @@ fhandler_disk_file::fcntl (int cmd, intptr_t arg)
 }
 
 int
-fhandler_disk_file::dup (fhandler_base *child, int flags)
+fhandler_disk_file::dup (fhandler_base *child, int flags, DWORD src_pid)
 {
   fhandler_disk_file *fhc = (fhandler_disk_file *) child;
 
-  int ret = fhandler_base::dup (child, flags);
-  if (!ret && prw_handle
-      && !DuplicateHandle (GetCurrentProcess (), prw_handle,
-			   GetCurrentProcess (), &fhc->prw_handle,
-			   0, TRUE, DUPLICATE_SAME_ACCESS))
-    fhc->prw_handle = NULL;
+  int ret = fhandler_base::dup (child, flags, src_pid);
+  if (!ret && prw_handle)
+    {
+      HANDLE src_proc = GetCurrentProcess ();
+      if (src_pid)
+	if (!(src_proc = OpenProcess (PROCESS_DUP_HANDLE, false, src_pid)))
+	  debug_printf ("can't open target process %d, %E", src_pid);
+      if (!src_proc || !DuplicateHandle (src_proc, prw_handle,
+					 GetCurrentProcess (), &fhc->prw_handle,
+					 0, TRUE, DUPLICATE_SAME_ACCESS))
+	fhc->prw_handle = NULL;
+      if (src_proc && src_proc != GetCurrentProcess ())
+	CloseHandle (src_proc);
+    }
   return ret;
 }
 

@@ -186,7 +186,7 @@ fhandler_pipe::get_proc_fd_name (char *buf)
 }
 
 int
-fhandler_pipe::dup (fhandler_base *child, int flags)
+fhandler_pipe::dup (fhandler_base *child, int flags, DWORD)
 {
   fhandler_pipe *ftp = (fhandler_pipe *) child;
   ftp->set_popen_pid (0);

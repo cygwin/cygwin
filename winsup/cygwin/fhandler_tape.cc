@@ -1469,7 +1469,7 @@ fhandler_dev_tape::fstat (struct stat *buf)
 }
 
 int
-fhandler_dev_tape::dup (fhandler_base *child, int flags)
+fhandler_dev_tape::dup (fhandler_base *child, int flags, DWORD)
 {
   lock (-1);
   fhandler_dev_tape *fh = (fhandler_dev_tape *) child;

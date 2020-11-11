@@ -1081,7 +1081,7 @@ out:
 }
 
 int
-fhandler_pty_slave::dup (fhandler_base *child, int flags)
+fhandler_pty_slave::dup (fhandler_base *child, int flags, DWORD)
 {
   /* This code was added in Oct 2001 for some undisclosed reason.
      However, setting the controlling tty on a dup causes rxvt to
@@ -1098,7 +1098,7 @@ fhandler_pty_slave::dup (fhandler_base *child, int flags)
 }
 
 int
-fhandler_pty_master::dup (fhandler_base *child, int)
+fhandler_pty_master::dup (fhandler_base *child, int, DWORD)
 {
   report_tty_counts (child, "duped master", "");
   return 0;

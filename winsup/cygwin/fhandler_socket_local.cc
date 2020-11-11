@@ -626,7 +626,7 @@ fhandler_socket_local::af_local_set_secret (char *buf)
 }
 
 int
-fhandler_socket_local::dup (fhandler_base *child, int flags)
+fhandler_socket_local::dup (fhandler_base *child, int flags, DWORD)
 {
   if (get_flags () & O_PATH)
     /* We're viewing the socket as a disk file, but fhandler_base::dup

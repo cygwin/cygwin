@@ -1409,32 +1409,46 @@ fhandler_base::init (HANDLE f, DWORD a, mode_t bin)
   return 1;
 }
 
+/* SRC_PID, if not zero, is the Windows pid of the source process. */
 int
-fhandler_base::dup (fhandler_base *child, int)
+fhandler_base::dup (fhandler_base *child, int, DWORD src_pid)
 {
   debug_printf ("in fhandler_base dup");
 
+  int ret = -1;
   HANDLE nh;
+  HANDLE src_proc = GetCurrentProcess ();
+
+  if (src_pid && !(src_proc = OpenProcess (PROCESS_DUP_HANDLE, false, src_pid)))
+      {
+	debug_printf ("can't open source process %d, %E", src_pid);
+	__seterrno ();
+	goto out;
+      }
   if (!nohandle () && !archetype)
     {
-      if (!DuplicateHandle (GetCurrentProcess (), get_handle (),
+      if (!DuplicateHandle (src_proc, get_handle (),
 			    GetCurrentProcess (), &nh,
 			    0, TRUE, DUPLICATE_SAME_ACCESS))
 	{
 	  debug_printf ("dup(%s) failed, handle %p, %E",
 			get_name (), get_handle ());
 	  __seterrno ();
-	  return -1;
+	  goto out;
 	}
 
       VerifyHandle (nh);
       child->set_handle (nh);
     }
-  return 0;
+  ret = 0;
+out:
+  if (src_proc && src_proc != GetCurrentProcess ())
+    CloseHandle (src_proc);
+  return ret;
 }
 
 int
-fhandler_base_overlapped::dup (fhandler_base *child, int flags)
+fhandler_base_overlapped::dup (fhandler_base *child, int flags, DWORD)
 {
   int res = fhandler_base::dup (child, flags) ||
 	    ((fhandler_base_overlapped *) child)->setup_overlapped ();

@@ -150,7 +150,7 @@ fhandler_virtual::lseek (off_t offset, int whence)
 }
 
 int
-fhandler_virtual::dup (fhandler_base * child, int flags)
+fhandler_virtual::dup (fhandler_base * child, int flags, DWORD)
 {
   int ret = fhandler_base::dup (child, flags);
 

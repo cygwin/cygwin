@@ -544,7 +544,7 @@ fhandler_socket_wsock::fixup_after_exec ()
 }
 
 int
-fhandler_socket_wsock::dup (fhandler_base *child, int flags)
+fhandler_socket_wsock::dup (fhandler_base *child, int flags, DWORD)
 {
   debug_printf ("here");
   fhandler_socket_wsock *fhs = (fhandler_socket_wsock *) child;

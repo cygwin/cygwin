@@ -1282,7 +1282,7 @@ fhandler_socket_unix::~fhandler_socket_unix ()
 }
 
 int
-fhandler_socket_unix::dup (fhandler_base *child, int flags)
+fhandler_socket_unix::dup (fhandler_base *child, int flags, DWORD)
 {
   if (fhandler_socket::dup (child, flags))
     {

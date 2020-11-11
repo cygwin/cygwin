@@ -1699,7 +1699,7 @@ fhandler_fifo::fcntl (int cmd, intptr_t arg)
 }
 
 int
-fhandler_fifo::dup (fhandler_base *child, int flags)
+fhandler_fifo::dup (fhandler_base *child, int flags, DWORD)
 {
   fhandler_fifo *fhf = NULL;
 

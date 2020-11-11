@@ -372,7 +372,7 @@ fhandler_dev_floppy::close ()
 }
 
 int
-fhandler_dev_floppy::dup (fhandler_base *child, int flags)
+fhandler_dev_floppy::dup (fhandler_base *child, int flags, DWORD)
 {
   int ret = fhandler_dev_raw::dup (child, flags);
 

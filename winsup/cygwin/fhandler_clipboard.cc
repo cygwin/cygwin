@@ -48,7 +48,7 @@ fhandler_dev_clipboard::fhandler_dev_clipboard ()
  */
 
 int
-fhandler_dev_clipboard::dup (fhandler_base * child, int flags)
+fhandler_dev_clipboard::dup (fhandler_base * child, int flags, DWORD)
 {
   fhandler_dev_clipboard *fhc = (fhandler_dev_clipboard *) child;
   fhc->pos = fhc->msize = 0;

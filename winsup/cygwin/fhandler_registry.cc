@@ -1100,7 +1100,7 @@ open_key (const char *name, REGSAM access, DWORD wow64, bool isValue)
 }
 
 int
-fhandler_registry::dup (fhandler_base *child, int flags)
+fhandler_registry::dup (fhandler_base *child, int flags, DWORD)
 {
   debug_printf ("here");
   fhandler_registry *fhs = (fhandler_registry *) child;
