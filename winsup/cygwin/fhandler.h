@@ -491,6 +491,8 @@ public:
   int __reg3 fhaccess (int flags, bool);
   virtual bool __reg1 has_ongoing_io ()  {return false;}
 
+  virtual size_t get_size () const { return sizeof *this; }
+
   fhandler_base (void *) {}
 
   virtual void copyto (fhandler_base *x)
@@ -751,6 +753,8 @@ class fhandler_socket_inet: public fhandler_socket_wsock
   int getsockopt (int level, int optname, const void *optval,
 		  __socklen_t *optlen);
 
+  size_t get_size () const { return sizeof *this; }
+
   /* from here on: CLONING */
   fhandler_socket_inet (void *) {}
 
@@ -848,6 +852,8 @@ class fhandler_socket_local: public fhandler_socket_wsock
   int __reg2 fchown (uid_t newuid, gid_t newgid);
   int __reg3 facl (int, int, struct acl *);
   int __reg2 link (const char *);
+
+  size_t get_size () const { return sizeof *this; }
 
   /* from here on: CLONING */
   fhandler_socket_local (void *) {}
@@ -1178,6 +1184,8 @@ class fhandler_socket_unix : public fhandler_socket
   select_record *select_write (select_stuff *);
   select_record *select_except (select_stuff *);
 
+  size_t get_size () const { return sizeof *this; }
+
   /* from here on: CLONING */
   fhandler_socket_unix (void *) {}
 
@@ -1241,6 +1249,8 @@ public:
   void check_later ();
   static void __reg1 flush_all_async_io ();;
 
+  size_t get_size () const { return sizeof *this; }
+
   fhandler_base_overlapped (void *) {}
   ~fhandler_base_overlapped ()
   {
@@ -1295,6 +1305,9 @@ public:
   static int create (fhandler_pipe *[2], unsigned, int);
   static DWORD create (LPSECURITY_ATTRIBUTES, HANDLE *, HANDLE *, DWORD,
 		       const char *, DWORD, int64_t *unique_id = NULL);
+
+  size_t get_size () const { return sizeof *this; }
+
   fhandler_pipe (void *) {}
 
   void copyto (fhandler_base *x)
@@ -1548,6 +1561,8 @@ public:
   select_record *select_write (select_stuff *);
   select_record *select_except (select_stuff *);
 
+  size_t get_size () const { return sizeof *this; }
+
   fhandler_fifo (void *) {}
 
   void copyto (fhandler_base *x)
@@ -1599,6 +1614,8 @@ class fhandler_dev_raw: public fhandler_base
 
   void fixup_after_fork (HANDLE);
   void fixup_after_exec ();
+
+  size_t get_size () const { return sizeof *this; }
 
   fhandler_dev_raw (void *) {}
 
@@ -1659,6 +1676,8 @@ class fhandler_dev_floppy: public fhandler_dev_raw
   off_t lseek (off_t offset, int whence);
   int ioctl (unsigned int cmd, void *buf);
 
+  size_t get_size () const { return sizeof *this; }
+
   fhandler_dev_floppy (void *) {}
 
   void copyto (fhandler_base *x)
@@ -1706,6 +1725,8 @@ class fhandler_dev_tape: public fhandler_dev_raw
   virtual void fixup_after_fork (HANDLE parent);
   virtual void set_close_on_exec (bool val);
   virtual int ioctl (unsigned int cmd, void *buf);
+
+  size_t get_size () const { return sizeof *this; }
 
   fhandler_dev_tape (void *) {}
 
@@ -1779,6 +1800,8 @@ class fhandler_disk_file: public fhandler_base
   ssize_t __reg3 pread (void *, size_t, off_t, void *aio = NULL);
   ssize_t __reg3 pwrite (void *, size_t, off_t, void *aio = NULL);
 
+  size_t get_size () const { return sizeof *this; }
+
   fhandler_disk_file (void *) {}
   dev_t get_dev () { return pc.fs_serial_number (); }
 
@@ -1813,6 +1836,8 @@ public:
   int __reg3 readdir (DIR *, dirent *);
   void rewinddir (DIR *);
 
+  size_t get_size () const { return sizeof *this; }
+
   fhandler_dev (void *) {}
   dev_t get_dev () { return dir_exists ? pc.fs_serial_number ()
 				       : get_device (); }
@@ -1844,6 +1869,8 @@ class fhandler_cygdrive: public fhandler_disk_file
   int closedir (DIR *);
   int __reg2 fstat (struct stat *buf);
   int __reg2 fstatvfs (struct statvfs *buf);
+
+  size_t get_size () const { return sizeof *this; }
 
   fhandler_cygdrive (void *) {}
   dev_t get_dev () { return get_device (); }
@@ -1904,6 +1931,8 @@ class fhandler_serial: public fhandler_base
   select_record *select_read (select_stuff *);
   select_record *select_write (select_stuff *);
   select_record *select_except (select_stuff *);
+
+  size_t get_size () const { return sizeof *this; }
 
   fhandler_serial (void *) {}
 
@@ -1972,6 +2001,8 @@ class fhandler_termios: public fhandler_base
   void echo_erase (int force = 0);
   virtual off_t lseek (off_t, int);
   pid_t tcgetsid ();
+
+  size_t get_size () const { return sizeof *this; }
 
   fhandler_termios (void *) {}
 
@@ -2227,6 +2258,8 @@ private:
   static void free_console ();
   static const char *get_nonascii_key (INPUT_RECORD& input_rec, char *);
 
+  size_t get_size () const { return sizeof *this; }
+
   fhandler_console (void *) {}
 
   void copyto (fhandler_base *x)
@@ -2287,6 +2320,8 @@ class fhandler_pty_common: public fhandler_termios
   select_record *select_read (select_stuff *);
   select_record *select_write (select_stuff *);
   select_record *select_except (select_stuff *);
+
+  size_t get_size () const { return sizeof *this; }
 
   fhandler_pty_common (void *) {}
 
@@ -2355,6 +2390,8 @@ class fhandler_pty_slave: public fhandler_pty_common
   int __reg3 facl (int, int, struct acl *);
   int __reg1 fchmod (mode_t mode);
   int __reg2 fchown (uid_t uid, gid_t gid);
+
+  size_t get_size () const { return sizeof *this; }
 
   fhandler_pty_slave (void *) {}
 
@@ -2425,6 +2462,8 @@ public:
   int tcgetpgrp ();
   void flush_to_slave ();
 
+  size_t get_size () const { return sizeof *this; }
+
   fhandler_pty_master (void *) {}
 
   void copyto (fhandler_base *x)
@@ -2452,6 +2491,8 @@ class fhandler_dev_null: public fhandler_base
   select_record *select_read (select_stuff *);
   select_record *select_write (select_stuff *);
   select_record *select_except (select_stuff *);
+
+  size_t get_size () const { return sizeof *this; }
 
   fhandler_dev_null (void *) {}
 
@@ -2489,6 +2530,8 @@ class fhandler_dev_zero: public fhandler_base
 				      off_t offset, SIZE_T size,
 				      void *address);
 
+  size_t get_size () const { return sizeof *this; }
+
   fhandler_dev_zero (void *) {}
 
   void copyto (fhandler_base *x)
@@ -2519,6 +2562,8 @@ class fhandler_dev_random: public fhandler_base
   ssize_t __stdcall write (const void *ptr, size_t len);
   void __reg3 read (void *ptr, size_t& len);
   off_t lseek (off_t, int) { return 0; }
+
+  size_t get_size () const { return sizeof *this; }
 
   fhandler_dev_random () : fhandler_base () {}
   fhandler_dev_random (void *) {}
@@ -2559,6 +2604,8 @@ class fhandler_dev_clipboard: public fhandler_base
   int dup (fhandler_base *child, int);
   void fixup_after_exec ();
 
+  size_t get_size () const { return sizeof *this; }
+
   fhandler_dev_clipboard (void *) {}
 
   void copyto (fhandler_base *x)
@@ -2596,6 +2643,8 @@ class fhandler_windows: public fhandler_base
   select_record *select_read (select_stuff *);
   select_record *select_write (select_stuff *);
   select_record *select_except (select_stuff *);
+
+  size_t get_size () const { return sizeof *this; }
 
   fhandler_windows (void *) {}
 
@@ -2651,6 +2700,8 @@ class fhandler_dev_dsp: public fhandler_base
   void __reg2 close_audio_out (bool = false);
   bool use_archetype () const {return true;}
 
+  size_t get_size () const { return sizeof *this; }
+
   fhandler_dev_dsp (void *) {}
 
   void copyto (fhandler_base *x)
@@ -2702,6 +2753,8 @@ class fhandler_virtual : public fhandler_base
   char *get_filebuf () { return filebuf; }
   void fixup_after_exec ();
 
+  size_t get_size () const { return sizeof *this; }
+
   fhandler_virtual (void *) {}
 
   virtual void copyto (fhandler_base *x)
@@ -2733,6 +2786,8 @@ class fhandler_proc: public fhandler_virtual
   int open (int flags, mode_t mode = 0);
   int __reg2 fstat (struct stat *buf);
   bool fill_filebuf ();
+
+  size_t get_size () const { return sizeof *this; }
 
   fhandler_proc (void *) {}
 
@@ -2770,6 +2825,8 @@ class fhandler_procsys: public fhandler_virtual
   int __reg2 fstat (struct stat *buf);
   bool fill_filebuf ();
 
+  size_t get_size () const { return sizeof *this; }
+
   fhandler_procsys (void *) {}
 
   void copyto (fhandler_base *x)
@@ -2798,6 +2855,8 @@ class fhandler_procsysvipc: public fhandler_proc
   int open (int flags, mode_t mode = 0);
   int __reg2 fstat (struct stat *buf);
   bool fill_filebuf ();
+
+  size_t get_size () const { return sizeof *this; }
 
   fhandler_procsysvipc (void *) {}
 
@@ -2829,6 +2888,8 @@ class fhandler_netdrive: public fhandler_virtual
   int open (int flags, mode_t mode = 0);
   int close ();
   int __reg2 fstat (struct stat *buf);
+
+  size_t get_size () const { return sizeof *this; }
 
   fhandler_netdrive (void *) {}
 
@@ -2871,6 +2932,8 @@ class fhandler_registry: public fhandler_proc
   int close ();
   int dup (fhandler_base *child, int);
 
+  size_t get_size () const { return sizeof *this; }
+
   fhandler_registry (void *) {}
 
   void copyto (fhandler_base *x)
@@ -2905,6 +2968,8 @@ class fhandler_process: public fhandler_proc
   int __reg2 fstat (struct stat *buf);
   bool fill_filebuf ();
 
+  size_t get_size () const { return sizeof *this; }
+
   fhandler_process (void *) {}
 
   void copyto (fhandler_base *x)
@@ -2935,6 +3000,8 @@ class fhandler_process_fd : public fhandler_process
   int __reg2 fstat (struct stat *buf);
   virtual int __reg2 link (const char *);
 
+  size_t get_size () const { return sizeof *this; }
+
   void copyto (fhandler_base *x)
   {
     x->pc.free_strings ();
@@ -2962,6 +3029,8 @@ class fhandler_procnet: public fhandler_proc
   int open (int flags, mode_t mode = 0);
   int __reg2 fstat (struct stat *buf);
   bool fill_filebuf ();
+
+  size_t get_size () const { return sizeof *this; }
 
   void copyto (fhandler_base *x)
   {
@@ -3002,6 +3071,8 @@ class fhandler_signalfd : public fhandler_base
   select_record *select_read (select_stuff *);
   select_record *select_write (select_stuff *);
   select_record *select_except (select_stuff *);
+
+  size_t get_size () const { return sizeof *this; }
 
   void copyto (fhandler_base *x)
   {
@@ -3052,6 +3123,8 @@ class fhandler_timerfd : public fhandler_base
   select_record *select_read (select_stuff *);
   select_record *select_write (select_stuff *);
   select_record *select_except (select_stuff *);
+
+  size_t get_size () const { return sizeof *this; }
 
   void copyto (fhandler_base *x)
   {
