@@ -151,19 +151,19 @@ main(int argc, char *argv[])
     /* Having obtained the file descriptor, read the file's contents and
        print them on standard output */
 
-    /* for (;;) { */
-    /*     char buf[BUF_SIZE]; */
-    /*     ssize_t numRead; */
+    for (;;) {
+        char buf[BUF_SIZE];
+        ssize_t numRead;
 
-    /*     numRead = read(fd, buf, BUF_SIZE); */
-    /*     if (numRead == -1) */
-    /*         errExit("read"); */
+        numRead = read(fd, buf, BUF_SIZE);
+        if (numRead == -1)
+            errExit("read");
 
-    /*     if (numRead == 0) */
-    /*         break; */
+        if (numRead == 0)
+            break;
 
-    /*     write(STDOUT_FILENO, buf, numRead); */
-    /* } */
+        write(STDOUT_FILENO, buf, numRead);
+    }
 
     exit(EXIT_SUCCESS);
 }

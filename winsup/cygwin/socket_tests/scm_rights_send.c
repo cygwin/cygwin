@@ -134,5 +134,9 @@ main(int argc, char *argv[])
 
     fprintf(stderr, "sendmsg() returned %ld\n", (long) ns);
 
+    /* Give receiving process time to duplicate handles.  Allow much
+       more time than needed in case we're running under gdb. */
+    sleep (60);
+
     exit(EXIT_SUCCESS);
 }
