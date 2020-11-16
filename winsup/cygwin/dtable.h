@@ -78,6 +78,8 @@ public:
   void fixup_before_fork (DWORD win_proc_id);
   void lock () {lock_process::locker.acquire ();}
   void unlock () {lock_process::locker.release ();}
+
+  static bool handle_to_fn (HANDLE, char *);
 };
 
 fhandler_base *build_fh_dev (const device&, const char * = NULL);

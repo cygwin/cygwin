@@ -237,6 +237,7 @@ class fhandler_base
     pc.set_posix (s);
     pc.set_path (s);
   }
+  virtual void set_name_from_handle ();
   int error () const {return pc.error;}
   void set_error (int error) {pc.error = error;}
   bool exists () const {return pc.exists ();}

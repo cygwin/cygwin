@@ -29,6 +29,7 @@ details. */
 #include "shared_info.h"
 #include <asm/socket.h>
 #include "cygwait.h"
+#include "tls_pbuf.h"
 
 #define MAX_OVERLAPPED_WRITE_LEN (64 * 1024 * 1024)
 #define MIN_OVERLAPPED_WRITE_LEN (1 * 1024 * 1024)
@@ -133,6 +134,18 @@ void
 fhandler_base::set_name (path_conv &in_pc)
 {
   pc << in_pc;
+}
+
+/* Preliminary version. */
+void
+fhandler_base::set_name_from_handle ()
+{
+  tmp_pathbuf tp;
+  char *name = tp.c_get ();
+
+  name[0] = '\0';
+  dtable::handle_to_fn (get_handle (), name);
+  set_name (cstrdup (name));
 }
 
 char *fhandler_base::get_proc_fd_name (char *buf)

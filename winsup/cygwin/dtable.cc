@@ -31,8 +31,6 @@ details. */
 static const DWORD std_consts[] = {STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
 				   STD_ERROR_HANDLE};
 
-static bool handle_to_fn (HANDLE, char *);
-
 #define WCLEN(x) ((sizeof (x) / sizeof (WCHAR)) - 1)
 static const char unknown_file[] = "some disk file";
 static const WCHAR DEV_NULL[] = L"\\Device\\Null";
@@ -937,8 +935,8 @@ decode_tty (char *buf, WCHAR *w32)
 
 /* Try to derive posix filename from given handle.  Return true if
    the handle is associated with a cygwin tty. */
-static bool
-handle_to_fn (HANDLE h, char *posix_fn)
+bool
+dtable::handle_to_fn (HANDLE h, char *posix_fn)
 {
   tmp_pathbuf tp;
   ULONG len = 0;
