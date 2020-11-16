@@ -1937,6 +1937,114 @@ fhandler_socket_unix::getpeereid (pid_t *pid, uid_t *euid, gid_t *egid)
   return ret;
 }
 
+/* Serialized fhandler for SCM_RIGHTS ancillary data. */
+struct fh_ser
+{
+  fhandler_union fhu;
+  DWORD winpid;			/* Windows pid of sender. */
+};
+
+/* FIXME: For testing purposes I'm allowing a memory leak.  save_fh is
+   a reminder.  It needs to be alive until the receiver runs
+   deserialize and notifies us that it can be closed. */
+static fhandler_base *save_fh;
+
+/* Return a pointer to an allocated buffer containing an fh_ser.  The
+   caller has to free it. */
+static fh_ser *
+serialize (int fd)
+{
+  fh_ser *fhs = NULL;;
+  fhandler_base *oldfh, *newfh = NULL;
+  cygheap_fdget cfd (fd);
+
+  if (cfd < 0)
+    {
+      set_errno (EBADF);
+      goto out;
+    }
+  oldfh = cfd;
+  /* For the moment we support disk files only. */
+  if (oldfh->get_device () != FH_FS)
+    {
+      set_errno (EOPNOTSUPP);
+      goto out;
+    }
+  newfh = oldfh->clone ();
+  /* newfh needs handles that remain valid if oldfh is closed. */
+  /* FIXME: When we move away from disk files, we might need to pay
+     attention to archetype, usecount, refcnt,....  See
+     dtable::dup_worker. */
+  if (oldfh->dup (newfh, 0) < 0)
+    {
+      delete newfh;
+      goto out;
+    }
+  /* Free allocated memory in clone. */
+  newfh->pc.free_strings ();
+  newfh->dev ().free_strings ();
+  fhs = (fh_ser *) cmalloc_abort (HEAP_FHANDLER, sizeof (fh_ser));
+  memcpy ((void *) &fhs->fhu, newfh, newfh->get_size ());
+  fhs->winpid = GetCurrentProcessId ();
+  save_fh = newfh;
+out:
+  return fhs;
+}
+
+/* Return new fd, or -1 on error. */
+static int
+deserialize (fh_ser *fhs)
+{
+  fhandler_base *oldfh, *newfh;
+  DWORD winpid = fhs->winpid;
+
+  /* What kind of fhandler is this? */
+  dev_t dev = ((fhandler_base *) &fhs->fhu)->get_device ();
+
+  /* FIXME: Based on dev, we want to cast fhs to the right kind of
+     fhandler pointer.  I guess this requires a big switch statement,
+     as in dtable.cc:fh_alloc.
+
+     For now, we just support disk files. */
+
+  if (dev != FH_FS)
+    {
+      set_errno (EOPNOTSUPP);
+      return -1;
+    }
+  oldfh = (fhandler_disk_file *) &fhs->fhu;
+  cygheap_fdnew cfd;
+  if (cfd < 0)
+    return -1;
+  newfh = oldfh->clone ();
+  if (oldfh->dup (newfh, 0, winpid) == 0)
+    /* FIXME: Notify sender that it can close its temporary copy in save_fh. */
+    ;
+  else
+    {
+      debug_printf ("can't duplicate handles");
+      delete newfh;
+      return -1;
+    }
+  newfh->pc.close_conv_handle ();
+  if (oldfh->pc.handle ())
+    {
+      HANDLE nh;
+      HANDLE proc = OpenProcess (PROCESS_DUP_HANDLE, false, winpid);
+      if (!proc)
+	debug_printf ("can't open process %d", winpid);
+      else if (!DuplicateHandle (proc, oldfh->pc.handle (),
+				 GetCurrentProcess (), &nh, 0,
+				 TRUE, DUPLICATE_SAME_ACCESS))
+	debug_printf ("can't duplicate path_conv handle");
+      else
+	newfh->pc.set_conv_handle (nh);
+    }
+  newfh->set_name_from_handle ();
+  cfd = newfh;
+  return cfd;
+}
+
 /* FIXME: Check all errnos below. */
 bool
 fhandler_socket_unix::evaluate_cmsg_data (af_unix_pkt_hdr_t *packet,
@@ -1958,13 +2066,21 @@ fhandler_socket_unix::evaluate_cmsg_data (af_unix_pkt_hdr_t *packet,
   for (struct cmsghdr *q = CMSG_FIRSTHDR (&msg2); q != NULL;
        q = CMSG_NXTHDR (&msg2, q))
     {
+      int fd;
+      PBYTE cp = CMSG_DATA (q);
+
       switch (q->cmsg_type)
 	{
 	case SCM_CREDENTIALS:
 	  if (!so_passcred ())
 	    continue;
+	  break;
 	case SCM_RIGHTS:
-	  /* FIXME: Deserialize and change fds. */
+	  /* Add dummy deserialize call so compiler won't complain
+	     about unused function. */
+	  fd = deserialize ((fh_ser *) cp);
+	  if (fd < 0)
+	    return false;
 	  break;
 	default:
 	  set_errno (EINVAL);
@@ -2559,6 +2675,9 @@ fhandler_socket_unix::create_cmsg_data (af_unix_pkt_hdr_t *packet,
     {
       struct ucred *cred = NULL;
       bool admin = false;
+      int fd_cnt;
+      int *fd_list;
+      fh_ser *fhs;
 
       switch (q->cmsg_type)
 	{
@@ -2618,7 +2737,14 @@ fhandler_socket_unix::create_cmsg_data (af_unix_pkt_hdr_t *packet,
 	      return false;
 	    }
 	  saw_scm_rights = true;
-	  /* FIXME: Serialize the fds. */
+	  /* Add dummy serialize call so compiler won't complain
+	     about unused function. */
+	  fd_cnt = (q->cmsg_len - CMSG_LEN (0)) / sizeof (int);
+	  fd_list = (int *) CMSG_DATA (q);
+	  if (fd_cnt)
+	    fhs = serialize (*fd_list++);
+	  if (fhs == NULL)
+	    return false;
 	  break;
 	default:
 	  set_errno (EINVAL);

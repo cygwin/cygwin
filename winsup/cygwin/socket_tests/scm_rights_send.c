@@ -136,7 +136,7 @@ main(int argc, char *argv[])
 
     /* Give receiving process time to duplicate handles.  Allow much
        more time than needed in case we're running under gdb. */
-    sleep (60);
+    sleep (300);
 
     exit(EXIT_SUCCESS);
 }
