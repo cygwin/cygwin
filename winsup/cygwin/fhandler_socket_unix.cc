@@ -2067,33 +2067,60 @@ fhandler_socket_unix::evaluate_cmsg_data (af_unix_pkt_hdr_t *packet,
        q = CMSG_NXTHDR (&msg2, q))
     {
       int fd;
-      PBYTE cp = CMSG_DATA (q);
+      size_t scm_rights_len = 0, qlen = 0;
+      int *fd_list;
+      PBYTE cp;
 
       switch (q->cmsg_type)
 	{
 	case SCM_CREDENTIALS:
 	  if (!so_passcred ())
 	    continue;
+	  if (!p
+	      || len + CMSG_ALIGN (q->cmsg_len) > (size_t) msg1.msg_controllen)
+	    {
+	      msg->msg_flags |= MSG_CTRUNC;
+	      goto out;
+	    }
+	  memcpy (p, q, q->cmsg_len);
+	  len += CMSG_ALIGN (q->cmsg_len);
+	  p = CMSG_NXTHDR (&msg1, p);
 	  break;
 	case SCM_RIGHTS:
-	  /* Add dummy deserialize call so compiler won't complain
-	     about unused function. */
-	  fd = deserialize ((fh_ser *) cp);
-	  if (fd < 0)
-	    return false;
+	  if (!p)
+	    {
+	      msg->msg_flags |= MSG_CTRUNC;
+	      goto out;
+	    }
+	  p->cmsg_level = SOL_SOCKET;
+	  p->cmsg_type = SCM_RIGHTS;
+	  fd_list = (int *) CMSG_DATA (p);
+	  cp = CMSG_DATA (q);
+	  qlen = q->cmsg_len - CMSG_LEN (0);
+	  while (qlen > 0)
+	    {
+	      fd = deserialize ((fh_ser *) cp);
+	      if (fd < 0 || len + CMSG_SPACE (scm_rights_len + sizeof (int))
+		  > (size_t) msg1.msg_controllen)
+		{
+		  p->cmsg_len = CMSG_LEN (scm_rights_len);
+		  len += CMSG_SPACE (scm_rights_len);
+		  msg->msg_flags |= MSG_CTRUNC;
+		  goto out;
+		}
+	      *fd_list++ = fd;
+	      scm_rights_len += sizeof (int);
+	      cp += sizeof (fh_ser);
+	      qlen -= sizeof (fh_ser);
+	    }
+	  p->cmsg_len = CMSG_LEN (scm_rights_len);
+	  len += CMSG_SPACE (scm_rights_len);
+	  p = CMSG_NXTHDR (&msg1, p);
 	  break;
 	default:
 	  set_errno (EINVAL);
 	  return false;
 	}
-      if (!p || len + CMSG_ALIGN (q->cmsg_len) > (size_t) msg1.msg_controllen)
-	{
-	  msg->msg_flags |= MSG_CTRUNC;
-	  goto out;
-	}
-      memcpy (p, q, q->cmsg_len);
-      len += CMSG_ALIGN (q->cmsg_len);
-      p = CMSG_NXTHDR (&msg1, p);
     }
 out:
   memcpy (msg->msg_control, msg1.msg_control, len);
@@ -2677,8 +2704,14 @@ fhandler_socket_unix::create_cmsg_data (af_unix_pkt_hdr_t *packet,
       bool admin = false;
       int fd_cnt;
       int *fd_list;
-      fh_ser *fhs;
+      PBYTE cp;
+      size_t scm_rights_len;
 
+      if (!p)
+	{
+	  set_errno (EMSGSIZE);
+	  return false;
+	}
       switch (q->cmsg_type)
 	{
 	case SCM_CREDENTIALS:
@@ -2729,6 +2762,14 @@ fhandler_socket_unix::create_cmsg_data (af_unix_pkt_hdr_t *packet,
 	      set_errno (EPERM);
 	      return false;
 	    }
+	  if (len + CMSG_ALIGN (q->cmsg_len) > (size_t) msgh.msg_controllen)
+	    {
+	      set_errno (EMSGSIZE);
+	      return false;
+	    }
+	  memcpy (p, q, q->cmsg_len);
+	  len += CMSG_ALIGN (q->cmsg_len);
+	  p = CMSG_NXTHDR (&msgh, p);
 	  break;
 	case SCM_RIGHTS:
 	  if (saw_scm_rights)
@@ -2737,27 +2778,41 @@ fhandler_socket_unix::create_cmsg_data (af_unix_pkt_hdr_t *packet,
 	      return false;
 	    }
 	  saw_scm_rights = true;
-	  /* Add dummy serialize call so compiler won't complain
-	     about unused function. */
 	  fd_cnt = (q->cmsg_len - CMSG_LEN (0)) / sizeof (int);
 	  fd_list = (int *) CMSG_DATA (q);
-	  if (fd_cnt)
-	    fhs = serialize (*fd_list++);
-	  if (fhs == NULL)
-	    return false;
+	  if (fd_cnt > SCM_MAX_FD)
+	    {
+	      set_errno (EINVAL);
+	      return false;
+	    }
+	  scm_rights_len = 0;
+	  cp = CMSG_DATA (p);
+	  while (fd_cnt-- > 0)
+	    {
+	      fh_ser *fhs = serialize (*fd_list++);
+	      if (fhs == NULL)
+		return false;
+	      scm_rights_len += sizeof (fh_ser);
+	      if (len + CMSG_ALIGN (scm_rights_len)
+		  > (size_t) msgh.msg_controllen)
+		{
+		  set_errno (EMSGSIZE);
+		  return false;
+		}
+	      memcpy (cp, fhs, sizeof (fh_ser));
+	      cp += sizeof (fh_ser);
+	      cfree (fhs);
+	    }
+	  p->cmsg_level = SOL_SOCKET;
+	  p->cmsg_type = SCM_RIGHTS;
+	  p->cmsg_len = CMSG_LEN (scm_rights_len);
+	  len += CMSG_SPACE (scm_rights_len);
+	  p = CMSG_NXTHDR (&msgh, p);
 	  break;
 	default:
 	  set_errno (EINVAL);
 	  return false;
 	}
-      if (!p || len + CMSG_ALIGN (q->cmsg_len) > (size_t) msgh.msg_controllen)
-	{
-	  set_errno (EMSGSIZE);
-	  return false;
-	}
-      memcpy (p, q, q->cmsg_len);
-      len += CMSG_ALIGN (q->cmsg_len);
-      p = CMSG_NXTHDR (&msgh, p);
     }
   if (!saw_scm_cred)
     {

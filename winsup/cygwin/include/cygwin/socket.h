@@ -105,6 +105,10 @@ struct cmsghdr
 #define	SCM_RIGHTS	0x01		/* descriptor passing (array of int) */
 #define	SCM_CREDENTIALS	0x02		/* credential passing (struct ucred) */
 
+#ifdef __WITH_AF_UNIX
+#define SCM_MAX_FD      20
+#endif
+
 #ifdef __INSIDE_CYGWIN__
 /* Definition of struct msghdr up to release 1.5.18 */
 struct OLD_msghdr
