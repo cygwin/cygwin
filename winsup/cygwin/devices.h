@@ -302,13 +302,20 @@ public:
     memset (this, 0, sizeof *this);
     parsedisk (drive, part);
   }
-  ~device ()
+  void free_strings ()
   {
     if (name_allocated)
-      cfree ((void *) _name);
+      {
+	cfree ((void *) _name);
+	_name = NULL;
+      }
     if (native_allocated)
-      cfree ((void *) _native);
+      {
+	cfree ((void *) _native);
+	_native = NULL;
+      }
   }
+  ~device () { free_strings (); }
 
   const char *name () const { return _name; }
   const char *native () const { return _native; }
