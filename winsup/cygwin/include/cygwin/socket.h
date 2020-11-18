@@ -107,6 +107,9 @@ struct cmsghdr
 
 #ifdef __WITH_AF_UNIX
 #define SCM_MAX_FD      20
+#ifdef __INSIDE_CYGWIN__
+#define SCM_RIGHTS_ACK  0x10   /* descriptor acknowledgement; Cygwin specific */
+#endif
 #endif
 
 #ifdef __INSIDE_CYGWIN__

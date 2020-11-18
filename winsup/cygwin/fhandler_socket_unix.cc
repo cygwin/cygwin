@@ -84,6 +84,9 @@ GUID __cygwin_socket_guid = {
    A bound DGRAM socket sends its sun_path with each sendmsg/sendto.
 */
 
+/* FIXME: Add commentary explaining how we handle SCM_RIGHTS ancillary
+   data. */
+
 static inline ptrdiff_t
 AF_UNIX_PKT_OFFSETOF_NAME (af_unix_pkt_hdr_t *phdr)
 {
@@ -716,9 +719,18 @@ fhandler_socket_unix::process_admin_pkt (af_unix_pkt_hdr_t *packet)
       struct cmsghdr *cmsg = (struct cmsghdr *)
 	alloca (packet->cmsg_len);
       memcpy (cmsg, AF_UNIX_PKT_CMSG (packet), packet->cmsg_len);
-      if (cmsg->cmsg_level == SOL_SOCKET
-	  && cmsg->cmsg_type == SCM_CREDENTIALS)
-	peer_cred ((struct ucred *) CMSG_DATA(cmsg));
+      if (cmsg->cmsg_level == SOL_SOCKET)
+	switch (cmsg->cmsg_type)
+	  {
+	  case SCM_CREDENTIALS:
+	    peer_cred ((struct ucred *) CMSG_DATA(cmsg));
+	    break;
+	  case SCM_RIGHTS_ACK:
+	    recv_scm_fd_ack (*((int64_t *) CMSG_DATA (cmsg)));
+	    break;
+	  default:
+	    break;
+	  }
     }
   state_unlock ();
 }
@@ -1272,7 +1284,8 @@ fhandler_socket_unix::set_close_on_exec (bool val)
 fhandler_socket_unix::fhandler_socket_unix () :
   fhandler_socket (),
   shmem_handle (NULL), shmem (NULL), backing_file_handle (NULL),
-  connect_wait_thr (NULL), cwt_termination_evt (NULL), cwt_param (NULL)
+  connect_wait_thr (NULL), cwt_termination_evt (NULL), cwt_param (NULL),
+  my_npending_fd (0)
 {
   need_fork_fixup (true);
 }
@@ -1890,6 +1903,17 @@ fhandler_socket_unix::close ()
   PVOID param = InterlockedExchangePointer (&cwt_param, NULL);
   if (param)
     cfree (param);
+  /* Try to clear pending fds.  Give up if we can't make progress. */
+  while (my_npending_fd > 0)
+    if (!check_pending_fd (100))
+      break;
+  if (my_npending_fd > 0)
+    {
+      debug_printf ("can't cleanup pending fds; forcibly deleting");
+      scm_fd_lock ();
+      cleanup_pending_fd (true);
+      scm_fd_unlock ();
+    }
   HANDLE hdl = InterlockedExchangePointer (&get_handle (), NULL);
   if (hdl)
     NtClose (hdl);
@@ -1945,11 +1969,6 @@ struct fh_ser
   DWORD winpid;			/* Windows pid of sender. */
 };
 
-/* FIXME: For testing purposes I'm allowing a memory leak.  save_fh is
-   a reminder.  It needs to be alive until the receiver runs
-   deserialize and notifies us that it can be closed. */
-static fhandler_base *save_fh;
-
 /* Return a pointer to an allocated buffer containing an fh_ser.  The
    caller has to free it. */
 void *
@@ -1990,8 +2009,14 @@ fhandler_socket_unix::serialize (int fd)
   fhs->winpid = GetCurrentProcessId ();
   NtAllocateLocallyUniqueId ((PLUID) &id);
   fhs->uniq_id = id;
-  /* FIXME: Save pending ack. */
-  save_fh = newfh;
+  scm_pending_fd pfd;
+  pfd.fh = newfh;
+  pfd.id = id;
+  pfd.pid = myself->pid;
+  pfd.ack_recvd = false;
+  scm_fd_lock ();
+  add_pending_fd (pfd);
+  scm_fd_unlock ();
 out:
   return (void *) fhs;
 }
@@ -2024,7 +2049,8 @@ fhandler_socket_unix::deserialize (void *bufp)
     return -1;
   newfh = oldfh->clone ();
   int ret = oldfh->dup (newfh, 0, winpid);
-  /* FIXME: Send ack to sender that it can close fhs->uniq_id. */
+  if (!send_scm_fd_ack (fhs->uniq_id))
+    debug_printf ("can't send ack");
   if (ret < 0)
     {
       debug_printf ("can't duplicate handles");
@@ -2048,6 +2074,81 @@ fhandler_socket_unix::deserialize (void *bufp)
   newfh->set_name_from_handle ();
   cfd = newfh;
   return cfd;
+}
+
+/* FIXME: This only works if we have a pipe handle. */
+bool
+fhandler_socket_unix::send_scm_fd_ack (int64_t id)
+{
+  if (!get_handle ())
+    {
+      debug_printf ("can't send ack; no handle");
+      return false;
+    }
+  size_t clen, plen;
+  af_unix_pkt_hdr_t *packet;
+  NTSTATUS status;
+  IO_STATUS_BLOCK io;
+
+  clen = CMSG_SPACE (sizeof (int64_t));
+  plen = sizeof *packet + clen;
+  packet = (af_unix_pkt_hdr_t *) alloca (plen);
+  packet->init (true, _SHUT_NONE, 0, clen, 0);
+  struct cmsghdr *cmsg = AF_UNIX_PKT_CMSG (packet);
+  cmsg->cmsg_level = SOL_SOCKET;
+  cmsg->cmsg_type = SCM_RIGHTS_ACK;
+  cmsg->cmsg_len = CMSG_LEN (sizeof (int64_t));
+  memcpy (CMSG_DATA(cmsg), &id, sizeof (int64_t));
+
+  /* The theory: Fire and forget. */
+  io_lock ();
+  set_pipe_non_blocking (true);
+  status = NtWriteFile (get_handle (), NULL, NULL, NULL, &io, packet,
+			packet->pckt_len, NULL, NULL);
+  set_pipe_non_blocking (is_nonblocking ());
+  io_unlock ();
+  if (!NT_SUCCESS (status))
+    {
+      debug_printf ("can't send ack: NtWriteFile: %y", status);
+      return false;
+    }
+  return true;
+}
+
+/* scm_fd_lock should be in place when this is called. */
+bool
+fhandler_socket_unix::add_pending_fd (scm_pending_fd pfd)
+{
+  if (my_npending_fd > 0)
+    cleanup_pending_fd ();
+  if (shmem->add_pending_fd (pfd))
+    {
+      ++my_npending_fd;
+      return true;
+    }
+  return false;
+}
+
+/* Return true if my_npending_fd is reduced. */
+bool
+fhandler_socket_unix::check_pending_fd (DWORD timeout)
+{
+  DWORD sleep_time = 0, tot_sleep_time = 0;
+  int save_npending = my_npending_fd;
+
+  while (tot_sleep_time <= timeout)
+    {
+      scm_fd_lock ();
+      cleanup_pending_fd ();
+      scm_fd_unlock ();
+      if (my_npending_fd < save_npending)
+	break;
+      cygwait (sleep_time >> 3);
+      tot_sleep_time += sleep_time >> 3;
+      if (sleep_time < 80)
+	++sleep_time;
+    }
+  return my_npending_fd < save_npending;
 }
 
 /* FIXME: Check all errnos below. */

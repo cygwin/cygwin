@@ -928,6 +928,25 @@ class sun_name_t
   void set (const struct sockaddr_un *name, __socklen_t namelen);
 };
 
+#define MAX_PENDING_FD  32
+
+struct scm_pending_fd
+{
+  fhandler_base *fh;
+  int64_t id;
+  pid_t pid;			/* pid of creator */
+  bool ack_recvd;
+
+  int close ()
+  {
+    /* FIXME: This may not be right for all types of fhandlers; all we
+       really want to do is close all handles. */
+    int ret = fh->close ();
+    delete fh;
+    return ret;
+  }
+};
+
 /* For each AF_UNIX socket, we need to maintain socket-wide data,
    regardless of the number of descriptors.  The shmem region gets created
    in socket, socketpair or accept4 and reopened by dup, fork or exec. */
@@ -941,6 +960,7 @@ class af_unix_shmem_t
   af_unix_spinlock_t _conn_lock;
   af_unix_spinlock_t _state_lock;
   af_unix_spinlock_t _io_lock;
+  af_unix_spinlock_t _scm_fd_lock;
   LONG _connection_state;	/* conn_state */
   LONG _binding_state;		/* bind_state */
   LONG _shutdown;		/* shut_state */
@@ -954,6 +974,10 @@ class af_unix_shmem_t
   struct ucred _sock_cred;	/* filled at listen time */
   struct ucred _peer_cred;	/* filled at connect time */
 
+  /* SCM_RIGHTS fds sent and waiting for ack. */
+  scm_pending_fd pending_fd[MAX_PENDING_FD];
+  int npending;
+
  public:
   void bind_lock () { _bind_lock.lock (); }
   void bind_unlock () { _bind_lock.unlock (); }
@@ -963,6 +987,8 @@ class af_unix_shmem_t
   void state_unlock () { _state_lock.unlock (); }
   void io_lock () { _io_lock.lock (); }
   void io_unlock () { _io_lock.unlock (); }
+  void scm_fd_lock () { _scm_fd_lock.lock (); }
+  void scm_fd_unlock () { _scm_fd_lock.unlock (); }
 
   conn_state connect_state (conn_state val)
     { return (conn_state) InterlockedExchange (&_connection_state, val); }
@@ -1004,6 +1030,57 @@ class af_unix_shmem_t
   struct ucred *sock_cred () { return &_sock_cred; }
   void peer_cred (struct ucred *uc) { _peer_cred = *uc; }
   struct ucred *peer_cred () { return &_peer_cred; }
+
+  bool add_pending_fd (scm_pending_fd pfd)
+  {
+    if (npending >= MAX_PENDING_FD)
+      return false;
+    pending_fd[npending++] = pfd;
+    return true;
+  }
+
+  void delete_pending_fd (int i)
+  {
+    pending_fd[i].close ();
+    if (i < --npending)
+      pending_fd[i] = pending_fd[npending];
+  }
+
+  /* Return true if a pending fd is deleted. */
+  bool recv_scm_fd_ack (int64_t id)
+  {
+    bool ret = false;
+    int i;
+    for (i = 0; i < npending; ++i)
+      if (pending_fd[i].id == id)
+	break;
+    if (i < npending)
+      {
+	if (pending_fd[i].pid == myself->pid)
+	  {
+	    delete_pending_fd (i);
+	    ret = true;
+	  }
+	else
+	  pending_fd[i].ack_recvd = true;
+      }
+    return ret;
+  }
+
+  /* Return number of pending fds deleted. */
+  int cleanup_pending_fd (pid_t pid, bool force = false)
+  {
+    int ret = 0;
+
+    /* Work from the top down to try to avoid copying. */
+    for (int i = npending - 1; i >= 0; --i)
+      if (pending_fd[i].pid == pid && (force || pending_fd[i].ack_recvd))
+	{
+	  delete_pending_fd (i);
+	  ++ret;
+	}
+    return ret;
+  }
 };
 
 /* See the commentary in fhandler_socket_unix.cc. */
@@ -1044,6 +1121,8 @@ class fhandler_socket_unix : public fhandler_socket
   HANDLE connect_wait_thr;
   HANDLE cwt_termination_evt;
   PVOID cwt_param;
+  int my_npending_fd;		/* Number of SCM_RIGHTS fds sent by me
+				   and waiting for ack. */
 
   void bind_lock () { shmem->bind_lock (); }
   void bind_unlock () { shmem->bind_unlock (); }
@@ -1053,6 +1132,8 @@ class fhandler_socket_unix : public fhandler_socket
   void state_unlock () { shmem->state_unlock (); }
   void io_lock () { shmem->io_lock (); }
   void io_unlock () { shmem->io_unlock (); }
+  void scm_fd_lock () { shmem->scm_fd_lock (); }
+  void scm_fd_unlock () { shmem->scm_fd_unlock (); }
   bind_state binding_state (bind_state val)
     { return shmem->binding_state (val); }
   bind_state binding_state () const { return shmem->binding_state (); }
@@ -1114,6 +1195,21 @@ class fhandler_socket_unix : public fhandler_socket
   void fixup_after_exec ();
   void set_close_on_exec (bool val);
   void fixup_helper ();
+
+  bool send_scm_fd_ack (int64_t id);
+  void recv_scm_fd_ack (int64_t id)
+  {
+    if (shmem->recv_scm_fd_ack (id))
+      --my_npending_fd;
+  }
+  bool add_pending_fd (scm_pending_fd pfd);
+  bool check_pending_fd (DWORD timeout = 0);
+  /* scm_fd_lock should be in place. */
+  void cleanup_pending_fd (bool force = false)
+  {
+    grab_admin_pkt ();
+    my_npending_fd -= shmem->cleanup_pending_fd (myself->pid, force);
+  }
 
  public:
   fhandler_socket_unix ();
