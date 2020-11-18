@@ -1941,6 +1941,7 @@ fhandler_socket_unix::getpeereid (pid_t *pid, uid_t *euid, gid_t *egid)
 struct fh_ser
 {
   fhandler_union fhu;
+  int64_t uniq_id;
   DWORD winpid;			/* Windows pid of sender. */
 };
 
@@ -1955,6 +1956,7 @@ void *
 fhandler_socket_unix::serialize (int fd)
 {
   fh_ser *fhs = NULL;
+  int64_t id;
   fhandler_base *oldfh, *newfh = NULL;
   cygheap_fdget cfd (fd);
 
@@ -1986,6 +1988,9 @@ fhandler_socket_unix::serialize (int fd)
   fhs = (fh_ser *) cmalloc_abort (HEAP_FHANDLER, sizeof (fh_ser));
   memcpy ((void *) &fhs->fhu, newfh, newfh->get_size ());
   fhs->winpid = GetCurrentProcessId ();
+  NtAllocateLocallyUniqueId ((PLUID) &id);
+  fhs->uniq_id = id;
+  /* FIXME: Save pending ack. */
   save_fh = newfh;
 out:
   return (void *) fhs;
@@ -2018,10 +2023,9 @@ fhandler_socket_unix::deserialize (void *bufp)
   if (cfd < 0)
     return -1;
   newfh = oldfh->clone ();
-  if (oldfh->dup (newfh, 0, winpid) == 0)
-    /* FIXME: Notify sender that it can close its temporary copy in save_fh. */
-    ;
-  else
+  int ret = oldfh->dup (newfh, 0, winpid);
+  /* FIXME: Send ack to sender that it can close fhs->uniq_id. */
+  if (ret < 0)
     {
       debug_printf ("can't duplicate handles");
       delete newfh;
