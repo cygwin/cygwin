@@ -1168,10 +1168,10 @@ fhandler_socket_unix::peek_pipe_poll (PFILE_PIPE_PEEK_BUFFER pbuf,
 				      HANDLE ph)
 {
   NTSTATUS status;
+  DWORD sleep_time = 0;
 
   while (1)
     {
-      DWORD sleep_time = 0;
       DWORD waitret;
 
       io_lock ();
