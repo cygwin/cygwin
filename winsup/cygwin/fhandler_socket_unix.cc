@@ -1951,10 +1951,10 @@ static fhandler_base *save_fh;
 
 /* Return a pointer to an allocated buffer containing an fh_ser.  The
    caller has to free it. */
-static fh_ser *
-serialize (int fd)
+void *
+fhandler_socket_unix::serialize (int fd)
 {
-  fh_ser *fhs = NULL;;
+  fh_ser *fhs = NULL;
   fhandler_base *oldfh, *newfh = NULL;
   cygheap_fdget cfd (fd);
 
@@ -1988,13 +1988,14 @@ serialize (int fd)
   fhs->winpid = GetCurrentProcessId ();
   save_fh = newfh;
 out:
-  return fhs;
+  return (void *) fhs;
 }
 
 /* Return new fd, or -1 on error. */
-static int
-deserialize (fh_ser *fhs)
+int
+fhandler_socket_unix::deserialize (void *bufp)
 {
+  fh_ser *fhs = (fh_ser *) bufp;
   fhandler_base *oldfh, *newfh;
   DWORD winpid = fhs->winpid;
 
@@ -2099,7 +2100,7 @@ fhandler_socket_unix::evaluate_cmsg_data (af_unix_pkt_hdr_t *packet,
 	  qlen = q->cmsg_len - CMSG_LEN (0);
 	  while (qlen > 0)
 	    {
-	      fd = deserialize ((fh_ser *) cp);
+	      fd = deserialize (cp);
 	      if (fd < 0 || len + CMSG_SPACE (scm_rights_len + sizeof (int))
 		  > (size_t) msg1.msg_controllen)
 		{
@@ -2789,7 +2790,7 @@ fhandler_socket_unix::create_cmsg_data (af_unix_pkt_hdr_t *packet,
 	  cp = CMSG_DATA (p);
 	  while (fd_cnt-- > 0)
 	    {
-	      fh_ser *fhs = serialize (*fd_list++);
+	      fh_ser *fhs = (fh_ser *) serialize (*fd_list++);
 	      if (fhs == NULL)
 		return false;
 	      scm_rights_len += sizeof (fh_ser);

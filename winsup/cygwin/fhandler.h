@@ -1142,6 +1142,8 @@ class fhandler_socket_unix : public fhandler_socket
   int saw_shutdown () const { return shmem->shutdown (); }
   int close ();
   int getpeereid (pid_t *pid, uid_t *euid, gid_t *egid);
+  void *serialize (int fd);
+  int deserialize (void *bufp);
   bool evaluate_cmsg_data (af_unix_pkt_hdr_t *packet, struct msghdr *msg,
 			   bool cloexec = false);
   ssize_t recvmsg (struct msghdr *msg, int flags);
