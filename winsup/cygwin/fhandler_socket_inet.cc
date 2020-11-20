@@ -544,52 +544,69 @@ fhandler_socket_wsock::fixup_after_exec ()
 }
 
 int
-fhandler_socket_wsock::dup (fhandler_base *child, int flags, DWORD)
+fhandler_socket_wsock::dup (fhandler_base *child, int flags, DWORD src_pid)
 {
   debug_printf ("here");
   fhandler_socket_wsock *fhs = (fhandler_socket_wsock *) child;
+  int ret = -1;
+  HANDLE src_proc = GetCurrentProcess ();
 
-  if (!DuplicateHandle (GetCurrentProcess (), wsock_mtx,
+  if (src_pid && !(src_proc = OpenProcess (PROCESS_DUP_HANDLE, false, src_pid)))
+      {
+	debug_printf ("can't open source process %d, %E", src_pid);
+	__seterrno ();
+	return -1;
+      }
+  if (!DuplicateHandle (src_proc, wsock_mtx,
 			GetCurrentProcess (), &fhs->wsock_mtx,
 			0, TRUE, DUPLICATE_SAME_ACCESS))
     {
       __seterrno ();
-      return -1;
+      goto out;
     }
-  if (!DuplicateHandle (GetCurrentProcess (), wsock_evt,
+  if (!DuplicateHandle (src_proc, wsock_evt,
 			GetCurrentProcess (), &fhs->wsock_evt,
 			0, TRUE, DUPLICATE_SAME_ACCESS))
     {
       __seterrno ();
       NtClose (fhs->wsock_mtx);
-      return -1;
+      goto out;
     }
   if (!need_fixup_before ())
     {
-      int ret = fhandler_base::dup (child, flags);
+      ret = fhandler_base::dup (child, flags, src_pid);
       if (ret)
 	{
 	  NtClose (fhs->wsock_evt);
 	  NtClose (fhs->wsock_mtx);
 	}
-      return ret;
+      goto out;
     }
 
+  if (src_proc != GetCurrentProcess ())
+    {
+      /* FIXME: Can we support this?  Is it worth the trouble? */
+      set_errno (EOPNOTSUPP);
+      goto out;
+    }
   cygheap->user.deimpersonate ();
   fhs->init_fixup_before ();
   fhs->set_handle (get_handle ());
-  int ret = fhs->fixup_before_fork_exec (GetCurrentProcessId ());
+  ret = fhs->fixup_before_fork_exec (GetCurrentProcessId ());
   cygheap->user.reimpersonate ();
   if (!ret)
     {
       fhs->fixup_after_fork (GetCurrentProcess ());
       if (fhs->get_handle() != (HANDLE) INVALID_SOCKET)
-	return 0;
+	goto out;
     }
   cygheap->fdtab.dec_need_fixup_before ();
   NtClose (fhs->wsock_evt);
   NtClose (fhs->wsock_mtx);
-  return -1;
+out:
+  if (src_proc != GetCurrentProcess ())
+    NtClose (src_proc);
+  return ret;
 }
 
 int

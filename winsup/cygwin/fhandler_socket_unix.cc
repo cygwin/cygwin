@@ -1296,43 +1296,56 @@ fhandler_socket_unix::~fhandler_socket_unix ()
 }
 
 int
-fhandler_socket_unix::dup (fhandler_base *child, int flags, DWORD)
+fhandler_socket_unix::dup (fhandler_base *child, int flags, DWORD src_pid)
 {
-  if (fhandler_socket::dup (child, flags))
+  int ret = -1;
+  HANDLE src_proc = GetCurrentProcess ();
+  fhandler_socket_unix *fhs = (fhandler_socket_unix *) child;
+
+  if (src_pid && !(src_proc = OpenProcess (PROCESS_DUP_HANDLE, false, src_pid)))
+      {
+	debug_printf ("can't open source process %d, %E", src_pid);
+	__seterrno ();
+	return -1;
+      }
+  if (get_handle () && fhandler_socket::dup (child, flags, src_pid) < 0)
     {
       __seterrno ();
-      return -1;
+      goto out;
     }
-  fhandler_socket_unix *fhs = (fhandler_socket_unix *) child;
   if (backing_file_handle && backing_file_handle != INVALID_HANDLE_VALUE
-      && !DuplicateHandle (GetCurrentProcess (), backing_file_handle,
+      && !DuplicateHandle (src_proc, backing_file_handle,
 			    GetCurrentProcess (), &fhs->backing_file_handle,
 			    0, TRUE, DUPLICATE_SAME_ACCESS))
     {
       __seterrno ();
       fhs->close ();
-      return -1;
+      goto out;
     }
-  if (!DuplicateHandle (GetCurrentProcess (), shmem_handle,
+  if (!DuplicateHandle (src_proc, shmem_handle,
 			GetCurrentProcess (), &fhs->shmem_handle,
 			0, TRUE, DUPLICATE_SAME_ACCESS))
     {
       __seterrno ();
       fhs->close ();
-      return -1;
+      goto out;
     }
   if (fhs->reopen_shmem () < 0)
     {
       __seterrno ();
       fhs->close ();
-      return -1;
+      goto out;
     }
   fhs->sun_path (sun_path ());
   fhs->peer_sun_path (peer_sun_path ());
   fhs->connect_wait_thr = NULL;
   fhs->cwt_termination_evt = NULL;
   fhs->cwt_param = NULL;
-  return 0;
+  ret = 0;
+out:
+  if (src_proc != GetCurrentProcess ())
+    NtClose (src_proc);
+  return ret;
 }
 
 /* Waiter thread method.  Here we wait for a pipe instance to become
@@ -1989,17 +2002,69 @@ fhandler_socket_unix::serialize (int fd)
   if (cfd < 0)
     {
       set_errno (EBADF);
-      goto out;
+      return NULL;
     }
-  /* For the moment we support disk files only. */
-  if (cfd->get_device () != FH_FS)
+  device dev = cfd->dev ();
+    switch (dev.get_major ())
     {
+    case DEV_PTYS_MAJOR:
+    case DEV_PTYM_MAJOR:
+    case DEV_FLOPPY_MAJOR:
+    case DEV_CDROM_MAJOR:
+    case DEV_SD_MAJOR:
+    case DEV_SD1_MAJOR ... DEV_SD7_MAJOR:
+    case DEV_SD_HIGHPART_START ... DEV_SD_HIGHPART_END:
+    case DEV_TAPE_MAJOR:
+    case DEV_SERIAL_MAJOR:
+    case DEV_CONS_MAJOR:
       set_errno (EOPNOTSUPP);
       goto out;
+    default:
+      switch ((dev_t) dev)
+	{
+	case FH_FS:
+	case FH_INET:
+	case FH_UNIX:
+	  newfh = cygheap->fdtab.dup_worker (cfd, 0);
+	  if (!newfh)
+	    goto out;
+	  break;
+	  /* The FH_LOCAL case shouldn't occur. */
+	case FH_LOCAL:
+	case FH_CONSOLE:
+	case FH_CONIN:
+	case FH_CONOUT:
+	case FH_PTMX:
+	case FH_WINDOWS:
+	case FH_FIFO:
+	case FH_PIPE:
+	case FH_PIPER:
+	case FH_PIPEW:
+	case FH_NULL:
+	case FH_ZERO:
+	case FH_FULL:
+	case FH_RANDOM:
+	case FH_URANDOM:
+	case FH_CLIPBOARD:
+	case FH_OSS_DSP:
+	case FH_PROC:
+	case FH_REGISTRY:
+	case FH_PROCESS:
+	case FH_PROCESSFD:
+	case FH_PROCNET:
+	case FH_PROCSYS:
+	case FH_PROCSYSVIPC:
+	case FH_NETDRIVE:
+	case FH_DEV:
+	case FH_CYGDRIVE:
+	case FH_SIGNALFD:
+	case FH_TIMERFD:
+	case FH_TTY:
+	default:
+	  set_errno (EOPNOTSUPP);
+	  goto out;
+      }
     }
-  newfh = cygheap->fdtab.dup_worker (cfd, 0);
-  if (!newfh)
-    goto out;
   /* Free allocated memory in clone. */
   newfh->pc.free_strings ();
   newfh->dev ().free_strings ();
@@ -2028,21 +2093,72 @@ fhandler_socket_unix::deserialize (void *bufp)
   fhandler_base *oldfh, *newfh;
   DWORD winpid = fhs->winpid;
 
-  /* What kind of fhandler is this? */
-  dev_t dev = ((fhandler_base *) &fhs->fhu)->get_device ();
-
-  /* FIXME: Based on dev, we want to cast fhs to the right kind of
-     fhandler pointer.  I guess this requires a big switch statement,
-     as in dtable.cc:fh_alloc.
-
-     For now, we just support disk files. */
-
-  if (dev != FH_FS)
+  /* What kind of fhandler is this?  (See dtable.cc:fh_alloc.) */
+  device dev = ((fhandler_base *) &fhs->fhu)->dev ();
+  switch (dev.get_major ())
     {
+    case DEV_PTYS_MAJOR:
+    case DEV_PTYM_MAJOR:
+    case DEV_FLOPPY_MAJOR:
+    case DEV_CDROM_MAJOR:
+    case DEV_SD_MAJOR:
+    case DEV_SD1_MAJOR ... DEV_SD7_MAJOR:
+    case DEV_SD_HIGHPART_START ... DEV_SD_HIGHPART_END:
+    case DEV_TAPE_MAJOR:
+    case DEV_SERIAL_MAJOR:
+    case DEV_CONS_MAJOR:
       set_errno (EOPNOTSUPP);
+      send_scm_fd_ack (fhs->uniq_id);
       return -1;
+    default:
+      switch ((dev_t) dev)
+	{
+	case FH_FS:
+	  oldfh = (fhandler_disk_file *) &fhs->fhu;
+	  break;
+	case FH_INET:
+	  oldfh = (fhandler_socket_inet *) &fhs->fhu;
+	  break;
+	case FH_UNIX:
+	  oldfh = (fhandler_socket_unix *) &fhs->fhu;
+	  break;
+	  /* The FH_LOCAL case shouldn't occur. */
+	case FH_LOCAL:
+	case FH_CONSOLE:
+	case FH_CONIN:
+	case FH_CONOUT:
+	case FH_PTMX:
+	case FH_WINDOWS:
+	case FH_FIFO:
+	case FH_PIPE:
+	case FH_PIPER:
+	case FH_PIPEW:
+	case FH_NULL:
+	case FH_ZERO:
+	case FH_FULL:
+	case FH_RANDOM:
+	case FH_URANDOM:
+	case FH_CLIPBOARD:
+	case FH_OSS_DSP:
+	case FH_PROC:
+	case FH_REGISTRY:
+	case FH_PROCESS:
+	case FH_PROCESSFD:
+	case FH_PROCNET:
+	case FH_PROCSYS:
+	case FH_PROCSYSVIPC:
+	case FH_NETDRIVE:
+	case FH_DEV:
+	case FH_CYGDRIVE:
+	case FH_SIGNALFD:
+	case FH_TIMERFD:
+	case FH_TTY:
+	default:
+	  set_errno (EOPNOTSUPP);
+	  send_scm_fd_ack (fhs->uniq_id);
+	  return -1;
+      }
     }
-  oldfh = (fhandler_disk_file *) &fhs->fhu;
   cygheap_fdnew cfd;
   if (cfd < 0)
     return -1;
@@ -2051,7 +2167,18 @@ fhandler_socket_unix::deserialize (void *bufp)
     debug_printf ("can't send ack");
   if (!newfh)
     return -1;
-  newfh->set_name_from_handle ();
+  switch ((dev_t) dev)
+    {
+    case FH_FS:
+      newfh->set_name_from_handle ();
+      break;
+    case FH_UNIX:
+      if (((fhandler_socket_unix *) newfh)->get_pipe_end () == pipe_server)
+	((fhandler_socket_unix *) newfh)->gen_pipe_name ();
+      break;
+    default:
+      break;
+    }
   cfd = newfh;
   return cfd;
 }
