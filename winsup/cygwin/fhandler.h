@@ -912,6 +912,12 @@ enum shut_state {
   _SHUT_MASK	= 3
 };
 
+enum pipe_end {
+  pipe_none = -1,
+  pipe_client = 0,
+  pipe_server = 1
+};
+
 class sun_name_t
 {
  public:
@@ -1121,6 +1127,7 @@ class fhandler_socket_unix : public fhandler_socket
   HANDLE connect_wait_thr;
   HANDLE cwt_termination_evt;
   PVOID cwt_param;
+  pipe_end _pipe_end;
   int my_npending_fd;		/* Number of SCM_RIGHTS fds sent by me
 				   and waiting for ack. */
 
@@ -1172,6 +1179,10 @@ class fhandler_socket_unix : public fhandler_socket
   int connect_pipe (PUNICODE_STRING pipe_name);
   int listen_pipe ();
   int disconnect_pipe (HANDLE ph);
+
+  pipe_end get_pipe_end () const { return _pipe_end; }
+  void set_pipe_end (pipe_end val) { _pipe_end = val; }
+
   /* The NULL pointer check is required for FS methods like fstat.  When
      called via stat or lstat, there's no shared memory, just a path in pc. */
   sun_name_t *sun_path () {return shmem ? shmem->sun_path () : NULL;}

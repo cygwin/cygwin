@@ -1106,6 +1106,7 @@ fhandler_socket_unix::connect_pipe (PUNICODE_STRING pipe_name)
       return -1;
     }
   set_handle (ph);
+  set_pipe_end (pipe_client);
   if (get_socket_type () != SOCK_DGRAM)
     xchg_sock_info ();
   so_error (0);
@@ -1285,7 +1286,7 @@ fhandler_socket_unix::fhandler_socket_unix () :
   fhandler_socket (),
   shmem_handle (NULL), shmem (NULL), backing_file_handle (NULL),
   connect_wait_thr (NULL), cwt_termination_evt (NULL), cwt_param (NULL),
-  my_npending_fd (0)
+  _pipe_end (pipe_none), my_npending_fd (0)
 {
   need_fork_fixup (true);
 }
@@ -1414,6 +1415,7 @@ fhandler_socket_unix::wait_pipe_thread (PUNICODE_STRING pipe_name)
 	      else
 		{
 		  set_handle (ph);
+		  set_pipe_end (pipe_client);
 		  if (get_socket_type () != SOCK_DGRAM)
 		    xchg_sock_info ();
 		}
@@ -1531,6 +1533,7 @@ fhandler_socket_unix::socketpair (int af, int type, int protocol, int flags,
   if (!ph)
     goto create_pipe_failed;
   set_handle (ph);
+  set_pipe_end (pipe_server);
   sun_path (&sun);
   fh->peer_sun_path (&sun);
   connect_state (connected);
@@ -1539,6 +1542,7 @@ fhandler_socket_unix::socketpair (int af, int type, int protocol, int flags,
   if (fh->open_pipe (ph2, pc.get_nt_native_path ()) < 0)
     goto fh_open_pipe_failed;
   fh->set_handle (ph2);
+  fh->set_pipe_end (pipe_client);
   fh->connect_state (connected);
   if (flags & SOCK_CLOEXEC)
     {
@@ -1599,6 +1603,7 @@ fhandler_socket_unix::bind (const struct sockaddr *name, int namelen)
 	  return -1;
 	}
       set_handle (pipe);
+      set_pipe_end (pipe_server);
     }
   backing_file_handle = unnamed ? autobind (&sun) : create_socket (&sun);
   if (!backing_file_handle)
@@ -1654,6 +1659,7 @@ fhandler_socket_unix::listen (int backlog)
       return -1;
     }
   set_handle (pipe);
+  set_pipe_end (pipe_server);
   state_lock ();
   set_cred ();
   state_unlock ();
@@ -1717,6 +1723,7 @@ fhandler_socket_unix::accept4 (struct sockaddr *peer, int *len, int flags)
 		  sock->connect_state (connected);
 		  sock->binding_state (binding_state ());
 		  sock->set_handle (accepted);
+		  sock->set_pipe_end (pipe_server);
 
 		  sock->sun_path (sun_path ());
 		  sock->sock_cred (sock_cred ());
