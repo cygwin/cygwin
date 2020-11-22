@@ -675,7 +675,7 @@ out:
 }
 
 fhandler_base *
-dtable::dup_worker (fhandler_base *oldfh, int flags)
+dtable::dup_worker (fhandler_base *oldfh, int flags, DWORD src_pid)
 {
   /* Don't call set_name in build_fh_pc.  It will be called in
      fhandler_base::operator= below.  Calling it twice will result
@@ -689,7 +689,7 @@ dtable::dup_worker (fhandler_base *oldfh, int flags)
 	newfh->set_handle (NULL);
 
       newfh->pc.reset_conv_handle ();
-      if (oldfh->dup (newfh, flags))
+      if (oldfh->dup (newfh, flags, src_pid))
 	{
 	  delete newfh;
 	  newfh = NULL;

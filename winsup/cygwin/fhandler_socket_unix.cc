@@ -1976,7 +1976,7 @@ fhandler_socket_unix::serialize (int fd)
 {
   fh_ser *fhs = NULL;
   int64_t id;
-  fhandler_base *oldfh, *newfh = NULL;
+  fhandler_base *newfh = NULL;
   cygheap_fdget cfd (fd);
 
   if (cfd < 0)
@@ -1984,23 +1984,15 @@ fhandler_socket_unix::serialize (int fd)
       set_errno (EBADF);
       goto out;
     }
-  oldfh = cfd;
   /* For the moment we support disk files only. */
-  if (oldfh->get_device () != FH_FS)
+  if (cfd->get_device () != FH_FS)
     {
       set_errno (EOPNOTSUPP);
       goto out;
     }
-  newfh = oldfh->clone ();
-  /* newfh needs handles that remain valid if oldfh is closed. */
-  /* FIXME: When we move away from disk files, we might need to pay
-     attention to archetype, usecount, refcnt,....  See
-     dtable::dup_worker. */
-  if (oldfh->dup (newfh, 0) < 0)
-    {
-      delete newfh;
-      goto out;
-    }
+  newfh = cygheap->fdtab.dup_worker (cfd, 0);
+  if (!newfh)
+    goto out;
   /* Free allocated memory in clone. */
   newfh->pc.free_strings ();
   newfh->dev ().free_strings ();
@@ -2047,30 +2039,11 @@ fhandler_socket_unix::deserialize (void *bufp)
   cygheap_fdnew cfd;
   if (cfd < 0)
     return -1;
-  newfh = oldfh->clone ();
-  int ret = oldfh->dup (newfh, 0, winpid);
+  newfh = cygheap->fdtab.dup_worker (oldfh, 0, winpid);
   if (!send_scm_fd_ack (fhs->uniq_id))
     debug_printf ("can't send ack");
-  if (ret < 0)
-    {
-      debug_printf ("can't duplicate handles");
-      delete newfh;
-      return -1;
-    }
-  newfh->pc.close_conv_handle ();
-  if (oldfh->pc.handle ())
-    {
-      HANDLE nh;
-      HANDLE proc = OpenProcess (PROCESS_DUP_HANDLE, false, winpid);
-      if (!proc)
-	debug_printf ("can't open process %d", winpid);
-      else if (!DuplicateHandle (proc, oldfh->pc.handle (),
-				 GetCurrentProcess (), &nh, 0,
-				 TRUE, DUPLICATE_SAME_ACCESS))
-	debug_printf ("can't duplicate path_conv handle");
-      else
-	newfh->pc.set_conv_handle (nh);
-    }
+  if (!newfh)
+    return -1;
   newfh->set_name_from_handle ();
   cfd = newfh;
   return cfd;
