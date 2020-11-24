@@ -21,5 +21,13 @@ scm_functions.o: scm_functions.h
 
 unix_sockets.o: unix_sockets.h
 
+inet_sockets.o: inet_sockets.h
+
+read_line.o: read_line.h
+
+get_num.o: get_num.h
+
+unp.o: unp.h
+
 clean:
 	${RM} *.o ename.c.inc ${AF_UNIX_LIB}

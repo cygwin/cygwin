@@ -17,7 +17,8 @@ EXE = ud_ucase_sv ud_ucase_cl \
       readv_socket writev_socket \
       msg_peek_sv msg_peek_cl \
       fork_socketpair \
-      select_sv select_cl
+      select_sv select_cl \
+      is_seqnum_v2_sv is_seqnum_v3_sv is_seqnum_v2_cl
 
 all:
 	cd lib; ${MAKE}
@@ -46,6 +47,8 @@ readv_socket.o writev_socket.o: scatter_gather.h
 msg_peek_sv.o msg_peek_cl.o: msg_peek.h
 
 select_sv.o select_cl.o: select_test.h
+
+is_seqnum_v2_sv.o is_seqnum_v3_sv.o is_seqnum_v2_cl.o: is_seqnum_v2.h
 
 clean:
 	cd lib; ${MAKE} clean

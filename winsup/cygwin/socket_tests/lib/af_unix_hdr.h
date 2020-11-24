@@ -25,11 +25,16 @@
 #include <errno.h>      /* Declares errno and defines error constants */
 #include <string.h>     /* Commonly used string-handling functions */
 
+#include "get_num.h"    /* Declares our functions for handling numeric
+                           arguments (getInt(), getLong()) */
+
 #include "error_functions.h"  /* Declares our error-handling functions */
 
 #include <sys/socket.h>
 #include <sys/un.h>
 #include "unix_sockets.h"       /* Declares our socket functions */
+#include "scm_functions.h"
+/* #include "unp.h"		/\* Stevens, Unix Network Programming *\/ */
 
 #undef AF_UNIX
 #define AF_UNIX 31
