@@ -2111,6 +2111,7 @@ fhandler_socket_unix::deserialize (void *bufp)
       send_scm_fd_ack (fhs->uniq_id);
       return -1;
     default:
+      /* FIXME: C++ confusion.  Do the casts below actually do anything? */
       switch ((dev_t) dev)
 	{
 	case FH_FS:
