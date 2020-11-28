@@ -86,7 +86,7 @@
 
    [Need to kill msg_peek_cl.]
 
-6. Ancillary data test.  In two terminals:
+6. Ancillary data test (SCM_CREDENTIALS).  In two terminals:
 
    # Terminal 1:
    $ ./scm_cred_recv.exe
@@ -126,11 +126,35 @@
    administrator.  In that case the specified pid must be the pid of
    an existing process, but the uid and gid can be arbitrary.
 
-   We can also begin testing SCM_RIGHTS with
-   scm_rights_recv/scm_rights_send and scm_multi_recv/scm_multi_send,
-   but this doesn't do much at the moment.
+7. Ancillary data test (SCM_RIGHTS, disk file descriptor).
+   In two terminals:
 
-7. fork/socketpair test.
+   # Terminal 1:
+   $ ./scm_rights_recv.exe
+
+   # Terminal 2:
+   $ ./scm_rights_send.exe <some disk file>
+   Sending data = 12345
+   Sending FD 3
+   sendmsg() returned 4
+
+   # Terminal 1 should now show:
+   recvmsg() returned 4
+   Received data = 12345
+   Received FD 5
+   <contents of some disk file>
+
+8. Ancillary data test (SCM_RIGHTS, socket descriptor).
+
+   $ ./is_seqnum_v3_sv.exe &
+   [1] 8880
+
+   $ ./is_seqnum_v2_cl.exe localhost
+   Connection from (<host>, <port>)
+   Sending fd 4 to child
+   Sequence number: 0
+
+9. fork/socketpair test.
 
    $ ./fork_socketpair.exe
    count = 0
@@ -144,7 +168,7 @@
    count = 8
    count = 9
 
-8. select test.  In two terminals:
+10. select test.  In two terminals:
 
    # Terminal 1:
    $ ./select_sv
@@ -166,3 +190,6 @@
    connection request received; accepting
    slowly reading from socket...
    read 327635 bytes
+
+TODO: Go through the above and check if all programs work with all
+      options.
