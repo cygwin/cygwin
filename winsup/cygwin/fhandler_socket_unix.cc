@@ -726,7 +726,7 @@ fhandler_socket_unix::process_admin_pkt (af_unix_pkt_hdr_t *packet)
 	    peer_cred ((struct ucred *) CMSG_DATA(cmsg));
 	    break;
 	  case SCM_RIGHTS_ACK:
-	    recv_scm_fd_ack (*((int64_t *) CMSG_DATA (cmsg)));
+	    recv_scm_fd_ack (*(int64_t *) CMSG_DATA (cmsg));
 	    break;
 	  default:
 	    break;
@@ -2005,7 +2005,7 @@ fhandler_socket_unix::serialize (int fd)
       return NULL;
     }
   device dev = cfd->dev ();
-    switch (dev.get_major ())
+  switch (dev.get_major ())
     {
     case DEV_PTYS_MAJOR:
     case DEV_PTYM_MAJOR:
@@ -2025,9 +2025,6 @@ fhandler_socket_unix::serialize (int fd)
 	case FH_FS:
 	case FH_INET:
 	case FH_UNIX:
-	  newfh = cygheap->fdtab.dup_worker (cfd, 0);
-	  if (!newfh)
-	    goto out;
 	  break;
 	  /* The FH_LOCAL case shouldn't occur. */
 	case FH_LOCAL:
@@ -2059,12 +2056,15 @@ fhandler_socket_unix::serialize (int fd)
 	case FH_CYGDRIVE:
 	case FH_SIGNALFD:
 	case FH_TIMERFD:
-	case FH_TTY:
 	default:
 	  set_errno (EOPNOTSUPP);
 	  goto out;
-      }
+	}
     }
+  /* Make a temporary copy of the fhandler. */
+  newfh = cygheap->fdtab.dup_worker (cfd, 0);
+  if (!newfh)
+    goto out;
   /* Free allocated memory in clone. */
   newfh->pc.free_strings ();
   newfh->dev ().free_strings ();
@@ -2093,82 +2093,18 @@ fhandler_socket_unix::deserialize (void *bufp)
   fhandler_base *oldfh, *newfh;
   DWORD winpid = fhs->winpid;
 
-  /* What kind of fhandler is this?  (See dtable.cc:fh_alloc.) */
-  device dev = ((fhandler_base *) &fhs->fhu)->dev ();
-  switch (dev.get_major ())
-    {
-    case DEV_PTYS_MAJOR:
-    case DEV_PTYM_MAJOR:
-    case DEV_FLOPPY_MAJOR:
-    case DEV_CDROM_MAJOR:
-    case DEV_SD_MAJOR:
-    case DEV_SD1_MAJOR ... DEV_SD7_MAJOR:
-    case DEV_SD_HIGHPART_START ... DEV_SD_HIGHPART_END:
-    case DEV_TAPE_MAJOR:
-    case DEV_SERIAL_MAJOR:
-    case DEV_CONS_MAJOR:
-      set_errno (EOPNOTSUPP);
-      send_scm_fd_ack (fhs->uniq_id);
-      return -1;
-    default:
-      /* FIXME: C++ confusion.  Do the casts below actually do anything? */
-      switch ((dev_t) dev)
-	{
-	case FH_FS:
-	  oldfh = (fhandler_disk_file *) &fhs->fhu;
-	  break;
-	case FH_INET:
-	  oldfh = (fhandler_socket_inet *) &fhs->fhu;
-	  break;
-	case FH_UNIX:
-	  oldfh = (fhandler_socket_unix *) &fhs->fhu;
-	  break;
-	  /* The FH_LOCAL case shouldn't occur. */
-	case FH_LOCAL:
-	case FH_CONSOLE:
-	case FH_CONIN:
-	case FH_CONOUT:
-	case FH_PTMX:
-	case FH_WINDOWS:
-	case FH_FIFO:
-	case FH_PIPE:
-	case FH_PIPER:
-	case FH_PIPEW:
-	case FH_NULL:
-	case FH_ZERO:
-	case FH_FULL:
-	case FH_RANDOM:
-	case FH_URANDOM:
-	case FH_CLIPBOARD:
-	case FH_OSS_DSP:
-	case FH_PROC:
-	case FH_REGISTRY:
-	case FH_PROCESS:
-	case FH_PROCESSFD:
-	case FH_PROCNET:
-	case FH_PROCSYS:
-	case FH_PROCSYSVIPC:
-	case FH_NETDRIVE:
-	case FH_DEV:
-	case FH_CYGDRIVE:
-	case FH_SIGNALFD:
-	case FH_TIMERFD:
-	case FH_TTY:
-	default:
-	  set_errno (EOPNOTSUPP);
-	  send_scm_fd_ack (fhs->uniq_id);
-	  return -1;
-      }
-    }
   cygheap_fdnew cfd;
   if (cfd < 0)
     return -1;
+
+  oldfh = (fhandler_base *) &fhs->fhu;
   newfh = cygheap->fdtab.dup_worker (oldfh, 0, winpid);
+  /* Tell sender it can delete its temporary copy of the fhandler. */
   if (!send_scm_fd_ack (fhs->uniq_id))
     debug_printf ("can't send ack");
   if (!newfh)
     return -1;
-  switch ((dev_t) dev)
+  switch ((dev_t) newfh->dev ())
     {
     case FH_FS:
       newfh->set_name_from_handle ();
