@@ -1081,8 +1081,11 @@ out:
 }
 
 int
-fhandler_pty_slave::dup (fhandler_base *child, int flags, DWORD)
+fhandler_pty_slave::dup (fhandler_base *child, int flags, DWORD src_pid)
 {
+  if (src_pid && !child->archetype)
+    goto dup_handles;
+
   /* This code was added in Oct 2001 for some undisclosed reason.
      However, setting the controlling tty on a dup causes rxvt to
      hang when the parent does a dup since the controlling pgid changes.
@@ -1095,6 +1098,112 @@ fhandler_pty_slave::dup (fhandler_base *child, int flags, DWORD)
     myself->set_ctty (this, flags);
   report_tty_counts (child, "duped slave", "");
   return 0;
+
+dup_handles:
+  /* We're being called from dtable::dup_worker with src_pid != 0, and
+     we don't have an archetype yet.  We need to duplicate handles
+     from the source process, and the caller will create a new
+     archetype.  The following code is adapted from
+     fhandler_pty_slave::open. */
+
+  fhandler_pty_slave *fhp = (fhandler_pty_slave *) child;
+  HANDLE src_proc;
+  HANDLE from_master_local, from_master_cyg_local;
+  HANDLE to_master_local, to_master_cyg_local;
+
+  HANDLE *handles[] =
+  {
+    &src_proc,
+    &from_master_local, &from_master_cyg_local,
+    &to_master_local, &to_master_cyg_local,
+    &fhp->output_mutex, &fhp->input_mutex, &fhp->inuse,
+    &fhp->input_available_event,
+    NULL
+  };
+
+  for (HANDLE **h = handles; *h; h++)
+    **h = NULL;
+
+  src_proc = OpenProcess (PROCESS_DUP_HANDLE, FALSE, src_pid);
+  if (!src_proc)
+    {
+      termios_printf ("can't open source process, %E");
+      goto err;
+    }
+
+  if (!DuplicateHandle (src_proc, output_mutex, GetCurrentProcess (),
+			&fhp->output_mutex, 0, TRUE, DUPLICATE_SAME_ACCESS))
+    {
+      termios_printf ("can't duplicate output_mutex from %u/%p, %E",
+		      src_pid, output_mutex);
+      goto err;
+    }
+  if (!DuplicateHandle (src_proc, input_mutex, GetCurrentProcess (),
+			&fhp->input_mutex, 0, TRUE, DUPLICATE_SAME_ACCESS))
+    {
+      termios_printf ("can't duplicate input_mutex from %u/%p, %E",
+		      src_pid, input_mutex);
+      goto err;
+    }
+  if (!DuplicateHandle (src_proc, input_available_event, GetCurrentProcess (),
+			&fhp->input_available_event, 0, TRUE,
+			DUPLICATE_SAME_ACCESS))
+    {
+      termios_printf ("can't duplicate input_available_event from %u/%p, %E",
+		      src_pid, input_available_event);
+      goto err;
+    }
+  if (!DuplicateHandle (src_proc, inuse, GetCurrentProcess (),
+			&fhp->inuse, 0, TRUE, DUPLICATE_SAME_ACCESS))
+    {
+      termios_printf ("can't duplicate inuse from %u/%p, %E",
+		      src_pid, inuse);
+      goto err;
+    }
+  if (!DuplicateHandle (src_proc, get_ttyp ()->from_master (),
+			GetCurrentProcess (), &from_master_local,
+			0, TRUE, DUPLICATE_SAME_ACCESS))
+    {
+      termios_printf ("can't duplicate input from %u/%p, %E",
+		      src_pid, get_ttyp ()->from_master ());
+      goto err;
+    }
+  if (!DuplicateHandle (src_proc, get_ttyp ()->from_master_cyg (),
+			GetCurrentProcess (), &from_master_cyg_local,
+			0, TRUE, DUPLICATE_SAME_ACCESS))
+    {
+      termios_printf ("can't duplicate input from %u/%p, %E",
+		      src_pid, get_ttyp ()->from_master_cyg ());
+      goto err;
+    }
+  if (!DuplicateHandle (src_proc, get_ttyp ()->to_master (),
+			GetCurrentProcess (), &to_master_local,
+			0, TRUE, DUPLICATE_SAME_ACCESS))
+    {
+      termios_printf ("can't duplicate to_master_local from %u/%p, %E",
+		      src_pid, get_ttyp ()->to_master ());
+      goto err;
+    }
+  if (!DuplicateHandle (src_proc, get_ttyp ()->to_master_cyg (),
+			GetCurrentProcess (), &to_master_cyg_local,
+			0, TRUE, DUPLICATE_SAME_ACCESS))
+	{
+	  termios_printf ("can't duplicate to_master_cyg_local from %u/%p, %E",
+			  src_pid, get_ttyp ()->to_master_cyg ());
+	  goto err;
+	}
+  CloseHandle (src_proc);
+  fhp->set_handle (from_master_local);
+  fhp->set_handle_cyg (from_master_cyg_local);
+  fhp->set_output_handle (to_master_local);
+  fhp->set_output_handle_cyg (to_master_cyg_local);
+  return 0;
+err:
+  __seterrno ();
+  for (HANDLE **h = handles; *h; h++)
+    if (**h)
+      CloseHandle (**h);
+  return -1;
 }
 
 int

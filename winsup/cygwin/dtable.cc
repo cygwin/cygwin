@@ -677,35 +677,56 @@ out:
 fhandler_base *
 dtable::dup_worker (fhandler_base *oldfh, int flags, DWORD src_pid)
 {
+  bool need_new_arch = false;
   fhandler_base *newfh = oldfh->clone ();
+
   if (!newfh)
-    debug_printf ("clone failed");
-  else
     {
-      if (!oldfh->archetype)
-	newfh->set_handle (NULL);
-
-      newfh->pc.reset_conv_handle ();
-      if (oldfh->dup (newfh, flags, src_pid))
-	{
-	  delete newfh;
-	  newfh = NULL;
-	  debug_printf ("oldfh->dup failed");
-	}
-      else
-	{
-	  /* Don't increment refcnt here since we don't know if this is a
-	     allocated fd.  So we leave this chore to the caller. */
-
-	  newfh->usecount = 0;
-	  newfh->archetype_usecount (1);
-
-	  /* The O_CLOEXEC flag enforces close-on-exec behaviour. */
-	  newfh->set_close_on_exec (!!(flags & O_CLOEXEC));
-	  debug_printf ("duped '%s' old %p, new %p", oldfh->get_name (),
-			oldfh->get_handle (), newfh->get_handle ());
-	}
+      debug_printf ("clone failed");
+      goto out;
     }
+
+  /* If we're duplicating an fhandler from a different process and we
+     use an archetype, the old archetype is useless. */
+  if (src_pid && oldfh->archetype
+      && !(newfh->archetype = find_archetype (oldfh->dev ())))
+    need_new_arch = true;
+
+  if (!oldfh->archetype)
+    newfh->set_handle (NULL);
+
+  newfh->pc.reset_conv_handle ();
+  if (oldfh->dup (newfh, flags, src_pid))
+    {
+      delete newfh;
+      newfh = NULL;
+      debug_printf ("oldfh->dup failed");
+      goto out;
+    }
+  if (need_new_arch)
+    {
+      newfh->set_name (newfh->dev ().name ());
+      newfh->archetype = newfh->clone ();
+      debug_printf ("created an archetype (%p) for %s(%d/%d)",
+		    newfh->archetype, newfh->get_name (),
+		    newfh->dev ().get_major (), newfh->dev ().get_minor ());
+      newfh->archetype->archetype = NULL;
+      newfh->archetype->usecount = 0;
+      *add_archetype () = newfh->archetype;
+    }
+
+  /* Don't increment refcnt here since we don't know if this is a
+     allocated fd.  So we leave this chore to the caller. */
+
+  newfh->usecount = 0;
+  newfh->archetype_usecount (1);
+
+  /* The O_CLOEXEC flag enforces close-on-exec behaviour. */
+  newfh->set_close_on_exec (!!(flags & O_CLOEXEC));
+  debug_printf ("duped '%s' old %p, new %p", oldfh->get_name (),
+		oldfh->get_handle (), newfh->get_handle ());
+
+out:
   return newfh;
 }
 

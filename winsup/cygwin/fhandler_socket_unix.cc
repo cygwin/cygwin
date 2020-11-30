@@ -2008,6 +2008,7 @@ fhandler_socket_unix::serialize (int fd)
   switch (dev.get_major ())
     {
     case DEV_PTYS_MAJOR:
+      break;
     case DEV_PTYM_MAJOR:
     case DEV_FLOPPY_MAJOR:
     case DEV_CDROM_MAJOR:
@@ -2091,30 +2092,48 @@ fhandler_socket_unix::deserialize (void *bufp)
 {
   fh_ser *fhs = (fh_ser *) bufp;
   fhandler_base *oldfh, *newfh;
-  DWORD winpid = fhs->winpid;
 
   cygheap_fdnew cfd;
   if (cfd < 0)
     return -1;
 
   oldfh = (fhandler_base *) &fhs->fhu;
-  newfh = cygheap->fdtab.dup_worker (oldfh, 0, winpid);
+  newfh = cygheap->fdtab.dup_worker (oldfh, 0, fhs->winpid);
+
   /* Tell sender it can delete its temporary copy of the fhandler. */
   if (!send_scm_fd_ack (fhs->uniq_id))
     debug_printf ("can't send ack");
   if (!newfh)
     return -1;
-  switch ((dev_t) newfh->dev ())
+  device dev = newfh->dev ();
+  switch (dev.get_major ())
     {
-    case FH_FS:
-      newfh->set_name_from_handle ();
+    case DEV_PTYS_MAJOR:
       break;
-    case FH_UNIX:
-      if (((fhandler_socket_unix *) newfh)->get_pipe_end () == pipe_server)
-	((fhandler_socket_unix *) newfh)->gen_pipe_name ();
-      break;
+    case DEV_PTYM_MAJOR:
+    case DEV_FLOPPY_MAJOR:
+    case DEV_CDROM_MAJOR:
+    case DEV_SD_MAJOR:
+    case DEV_SD1_MAJOR ... DEV_SD7_MAJOR:
+    case DEV_SD_HIGHPART_START ... DEV_SD_HIGHPART_END:
+    case DEV_TAPE_MAJOR:
+    case DEV_SERIAL_MAJOR:
+    case DEV_CONS_MAJOR:
+      set_errno (EOPNOTSUPP);
+      return -1;
     default:
-      break;
+      switch ((dev_t) dev)
+	{
+	case FH_FS:
+	  newfh->set_name_from_handle ();
+	  break;
+	case FH_UNIX:
+	  if (((fhandler_socket_unix *) newfh)->get_pipe_end () == pipe_server)
+	    ((fhandler_socket_unix *) newfh)->gen_pipe_name ();
+	  break;
+	default:
+	  break;
+	}
     }
   cfd = newfh;
   return cfd;
