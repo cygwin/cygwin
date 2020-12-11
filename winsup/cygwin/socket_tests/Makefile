@@ -18,7 +18,8 @@ EXE = ud_ucase_sv ud_ucase_cl \
       msg_peek_sv msg_peek_cl \
       fork_socketpair \
       select_sv select_cl \
-      is_seqnum_v2_sv is_seqnum_v3_sv is_seqnum_v2_cl
+      is_seqnum_v2_sv is_seqnum_v3_sv is_seqnum_v2_cl \
+      send_tty
 
 all:
 	cd lib; ${MAKE}

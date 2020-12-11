@@ -86,7 +86,44 @@
 
    [Need to kill msg_peek_cl.]
 
-6. Ancillary data test (SCM_CREDENTIALS).  In two terminals:
+6. fork/socketpair test.
+
+   $ ./fork_socketpair.exe
+   count = 0
+   count = 1
+   count = 2
+   count = 3
+   count = 4
+   count = 5
+   count = 6
+   count = 7
+   count = 8
+   count = 9
+
+7. select test.  In two terminals:
+
+   # Terminal 1:
+   $ ./select_sv
+   waiting for connection request...
+
+   # Terminal 2:
+   $ ./select_cl
+   waiting for socket to be ready for write...
+   ready for write, writing until buffer full
+   buffer full
+   wrote 262108 bytes
+   waiting for write ready again...
+   ready for write, writing once more
+   wrote 65527 more bytes for a total of 327635
+
+   # Terminal 1 should now show:
+   $ ./select_sv
+   waiting for connection request...
+   connection request received; accepting
+   slowly reading from socket...
+   read 327635 bytes
+
+8. Ancillary data test (SCM_CREDENTIALS).  In two terminals:
 
    # Terminal 1:
    $ ./scm_cred_recv.exe
@@ -126,7 +163,7 @@
    administrator.  In that case the specified pid must be the pid of
    an existing process, but the uid and gid can be arbitrary.
 
-7. Ancillary data test (SCM_RIGHTS, disk file descriptor).
+9. Ancillary data test (SCM_RIGHTS, disk file descriptor).
    In two terminals:
 
    # Terminal 1:
@@ -144,7 +181,7 @@
    Received FD 5
    <contents of some disk file>
 
-8. Ancillary data test (SCM_RIGHTS, socket descriptor).
+10. Ancillary data test (SCM_RIGHTS, socket descriptor).
 
    $ ./is_seqnum_v3_sv.exe &
    [1] 8880
@@ -154,42 +191,12 @@
    Sending fd 4 to child
    Sequence number: 0
 
-9. fork/socketpair test.
+11. Ancillary data test (SCM_RIGHTS, pty slave descriptor).  Run
+    send_tty in a Cygwin terminal, then enter a line.
 
-   $ ./fork_socketpair.exe
-   count = 0
-   count = 1
-   count = 2
-   count = 3
-   count = 4
-   count = 5
-   count = 6
-   count = 7
-   count = 8
-   count = 9
-
-10. select test.  In two terminals:
-
-   # Terminal 1:
-   $ ./select_sv
-   waiting for connection request...
-
-   # Terminal 2:
-   $ ./select_cl
-   waiting for socket to be ready for write...
-   ready for write, writing until buffer full
-   buffer full
-   wrote 262108 bytes
-   waiting for write ready again...
-   ready for write, writing once more
-   wrote 65527 more bytes for a total of 327635
-
-   # Terminal 1 should now show:
-   $ ./select_sv
-   waiting for connection request...
-   connection request received; accepting
-   slowly reading from socket...
-   read 327635 bytes
+    $ ./send_tty.exe
+    hello
+    Read 6 bytes from fd 4 (including newline): hello
 
 TODO: Go through the above and check if all programs work with all
       options.
