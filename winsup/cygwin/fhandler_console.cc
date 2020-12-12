@@ -1071,12 +1071,71 @@ fhandler_console::scroll_buffer_screen (int x1, int y1, int x2, int y2,
 }
 
 int
-fhandler_console::dup (fhandler_base *child, int flags, DWORD)
+fhandler_console::dup (fhandler_base *child, int flags, DWORD src_pid)
 {
+  if (src_pid && !child->archetype)
+    goto dup_handles;
+
   /* See comments in fhandler_pty_slave::dup */
   if (myself->ctty != -2)
     myself->set_ctty (this, flags);
   return 0;
+
+dup_handles:
+  /* We're being called from dtable::dup_worker with src_pid != 0, and
+     we don't have an archetype yet.  We need to duplicate handles
+     from the source process, and the caller will create a new
+     archetype. */
+
+  fhandler_console *fhc = (fhandler_console *) child;
+  HANDLE src_proc = OpenProcess (PROCESS_DUP_HANDLE, FALSE, src_pid);
+  if (!src_proc)
+    {
+      termios_printf ("can't open source process, %E");
+      goto err;
+    }
+  if (!DuplicateHandle (src_proc, input_mutex, GetCurrentProcess (),
+			&fhc->input_mutex, 0, TRUE, DUPLICATE_SAME_ACCESS))
+    {
+      termios_printf ("can't duplicate input_mutex from %u/%p, %E",
+		      src_pid, input_mutex);
+      goto err_close_src_proc;
+    }
+  if (!DuplicateHandle (src_proc, output_mutex, GetCurrentProcess (),
+			&fhc->output_mutex, 0, TRUE, DUPLICATE_SAME_ACCESS))
+    {
+      termios_printf ("can't duplicate output_mutex from %u/%p, %E",
+		      src_pid, output_mutex);
+      goto err_close_input_mutex;
+    }
+  if (!DuplicateHandle (src_proc, get_handle (), GetCurrentProcess (),
+			&fhc->get_handle (), 0, TRUE, DUPLICATE_SAME_ACCESS))
+    {
+      termios_printf ("can't duplicate input handle from %u/%p, %E",
+		      src_pid, get_handle ());
+      goto err_close_output_mutex;
+    }
+  if (!DuplicateHandle (src_proc, get_output_handle (), GetCurrentProcess (),
+			&fhc->get_output_handle (), 0, TRUE,
+			DUPLICATE_SAME_ACCESS))
+    {
+      termios_printf ("can't duplicate output handle from %u/%p, %E",
+		      src_pid, get_output_handle ());
+      goto err_close_input_handle;
+    }
+  CloseHandle (src_proc);
+  return 0;
+err_close_input_handle:
+  CloseHandle (fhc->get_handle ());
+err_close_output_mutex:
+  CloseHandle (fhc->output_mutex);
+err_close_input_mutex:
+  CloseHandle (fhc->input_mutex);
+err_close_src_proc:
+  CloseHandle (src_proc);
+err:
+  __seterrno ();
+  return -1;
 }
 
 int

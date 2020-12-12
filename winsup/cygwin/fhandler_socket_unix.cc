@@ -2008,6 +2008,7 @@ fhandler_socket_unix::serialize (int fd)
   switch (dev.get_major ())
     {
     case DEV_PTYS_MAJOR:
+    case DEV_CONS_MAJOR:
       break;
     case DEV_PTYM_MAJOR:
     case DEV_FLOPPY_MAJOR:
@@ -2017,7 +2018,6 @@ fhandler_socket_unix::serialize (int fd)
     case DEV_SD_HIGHPART_START ... DEV_SD_HIGHPART_END:
     case DEV_TAPE_MAJOR:
     case DEV_SERIAL_MAJOR:
-    case DEV_CONS_MAJOR:
       set_errno (EOPNOTSUPP);
       goto out;
     default:
@@ -2109,6 +2109,7 @@ fhandler_socket_unix::deserialize (void *bufp)
   switch (dev.get_major ())
     {
     case DEV_PTYS_MAJOR:
+    case DEV_CONS_MAJOR:
       break;
     case DEV_PTYM_MAJOR:
     case DEV_FLOPPY_MAJOR:
@@ -2118,7 +2119,6 @@ fhandler_socket_unix::deserialize (void *bufp)
     case DEV_SD_HIGHPART_START ... DEV_SD_HIGHPART_END:
     case DEV_TAPE_MAJOR:
     case DEV_SERIAL_MAJOR:
-    case DEV_CONS_MAJOR:
       set_errno (EOPNOTSUPP);
       return -1;
     default:
