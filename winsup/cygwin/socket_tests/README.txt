@@ -191,12 +191,11 @@
    Sending fd 4 to child
    Sequence number: 0
 
-11. Ancillary data test (SCM_RIGHTS, pty slave descriptor).  Run
-    send_tty in a Cygwin terminal, then enter a line.
+11. Ancillary data test (SCM_RIGHTS, pty slave descriptor).
 
-    $ ./send_tty.exe
-    hello
-    Read 6 bytes from fd 4 (including newline): hello
+    $ ./send_pty_slave.exe
+    parent sending descriptor 5 for /dev/pty3 to child
+    child read 6 bytes (including newline) from fd 4: hello
 
 TODO: Go through the above and check if all programs work with all
       options.

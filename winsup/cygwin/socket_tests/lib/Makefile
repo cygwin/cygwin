@@ -27,7 +27,5 @@ read_line.o: read_line.h
 
 get_num.o: get_num.h
 
-unp.o: unp.h
-
 clean:
 	${RM} *.o ename.c.inc ${AF_UNIX_LIB}
