@@ -1108,14 +1108,11 @@ dup_handles:
 
   fhandler_pty_slave *fhp = (fhandler_pty_slave *) child;
   HANDLE src_proc;
-  HANDLE from_master_local, from_master_cyg_local;
-  HANDLE to_master_local, to_master_cyg_local;
-
   HANDLE *handles[] =
   {
     &src_proc,
-    &from_master_local, &from_master_cyg_local,
-    &to_master_local, &to_master_cyg_local,
+    &fhp->get_handle (), &fhp->get_handle_cyg (),
+    &fhp->get_output_handle (), &fhp->get_output_handle_cyg (),
     &fhp->output_mutex, &fhp->input_mutex, &fhp->inuse,
     &fhp->input_available_event,
     NULL
@@ -1160,43 +1157,39 @@ dup_handles:
 		      src_pid, inuse);
       goto err;
     }
-  if (!DuplicateHandle (src_proc, get_ttyp ()->from_master (),
-			GetCurrentProcess (), &from_master_local,
+  if (!DuplicateHandle (src_proc, get_handle (),
+			GetCurrentProcess (), &fhp->get_handle (),
 			0, TRUE, DUPLICATE_SAME_ACCESS))
     {
       termios_printf ("can't duplicate input from %u/%p, %E",
-		      src_pid, get_ttyp ()->from_master ());
+		      src_pid, get_handle ());
       goto err;
     }
-  if (!DuplicateHandle (src_proc, get_ttyp ()->from_master_cyg (),
-			GetCurrentProcess (), &from_master_cyg_local,
+  if (!DuplicateHandle (src_proc, get_handle_cyg (),
+			GetCurrentProcess (), &fhp->get_handle_cyg (),
 			0, TRUE, DUPLICATE_SAME_ACCESS))
     {
       termios_printf ("can't duplicate input from %u/%p, %E",
-		      src_pid, get_ttyp ()->from_master_cyg ());
+		      src_pid, get_handle_cyg ());
       goto err;
     }
-  if (!DuplicateHandle (src_proc, get_ttyp ()->to_master (),
-			GetCurrentProcess (), &to_master_local,
+  if (!DuplicateHandle (src_proc, get_output_handle (),
+			GetCurrentProcess (), &fhp->get_output_handle (),
 			0, TRUE, DUPLICATE_SAME_ACCESS))
     {
-      termios_printf ("can't duplicate to_master_local from %u/%p, %E",
-		      src_pid, get_ttyp ()->to_master ());
+      termios_printf ("can't duplicate output from %u/%p, %E",
+		      src_pid, get_output_handle ());
       goto err;
     }
-  if (!DuplicateHandle (src_proc, get_ttyp ()->to_master_cyg (),
-			GetCurrentProcess (), &to_master_cyg_local,
+  if (!DuplicateHandle (src_proc, get_output_handle_cyg (),
+			GetCurrentProcess (), &fhp->get_output_handle_cyg (),
 			0, TRUE, DUPLICATE_SAME_ACCESS))
 	{
-	  termios_printf ("can't duplicate to_master_cyg_local from %u/%p, %E",
-			  src_pid, get_ttyp ()->to_master_cyg ());
+	  termios_printf ("can't duplicate output from %u/%p, %E",
+			  src_pid, get_output_handle_cyg ());
 	  goto err;
 	}
   CloseHandle (src_proc);
-  fhp->set_handle (from_master_local);
-  fhp->set_handle_cyg (from_master_cyg_local);
-  fhp->set_output_handle (to_master_local);
-  fhp->set_output_handle_cyg (to_master_cyg_local);
   return 0;
 err:
   __seterrno ();
