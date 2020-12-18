@@ -4,7 +4,7 @@ AF_UNIX_LIB = ../libafunix.a
 
 all: ${AF_UNIX_LIB}
 
-${AF_UNIX_LIB}: *.c ename.c.inc
+${AF_UNIX_LIB}: *.c *.h ename.c.inc
 	${CC} -c ${CFLAGS} *.c
 	${RM} ${AF_UNIX_LIB}
 	${AR} rs ${AF_UNIX_LIB} *.o

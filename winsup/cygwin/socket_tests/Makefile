@@ -19,13 +19,14 @@ EXE = ud_ucase_sv ud_ucase_cl \
       fork_socketpair \
       select_sv select_cl \
       is_seqnum_v2_sv is_seqnum_v3_sv is_seqnum_v2_cl \
-      send_pty_slave
+      recv_pty_slave send_pty_slave
 
-all:
-	cd lib; ${MAKE}
-	@ ${MAKE} ${EXE}
+all: ${EXE}
 
 ${EXE}: ${AF_UNIX_LIB}		# True as a rough approximation
+
+${AF_UNIX_LIB}:
+	cd lib; ${MAKE}
 
 *.o: ${AF_UNIX_HDR}
 
@@ -50,6 +51,8 @@ msg_peek_sv.o msg_peek_cl.o: msg_peek.h
 select_sv.o select_cl.o: select_test.h
 
 is_seqnum_v2_sv.o is_seqnum_v3_sv.o is_seqnum_v2_cl.o: is_seqnum_v2.h
+
+recv_pty_slave.o send_pty_slave.o: pty_slave.h
 
 clean:
 	cd lib; ${MAKE} clean

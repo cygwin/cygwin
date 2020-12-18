@@ -192,10 +192,43 @@
    Sequence number: 0
 
 11. Ancillary data test (SCM_RIGHTS, pty slave descriptor).
+    send_pty_slave creates pty pair and a shell subprocess connected
+    to the slave.  It sends the slave descriptor over an AF_UNIX
+    socket to recv_pty_slave.  It then monitors its stdin and the pty
+    master for input.  Anything it reads from stdin is written to the
+    pty master (and so read by the shell).  Anything it reads from the
+    pty master is written to stdout.  This is normally just the shell
+    output.  But recv_pty_slave writes "hello" to the slave and so is
+    read by send_pty_slave and written to stdout as though it were
+    written by the shell.
 
+    In two terminals:
+
+    # Terminal 1:
+    $ ./recv_pty_slave.exe
+    Waiting for sender to connect and send descriptor...
+
+    # Terminal 2:
     $ ./send_pty_slave.exe
-    parent sending descriptor 5 for /dev/pty3 to child
-    child read 6 bytes (including newline) from fd 4: hello
+    $ ./send_pty_slave.exe
+    hello
 
-TODO: Go through the above and check if all programs work with all
-      options.
+    #Terminal 1 now shows:
+    $ ./recv_pty_slave.exe
+    Waiting for sender to connect and send descriptor...
+    Received descriptor 5.
+    Writing "hello" to that descriptor.
+    This should appear in the other terminal as though it were output by the shell.
+
+    Can now exit the shell in terminal 2.
+
+    To test all this when the pty is connected to a pseudo terminal,
+    set SHELL=cmd before running send_pty_slave.  Terminal 2 then
+    looks like this:
+
+    $ SHELL=cmd ./send_pty_slave.exe
+    hello
+    Microsoft Windows [Version 10.0.18363.1256]
+    (c) 2019 Microsoft Corporation. All rights reserved.
+
+    C:\Users\kbrown\src\cygdll\af_unix\winsup\cygwin\socket_tests>exit
