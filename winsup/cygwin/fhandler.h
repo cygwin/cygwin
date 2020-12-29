@@ -594,7 +594,7 @@ class fhandler_socket: public fhandler_base
 			  __socklen_t *optlen) = 0;
   virtual conn_state connect_state (conn_state val) = 0;
   virtual conn_state connect_state () const = 0;
-
+  virtual bool saw_shutdown_read () const = 0;
   virtual int ioctl (unsigned int cmd, void *);
   virtual int fcntl (int cmd, intptr_t);
 
@@ -1247,6 +1247,8 @@ class fhandler_socket_unix : public fhandler_socket
   int shutdown (int how);
   int saw_shutdown (int shut) { return shmem->shutdown (shut); }
   int saw_shutdown () const { return shmem->shutdown (); }
+  bool saw_shutdown_read () const { return !!(saw_shutdown () & _SHUT_RECV); }
+
   int close ();
   int getpeereid (pid_t *pid, uid_t *euid, gid_t *egid);
   void *serialize (int fd);
