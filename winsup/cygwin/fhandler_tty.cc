@@ -1200,10 +1200,157 @@ err:
 }
 
 int
-fhandler_pty_master::dup (fhandler_base *child, int, DWORD)
+fhandler_pty_master::dup (fhandler_base *child, int, DWORD src_pid)
 {
+  if (src_pid && !child->archetype)
+    goto dup_handles;
+
   report_tty_counts (child, "duped master", "");
   return 0;
+
+dup_handles:
+  /* We're being called from dtable::dup_worker with src_pid != 0, and
+     we don't have an archetype yet.  We need to duplicate handles
+     from the source process, and the caller will create a new
+     archetype. */
+
+  fhandler_pty_master *fhp = (fhandler_pty_master *) child;
+  HANDLE src_proc;
+  /* FIXME: Not sure if all of these need to be duplicated. */
+  HANDLE *handles[] =
+  {
+    &src_proc,
+    &fhp->from_master_cyg, &fhp->get_output_handle (),
+    &fhp->from_slave, &fhp->to_master,
+    &fhp->get_handle (), &fhp->to_master_cyg,
+    &fhp->from_master, &fhp->to_slave,
+    &fhp->echo_r, &fhp->echo_w,
+    &fhp->input_available_event,
+    &fhp->output_mutex, &fhp->input_mutex,
+    NULL
+  };
+
+  for (HANDLE **h = handles; *h; h++)
+    **h = NULL;
+
+  src_proc = OpenProcess (PROCESS_DUP_HANDLE, FALSE, src_pid);
+  if (!src_proc)
+    {
+      termios_printf ("can't open source process, %E");
+      goto err;
+    }
+
+  if (!DuplicateHandle (src_proc, from_master_cyg,
+			GetCurrentProcess (), &fhp->from_master_cyg,
+			0, TRUE, DUPLICATE_SAME_ACCESS))
+    {
+      termios_printf ("can't duplicate from_master_cyg from %u/%p, %E",
+		      src_pid, from_master_cyg);
+      goto err;
+    }
+  if (!DuplicateHandle (src_proc, get_output_handle (),
+			GetCurrentProcess (), &fhp->get_output_handle (),
+			0, TRUE, DUPLICATE_SAME_ACCESS))
+    {
+      termios_printf ("can't duplicate output from %u/%p, %E",
+		      src_pid, get_output_handle ());
+      goto err;
+    }
+  if (!DuplicateHandle (src_proc, from_slave,
+			GetCurrentProcess (), &fhp->from_slave,
+			0, TRUE, DUPLICATE_SAME_ACCESS))
+	{
+	  termios_printf ("can't duplicate from_slave from %u/%p, %E",
+			  src_pid, from_slave);
+	  goto err;
+	}
+  if (!DuplicateHandle (src_proc, to_master,
+			GetCurrentProcess (), &fhp->to_master,
+			0, TRUE, DUPLICATE_SAME_ACCESS))
+	{
+	  termios_printf ("can't duplicate to_master from %u/%p, %E",
+			  src_pid, to_master);
+	  goto err;
+	}
+  if (!DuplicateHandle (src_proc, get_handle (),
+			GetCurrentProcess (), &fhp->get_handle (),
+			0, TRUE, DUPLICATE_SAME_ACCESS))
+    {
+      termios_printf ("can't duplicate get_handle () from %u/%p, %E",
+		      src_pid, get_handle ());
+      goto err;
+    }
+  if (!DuplicateHandle (src_proc, to_master_cyg,
+			GetCurrentProcess (), &fhp->to_master_cyg,
+			0, TRUE, DUPLICATE_SAME_ACCESS))
+	{
+	  termios_printf ("can't duplicate output from %u/%p, %E",
+			  src_pid, to_master_cyg);
+	  goto err;
+	}
+  if (!DuplicateHandle (src_proc, from_master,
+			GetCurrentProcess (), &fhp->from_master,
+			0, TRUE, DUPLICATE_SAME_ACCESS))
+    {
+      termios_printf ("can't duplicate from_master from %u/%p, %E",
+		      src_pid, from_master);
+      goto err;
+    }
+  if (!DuplicateHandle (src_proc, to_slave,
+			GetCurrentProcess (), &fhp->to_slave,
+			0, TRUE, DUPLICATE_SAME_ACCESS))
+	{
+	  termios_printf ("can't duplicate to_slave from %u/%p, %E",
+			  src_pid, to_slave);
+	  goto err;
+	}
+  if (!DuplicateHandle (src_proc, echo_r,
+			GetCurrentProcess (), &fhp->echo_r,
+			0, TRUE, DUPLICATE_SAME_ACCESS))
+	{
+	  termios_printf ("can't duplicate echo_r from %u/%p, %E",
+			  src_pid, echo_r);
+	  goto err;
+	}
+  if (!DuplicateHandle (src_proc, echo_w,
+			GetCurrentProcess (), &fhp->echo_w,
+			0, TRUE, DUPLICATE_SAME_ACCESS))
+	{
+	  termios_printf ("can't duplicate echo_w from %u/%p, %E",
+			  src_pid, echo_w);
+	  goto err;
+	}
+  if (!DuplicateHandle (src_proc, input_available_event, GetCurrentProcess (),
+			&fhp->input_available_event, 0, TRUE,
+			DUPLICATE_SAME_ACCESS))
+    {
+      termios_printf ("can't duplicate input_available_event from %u/%p, %E",
+		      src_pid, input_available_event);
+      goto err;
+    }
+  if (!DuplicateHandle (src_proc, output_mutex, GetCurrentProcess (),
+			&fhp->output_mutex, 0, TRUE, DUPLICATE_SAME_ACCESS))
+    {
+      termios_printf ("can't duplicate output_mutex from %u/%p, %E",
+		      src_pid, output_mutex);
+      goto err;
+    }
+  if (!DuplicateHandle (src_proc, input_mutex, GetCurrentProcess (),
+			&fhp->input_mutex, 0, TRUE, DUPLICATE_SAME_ACCESS))
+    {
+      termios_printf ("can't duplicate input_mutex from %u/%p, %E",
+		      src_pid, input_mutex);
+      goto err;
+    }
+  CloseHandle (src_proc);
+  fhp->dwProcessId = GetCurrentProcessId ();
+  return 0;
+err:
+  __seterrno ();
+  for (HANDLE **h = handles; *h; h++)
+    if (**h)
+      CloseHandle (**h);
+  return -1;
 }
 
 int

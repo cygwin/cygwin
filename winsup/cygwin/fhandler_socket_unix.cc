@@ -2009,8 +2009,8 @@ fhandler_socket_unix::serialize (int fd)
     {
     case DEV_PTYS_MAJOR:
     case DEV_CONS_MAJOR:
-      break;
     case DEV_PTYM_MAJOR:
+      break;
     case DEV_FLOPPY_MAJOR:
     case DEV_CDROM_MAJOR:
     case DEV_SD_MAJOR:
@@ -2110,8 +2110,8 @@ fhandler_socket_unix::deserialize (void *bufp)
     {
     case DEV_PTYS_MAJOR:
     case DEV_CONS_MAJOR:
-      break;
     case DEV_PTYM_MAJOR:
+      break;
     case DEV_FLOPPY_MAJOR:
     case DEV_CDROM_MAJOR:
     case DEV_SD_MAJOR:
