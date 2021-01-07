@@ -19,7 +19,8 @@ EXE = ud_ucase_sv ud_ucase_cl \
       fork_socketpair \
       select_sv select_cl \
       is_seqnum_v2_sv is_seqnum_v3_sv is_seqnum_v2_cl \
-      recv_pty_slave send_pty_slave
+      recv_pty_slave send_pty_slave \
+      recv_pty_master send_pty_master
 
 all: ${EXE}
 
@@ -53,6 +54,8 @@ select_sv.o select_cl.o: select_test.h
 is_seqnum_v2_sv.o is_seqnum_v3_sv.o is_seqnum_v2_cl.o: is_seqnum_v2.h
 
 recv_pty_slave.o send_pty_slave.o: pty_slave.h
+
+recv_pty_master.o send_pty_master.o: pty_master.h
 
 clean:
 	cd lib; ${MAKE} clean

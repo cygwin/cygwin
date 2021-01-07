@@ -210,7 +210,6 @@
 
     # Terminal 2:
     $ ./send_pty_slave.exe
-    $ ./send_pty_slave.exe
     hello
 
     #Terminal 1 now shows:
@@ -232,3 +231,49 @@
     (c) 2019 Microsoft Corporation. All rights reserved.
 
     C:\Users\kbrown\src\cygdll\af_unix\winsup\cygwin\socket_tests>exit
+
+12. Ancillary data test (SCM_RIGHTS, pty master descriptor).
+    send_pty_master creates pty pair and a shell subprocess connected
+    to the slave.  It then does the same as in 11, except that it
+    sends the master descriptor instead of the slave descriptor.
+    recv_pty_master writes "ps\n" to the received master fd.  The
+    shell created by send_pty_master reads and executes this.
+
+    In two terminals:
+
+    # Terminal 1:
+    $ ./recv_pty_master.exe
+    Waiting for sender to connect and send descriptor...
+
+    # Terminal 2:
+    $ ./send_pty_master.exe
+    ps
+
+$ ps
+      PID    PPID    PGID     WINPID   TTY         UID    STIME COMMAND
+      934     933     934     138392  pty2      197609 13:47:22 /usr/bin/bash
+      937     934     937     109052  pty2      197609 13:47:22 /usr/bin/ps
+      887     886     887      51496  pty1      197609 13:11:25 /usr/bin/bash
+      875     874     875      30396  pty0      197609 13:11:21 /usr/bin/bash
+      874       1     874      23516  ?         197609 13:11:21 /usr/bin/mintty
+      886       1     886     118428  ?         197609 13:11:25 /usr/bin/mintty
+      933     887     933      59856  pty1      197609 13:47:22 /home/kbrown/src/cygdll/af_unix/winsup/cygwin/socket_tests/send_pty_master
+      932     875     932     115304  pty0      197609 13:46:30 /home/kbrown/src/cygdll/af_unix/winsup/cygwin/socket_tests/recv_pty_master
+
+      [Why is ps echoed twice?]
+
+
+    #Terminal 1 now shows:
+    $ ./recv_pty_master.exe
+    Waiting for sender to connect and send descriptor...
+    Received descriptor 5.
+    Writing "ps" to that descriptor.
+    This should appear in the other terminal
+    and be executed by the shell running there.
+    Waiting for sender to finish...
+
+    Can now exit the shell in terminal 2 and both programs exit.
+
+    This doesn't work if we use SHELL=cmd in terminal 2.  "ps" gets
+    echoed but not executed.  I'm not sure if we should expect it to
+    work.
