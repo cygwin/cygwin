@@ -2029,12 +2029,12 @@ fhandler_socket_unix::serialize (int fd)
     case DEV_PTYS_MAJOR:
     case DEV_CONS_MAJOR:
     case DEV_PTYM_MAJOR:
-      break;
     case DEV_FLOPPY_MAJOR:
     case DEV_CDROM_MAJOR:
     case DEV_SD_MAJOR:
     case DEV_SD1_MAJOR ... DEV_SD7_MAJOR:
     case DEV_SD_HIGHPART_START ... DEV_SD_HIGHPART_END:
+      break;
     case DEV_TAPE_MAJOR:
     case DEV_SERIAL_MAJOR:
       set_errno (EOPNOTSUPP);
@@ -2132,12 +2132,12 @@ fhandler_socket_unix::deserialize (void *bufp)
     case DEV_PTYS_MAJOR:
     case DEV_CONS_MAJOR:
     case DEV_PTYM_MAJOR:
-      break;
     case DEV_FLOPPY_MAJOR:
     case DEV_CDROM_MAJOR:
     case DEV_SD_MAJOR:
     case DEV_SD1_MAJOR ... DEV_SD7_MAJOR:
     case DEV_SD_HIGHPART_START ... DEV_SD_HIGHPART_END:
+      break;
     case DEV_TAPE_MAJOR:
     case DEV_SERIAL_MAJOR:
       set_errno (EOPNOTSUPP);

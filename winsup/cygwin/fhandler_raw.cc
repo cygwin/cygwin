@@ -79,9 +79,9 @@ fhandler_dev_raw::open (int flags, mode_t)
 }
 
 int
-fhandler_dev_raw::dup (fhandler_base *child, int flags, DWORD)
+fhandler_dev_raw::dup (fhandler_base *child, int flags, DWORD src_pid)
 {
-  int ret = fhandler_base::dup (child, flags);
+  int ret = fhandler_base::dup (child, flags, src_pid);
 
   if (!ret)
     {
