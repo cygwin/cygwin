@@ -1469,31 +1469,45 @@ fhandler_dev_tape::fstat (struct stat *buf)
 }
 
 int
-fhandler_dev_tape::dup (fhandler_base *child, int flags, DWORD)
+fhandler_dev_tape::dup (fhandler_base *child, int flags, DWORD src_pid)
 {
+  HANDLE src_proc = GetCurrentProcess ();
+  if (src_pid && !(src_proc = OpenProcess (PROCESS_DUP_HANDLE, false, src_pid)))
+    {
+      debug_printf ("can't open source process %d, %E", src_pid);
+      return -1;
+    }
+
   lock (-1);
   fhandler_dev_tape *fh = (fhandler_dev_tape *) child;
-  if (!DuplicateHandle (GetCurrentProcess (), mt_mtx,
+  if (!DuplicateHandle (src_proc, mt_mtx,
 			GetCurrentProcess (), &fh->mt_mtx,
 			0, TRUE, DUPLICATE_SAME_ACCESS))
     {
       debug_printf ("dup(%s) failed, mutex handle %p, %E",
 		    get_name (), mt_mtx);
-      __seterrno ();
-      return unlock (-1);
+      goto err;
     }
   fh->ov.hEvent = NULL;
   if (ov.hEvent &&
-      !DuplicateHandle (GetCurrentProcess (), ov.hEvent,
+      !DuplicateHandle (src_proc, ov.hEvent,
 			GetCurrentProcess (), &fh->ov.hEvent,
 			0, TRUE, DUPLICATE_SAME_ACCESS))
     {
       debug_printf ("dup(%s) failed, event handle %p, %E",
 		    get_name (), ov.hEvent);
-      __seterrno ();
-      return unlock (-1);
+      goto err_close_mt_mtx;
     }
+  if (src_proc != GetCurrentProcess ())
+    CloseHandle (src_proc);
   return unlock (fhandler_dev_raw::dup (child, flags));
+err_close_mt_mtx:
+  CloseHandle (fh->mt_mtx);
+err:
+  __seterrno ();
+  if (src_proc != GetCurrentProcess ())
+    CloseHandle (src_proc);
+  return unlock (-1);
 }
 
 void
