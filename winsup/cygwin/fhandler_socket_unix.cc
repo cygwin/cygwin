@@ -2046,6 +2046,7 @@ fhandler_socket_unix::serialize (int fd)
 	case FH_PIPE:
 	case FH_PIPER:
 	case FH_PIPEW:
+	case FH_CLIPBOARD:
 	  break;
 	  /* The FH_LOCAL case shouldn't occur. */
 	case FH_LOCAL:
@@ -2062,7 +2063,6 @@ fhandler_socket_unix::serialize (int fd)
 	case FH_FULL:
 	case FH_RANDOM:
 	case FH_URANDOM:
-	case FH_CLIPBOARD:
 	case FH_OSS_DSP:
 	case FH_PROC:
 	case FH_REGISTRY:

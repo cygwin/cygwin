@@ -48,12 +48,12 @@ fhandler_dev_clipboard::fhandler_dev_clipboard ()
  */
 
 int
-fhandler_dev_clipboard::dup (fhandler_base * child, int flags, DWORD)
+fhandler_dev_clipboard::dup (fhandler_base * child, int flags, DWORD src_pid)
 {
   fhandler_dev_clipboard *fhc = (fhandler_dev_clipboard *) child;
   fhc->pos = fhc->msize = 0;
   fhc->membuffer = NULL;
-  return fhandler_base::dup (child, flags);
+  return fhandler_base::dup (child, flags, src_pid);
 }
 
 int
