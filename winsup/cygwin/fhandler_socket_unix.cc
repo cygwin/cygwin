@@ -2035,10 +2035,8 @@ fhandler_socket_unix::serialize (int fd)
     case DEV_SD1_MAJOR ... DEV_SD7_MAJOR:
     case DEV_SD_HIGHPART_START ... DEV_SD_HIGHPART_END:
     case DEV_TAPE_MAJOR:
-      break;
     case DEV_SERIAL_MAJOR:
-      set_errno (EOPNOTSUPP);
-      goto out;
+      break;
     default:
       switch ((dev_t) dev)
 	{
@@ -2138,10 +2136,8 @@ fhandler_socket_unix::deserialize (void *bufp)
     case DEV_SD1_MAJOR ... DEV_SD7_MAJOR:
     case DEV_SD_HIGHPART_START ... DEV_SD_HIGHPART_END:
     case DEV_TAPE_MAJOR:
-      break;
     case DEV_SERIAL_MAJOR:
-      set_errno (EOPNOTSUPP);
-      return -1;
+      break;
     default:
       switch ((dev_t) dev)
 	{
