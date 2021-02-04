@@ -2048,6 +2048,8 @@ fhandler_socket_unix::serialize (int fd)
 	  break;
 	  /* The FH_LOCAL case shouldn't occur. */
 	case FH_LOCAL:
+	  /* The console and ptmx cases should already be covered
+	     under DEV_CONS_MAJOR and DEV_PTYM_MAJOR above. */
 	case FH_CONSOLE:
 	case FH_CONIN:
 	case FH_CONOUT:
