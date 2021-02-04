@@ -1717,39 +1717,46 @@ fhandler_fifo::fcntl (int cmd, intptr_t arg)
 }
 
 int
-fhandler_fifo::dup (fhandler_base *child, int flags, DWORD)
+fhandler_fifo::dup (fhandler_base *child, int flags, DWORD src_pid)
 {
   fhandler_fifo *fhf = NULL;
 
   if (get_flags () & O_PATH)
-    return fhandler_base::dup (child, flags);
+    return fhandler_base::dup (child, flags, src_pid);
 
-  if (fhandler_base::dup (child, flags))
-    goto err;
+  if (fhandler_base::dup (child, flags, src_pid))
+    return -1;
+
+  HANDLE src_proc = GetCurrentProcess ();
+  if (src_pid && !(src_proc = OpenProcess (PROCESS_DUP_HANDLE, false, src_pid)))
+    {
+      debug_printf ("can't open source process %d, %E", src_pid);
+      return -1;
+    }
 
   fhf = (fhandler_fifo *) child;
-  if (!DuplicateHandle (GetCurrentProcess (), read_ready,
+  if (!DuplicateHandle (src_proc, read_ready,
 			GetCurrentProcess (), &fhf->read_ready,
 			0, !(flags & O_CLOEXEC), DUPLICATE_SAME_ACCESS))
     {
       __seterrno ();
       goto err;
     }
-  if (!DuplicateHandle (GetCurrentProcess (), write_ready,
+  if (!DuplicateHandle (src_proc, write_ready,
 			GetCurrentProcess (), &fhf->write_ready,
 			0, !(flags & O_CLOEXEC), DUPLICATE_SAME_ACCESS))
     {
       __seterrno ();
       goto err_close_read_ready;
     }
-  if (!DuplicateHandle (GetCurrentProcess (), writer_opening,
+  if (!DuplicateHandle (src_proc, writer_opening,
 			GetCurrentProcess (), &fhf->writer_opening,
 			0, !(flags & O_CLOEXEC), DUPLICATE_SAME_ACCESS))
     {
       __seterrno ();
       goto err_close_write_ready;
     }
-  if (!DuplicateHandle (GetCurrentProcess (), shmem_handle,
+  if (!DuplicateHandle (src_proc, shmem_handle,
 			GetCurrentProcess (), &fhf->shmem_handle,
 			0, !(flags & O_CLOEXEC), DUPLICATE_SAME_ACCESS))
     {
@@ -1767,7 +1774,7 @@ fhandler_fifo::dup (fhandler_base *child, int flags, DWORD)
       fhf->nhandlers = fhf->shandlers = 0;
       fhf->fc_handler = NULL;
 
-      if (!DuplicateHandle (GetCurrentProcess (), shared_fc_hdl,
+      if (!DuplicateHandle (src_proc, shared_fc_hdl,
 			    GetCurrentProcess (), &fhf->shared_fc_hdl,
 			    0, !(flags & O_CLOEXEC), DUPLICATE_SAME_ACCESS))
 	{
@@ -1776,21 +1783,21 @@ fhandler_fifo::dup (fhandler_base *child, int flags, DWORD)
 	}
       if (fhf->reopen_shared_fc_handler () < 0)
 	goto err_close_shared_fc_hdl;
-      if (!DuplicateHandle (GetCurrentProcess (), owner_needed_evt,
+      if (!DuplicateHandle (src_proc, owner_needed_evt,
 			    GetCurrentProcess (), &fhf->owner_needed_evt,
 			    0, !(flags & O_CLOEXEC), DUPLICATE_SAME_ACCESS))
 	{
 	  __seterrno ();
 	  goto err_close_shared_fc_handler;
 	}
-      if (!DuplicateHandle (GetCurrentProcess (), owner_found_evt,
+      if (!DuplicateHandle (src_proc, owner_found_evt,
 			    GetCurrentProcess (), &fhf->owner_found_evt,
 			    0, !(flags & O_CLOEXEC), DUPLICATE_SAME_ACCESS))
 	{
 	  __seterrno ();
 	  goto err_close_owner_needed_evt;
 	}
-      if (!DuplicateHandle (GetCurrentProcess (), update_needed_evt,
+      if (!DuplicateHandle (src_proc, update_needed_evt,
 			    GetCurrentProcess (), &fhf->update_needed_evt,
 			    0, !(flags & O_CLOEXEC), DUPLICATE_SAME_ACCESS))
 	{
@@ -1807,6 +1814,8 @@ fhandler_fifo::dup (fhandler_base *child, int flags, DWORD)
     }
   if (writer)
     inc_nwriters ();
+  if (src_proc != GetCurrentProcess ())
+    NtClose (src_proc);
   return 0;
 err_close_cancel_evt:
   NtClose (fhf->cancel_evt);
@@ -1831,6 +1840,8 @@ err_close_write_ready:
 err_close_read_ready:
   NtClose (fhf->read_ready);
 err:
+  if (src_proc != GetCurrentProcess ())
+    NtClose (src_proc);
   return -1;
 }
 
