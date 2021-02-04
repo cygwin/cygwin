@@ -2043,6 +2043,9 @@ fhandler_socket_unix::serialize (int fd)
 	case FH_FS:
 	case FH_INET:
 	case FH_UNIX:
+	case FH_PIPE:
+	case FH_PIPER:
+	case FH_PIPEW:
 	  break;
 	  /* The FH_LOCAL case shouldn't occur. */
 	case FH_LOCAL:
@@ -2054,9 +2057,6 @@ fhandler_socket_unix::serialize (int fd)
 	case FH_PTMX:
 	case FH_WINDOWS:
 	case FH_FIFO:
-	case FH_PIPE:
-	case FH_PIPER:
-	case FH_PIPEW:
 	case FH_NULL:
 	case FH_ZERO:
 	case FH_FULL:

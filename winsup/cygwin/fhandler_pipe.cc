@@ -186,13 +186,13 @@ fhandler_pipe::get_proc_fd_name (char *buf)
 }
 
 int
-fhandler_pipe::dup (fhandler_base *child, int flags, DWORD)
+fhandler_pipe::dup (fhandler_base *child, int flags, DWORD src_pid)
 {
   fhandler_pipe *ftp = (fhandler_pipe *) child;
   ftp->set_popen_pid (0);
 
   int res;
-  if (get_handle () && fhandler_base_overlapped::dup (child, flags))
+  if (get_handle () && fhandler_base_overlapped::dup (child, flags, src_pid))
     res = -1;
   else
     res = 0;

@@ -1449,9 +1449,9 @@ out:
 }
 
 int
-fhandler_base_overlapped::dup (fhandler_base *child, int flags, DWORD)
+fhandler_base_overlapped::dup (fhandler_base *child, int flags, DWORD src_pid)
 {
-  int res = fhandler_base::dup (child, flags) ||
+  int res = fhandler_base::dup (child, flags, src_pid) ||
 	    ((fhandler_base_overlapped *) child)->setup_overlapped ();
   return res;
 }
