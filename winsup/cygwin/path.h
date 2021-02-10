@@ -406,8 +406,6 @@ class path_conv
     return conv_handle.get_finfo (h, fs.is_nfs ());
   }
   inline ino_t get_ino () const { return conv_handle.get_ino (fs.is_nfs ()); }
-  void set_conv_handle (HANDLE h) { conv_handle.set (h); }
-  void reset_conv_handle () { conv_handle.set (NULL); }
   void close_conv_handle () { conv_handle.close (); }
 
   ino_t get_ino_by_handle (HANDLE h);
