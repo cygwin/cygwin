@@ -1249,6 +1249,7 @@ class fhandler_socket_unix : public fhandler_socket
   int saw_shutdown () const { return shmem->shutdown (); }
   bool saw_shutdown_read () const { return !!(saw_shutdown () & _SHUT_RECV); }
 
+  int open (int flags, mode_t mode = 0);
   int close ();
   int getpeereid (pid_t *pid, uid_t *euid, gid_t *egid);
   void *serialize (int fd);
