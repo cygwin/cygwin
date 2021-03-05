@@ -2106,6 +2106,7 @@ class fhandler_termios: public fhandler_base
   int eat_readahead (int n);
   virtual void acquire_input_mutex_if_necessary (DWORD ms) {};
   virtual void release_input_mutex_if_necessary (void) {};
+  virtual void discard_input () {};
 
  public:
   tty_min*& tc () {return _tc;}
@@ -2644,6 +2645,7 @@ public:
   void fixup_after_exec ();
   int tcgetpgrp ();
   void flush_to_slave ();
+  void discard_input ();
 
   size_t get_size () const { return sizeof *this; }
 
