@@ -691,22 +691,10 @@ dtable::dup_worker (fhandler_base *oldfh, int flags, DWORD src_pid)
   if (src_pid && oldfh->archetype
       && !(newfh->archetype = find_archetype (oldfh->dev ())))
     need_new_arch = true;
-      newfh->pc.close_conv_handle ();
-      if (oldfh->dup (newfh, flags))
-	{
-	  delete newfh;
-	  newfh = NULL;
-	  debug_printf ("oldfh->dup failed");
-	}
-      else
-	{
-	  /* Don't increment refcnt here since we don't know if this is a
-	     allocated fd.  So we leave this chore to the caller. */
-
   if (!oldfh->archetype)
     newfh->set_handle (NULL);
 
-  newfh->pc.reset_conv_handle ();
+  newfh->pc.close_conv_handle ();
   if (oldfh->dup (newfh, flags, src_pid))
     {
       delete newfh;
