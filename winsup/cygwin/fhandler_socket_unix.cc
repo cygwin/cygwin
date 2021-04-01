@@ -1790,6 +1790,7 @@ create_shmem_failed:
   return -1;
 }
 
+/* FIXME: Implement using AF_UNSPEC to reset a connected datagram socket. */
 int
 fhandler_socket_unix::connect (const struct sockaddr *name, int namelen)
 {
@@ -2385,6 +2386,7 @@ fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
 	}
       else
 	{
+	  /* FIXME: Make sure sender really is peer? */
 	  if (connect_state () == connected)
 	    {
 	      /* FIXME: We're tacitly assuming that the peer is bound.
@@ -2413,6 +2415,7 @@ fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
 	    /* We've created the pipe and we need to wait for a sender
 	       to connect to it. */
 	    {
+	      /* FIXME: What about nonblocking case? */
 	      if (listen_pipe () < 0)
 		__leave;
 	      /* We'll need to disconnect at the end so that we can
