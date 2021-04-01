@@ -1479,6 +1479,81 @@ out:
   return error;
 }
 
+/* A variant of wait_pipe_thread, called by sendmsg in datagram case.
+   Wait for a pipe instance to become available and connect to it. */
+int
+fhandler_socket_unix::wait_open_pipe (HANDLE &ph, PUNICODE_STRING pipe_name)
+{
+  HANDLE npfsh;
+  HANDLE evt;
+  NTSTATUS status;
+  IO_STATUS_BLOCK io;
+  ULONG pwbuf_size;
+  PFILE_PIPE_WAIT_FOR_BUFFER pwbuf;
+  int ret = -1;
+
+  status = npfs_handle (npfsh);
+  if (!NT_SUCCESS (status))
+    {
+      __seterrno_from_nt_status (status);
+      goto out;
+    }
+  if (!(evt = create_event ()))
+    goto out;
+  pwbuf_size = offsetof (FILE_PIPE_WAIT_FOR_BUFFER, Name) + pipe_name->Length;
+  pwbuf = (PFILE_PIPE_WAIT_FOR_BUFFER) alloca (pwbuf_size);
+  pwbuf->NameLength = pipe_name->Length;
+  pwbuf->TimeoutSpecified = FALSE;
+  memcpy (pwbuf->Name, pipe_name->Buffer, pipe_name->Length);
+ retry:
+  status = NtFsControlFile (npfsh, evt, NULL, NULL, &io, FSCTL_PIPE_WAIT,
+			    pwbuf, pwbuf_size, NULL, 0);
+  if (status == STATUS_PENDING)
+    {
+      switch (cygwait (evt, cw_infinite, cw_cancel | cw_sig_eintr))
+	{
+	case WAIT_OBJECT_0:
+	  status = io.Status;
+	  break;
+	case WAIT_CANCELED:
+	  pthread::static_cancel_self ();
+	  /*NOTREACHED*/
+	case WAIT_SIGNALED:
+	  set_errno (EINTR);
+	  break;
+	default:
+	  break;
+	}
+    }
+  switch (status)
+    {
+    case STATUS_SUCCESS:
+      status = open_pipe (ph, pipe_name);
+      if (NT_SUCCESS (status))
+	ret = 0;
+      else if (STATUS_PIPE_NO_INSTANCE_AVAILABLE (status))
+	/* Someone else grabbed the pipe instance. */
+	goto retry;
+      else
+	__seterrno_from_nt_status (status);
+      break;
+    case STATUS_OBJECT_NAME_NOT_FOUND:
+      set_errno (EADDRNOTAVAIL);
+      break;
+    case STATUS_INSUFFICIENT_RESOURCES:
+      set_errno (ENOBUFS);
+      break;
+    case STATUS_INVALID_DEVICE_REQUEST:
+    default:
+      set_errno (EIO);
+      break;
+    }
+ out:
+  if (evt)
+    NtClose (evt);
+  return ret;
+}
+
 int
 fhandler_socket_unix::socket (int af, int type, int protocol, int flags)
 {
@@ -3106,7 +3181,17 @@ fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
 	      __leave;
 	    }
 	  status = open_pipe (ph, &pipe_name);
-	  if (!NT_SUCCESS (status))
+	  if (STATUS_PIPE_NO_INSTANCE_AVAILABLE (status))
+	    {
+	      if (is_nonblocking () || flags & MSG_DONTWAIT)
+		{
+		  set_errno (EAGAIN);
+		  __leave;
+		}
+	      if (wait_open_pipe (ph, &pipe_name) < 0)
+		__leave;
+	    }
+	  else if (!NT_SUCCESS (status))
 	    {
 	      __seterrno_from_nt_status (status);
 	      __leave;

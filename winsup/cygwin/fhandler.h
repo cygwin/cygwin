@@ -1186,6 +1186,7 @@ class fhandler_socket_unix : public fhandler_socket
   HANDLE create_pipe (bool single_instance);
   HANDLE create_pipe_instance ();
   NTSTATUS open_pipe (HANDLE &ph, PUNICODE_STRING pipe_name);
+  int wait_open_pipe (HANDLE &ph, PUNICODE_STRING pipe_name);
   void xchg_sock_info ();
   int wait_pipe (PUNICODE_STRING pipe_name);
   int connect_pipe (PUNICODE_STRING pipe_name);
