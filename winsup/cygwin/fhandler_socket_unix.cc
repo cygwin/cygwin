@@ -1142,6 +1142,14 @@ fhandler_socket_unix::listen_pipe ()
     set_errno (EINTR);
   else if (status == STATUS_PIPE_LISTENING)
     set_errno (EAGAIN);
+  else if (status == STATUS_PIPE_CLOSING)
+    {
+      /* FIXME: For now I'm assuming that someone connected, wrote,
+	 and closed.  But we should probably query the os to be sure,
+	 as in fhandler_fifo.cc. */
+      debug_printf ("STATUS_PIPE_CLOSING");
+      ret = 0;
+    }
   else if (status == STATUS_SUCCESS || status == STATUS_PIPE_CONNECTED)
     ret = 0;
   else
