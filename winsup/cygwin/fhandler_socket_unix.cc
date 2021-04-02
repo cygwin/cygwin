@@ -2457,6 +2457,8 @@ fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
 	    }
 	  /* FIXME: Should the shutdown check be done for connected
 	     datagram sockets too? */
+	  /* FIXME: This isn't quite right.  There may be data in the
+	     pipe that hasn't been read yet. */
 	  grab_admin_pkt ();
 	  if (saw_shutdown () & _SHUT_RECV || tot == 0)
 	    {

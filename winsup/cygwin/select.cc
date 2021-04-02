@@ -1938,7 +1938,6 @@ fhandler_socket_wsock::select_except (select_stuff *ss)
       s->cleanup = socket_cleanup;
     }
   s->peek = peek_socket;
-  /* FIXME: Is this right?  Should these be used as criteria for except? */
   s->except_ready = saw_shutdown_write () || saw_shutdown_read ();
   s->except_selected = true;
   return s;
@@ -2194,9 +2193,6 @@ fhandler_socket_unix::select_write (select_stuff *ss)
     || connect_state () == unconnected;
   if (connect_state () != unconnected)
     {
-      /* FIXME: I copied this from the wsock case, but it doesn't seem
-	 right.  Why are we setting except_ready here rather than in
-	 select_except? */
       s->except_ready = saw_shutdown ();
       s->except_on_write = true;
     }
@@ -2215,7 +2211,6 @@ fhandler_socket_unix::select_except (select_stuff *ss)
   s->verify = verify_ok;
   s->cleanup = socket_unix_cleanup;
   s->except_selected = true;
-  /* FIXME: Is this right? */
   s->except_ready = saw_shutdown ();
   grab_admin_pkt ();
 
