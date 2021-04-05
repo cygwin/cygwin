@@ -124,6 +124,9 @@ fhandler_base::set_name (path_conv &in_pc)
   pc << in_pc;
 }
 
+/* Copied from dtable.cc. */
+static const char unknown_file[] = "some disk file";
+
 /* Preliminary version. */
 void
 fhandler_base::set_name_from_handle ()
@@ -133,6 +136,8 @@ fhandler_base::set_name_from_handle ()
 
   name[0] = '\0';
   dtable::handle_to_fn (get_handle (), name);
+  if (strcmp (name, unknown_file) == 0)
+    name[0] = '\0';
   set_name (cstrdup (name));
 }
 
