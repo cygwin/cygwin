@@ -2096,7 +2096,7 @@ struct fh_ser
 /* FIXME: Deal with file name for FIFOs aside from O_PATH case.  Maybe
           create a path_conv handle before serializing.
 
-	  Modify pty and related cases due to renaming. */
+	  Recheck pty and related cases due to renaming. */
 
 /* Return a pointer to an allocated buffer containing an fh_ser.  The
    caller has to free it. */
