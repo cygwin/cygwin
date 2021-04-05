@@ -131,6 +131,7 @@ static const char unknown_file[] = "some disk file";
 void
 fhandler_base::set_name_from_handle ()
 {
+  size_t len;
   tmp_pathbuf tp;
   char *name = tp.c_get ();
 
@@ -138,6 +139,10 @@ fhandler_base::set_name_from_handle ()
   dtable::handle_to_fn (get_handle (), name);
   if (strcmp (name, unknown_file) == 0)
     name[0] = '\0';
+  len = strlen (name);
+  if (pc.is_lnk_special () && len > 4
+      && ascii_strcasematch (name + len - 4, ".lnk"))
+    name[len - 4] = '\0';
   set_name (cstrdup (name));
 }
 
