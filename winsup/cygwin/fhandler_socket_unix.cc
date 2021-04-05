@@ -2093,6 +2093,11 @@ struct fh_ser
   DWORD winpid;			/* Windows pid of sender. */
 };
 
+/* FIXME: Deal with file name for FIFOs aside from O_PATH case.  Maybe
+          create a path_conv handle before serializing.
+
+	  Modify pty and related cases due to renaming. */
+
 /* Return a pointer to an allocated buffer containing an fh_ser.  The
    caller has to free it. */
 void *
@@ -2230,9 +2235,19 @@ fhandler_socket_unix::deserialize (void *bufp)
 	  newfh->set_name_from_handle ();
 	  break;
 	case FH_UNIX:
-	  if (((fhandler_socket_unix *) newfh)->get_pipe_end () == pipe_server)
-	    ((fhandler_socket_unix *) newfh)->gen_pipe_name ();
+	  {
+	    fhandler_socket_unix *fhs = (fhandler_socket_unix *) newfh;
+
+	    if (fhs->get_pipe_end () == pipe_server)
+	      fhs->gen_pipe_name ();
+	    if (fhs->dev ().isfs ())
+	      /* Socket file opened with O_PATH. */
+	      fhs->set_name_from_handle ();
+	  }
 	  break;
+	case FH_FIFO:
+	  if (newfh->get_flags () & O_PATH)
+	    newfh->set_name_from_handle ();
 	default:
 	  break;
 	}
