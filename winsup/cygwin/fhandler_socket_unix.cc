@@ -1163,13 +1163,14 @@ fhandler_socket_unix::peek_pipe (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize,
 {
   NTSTATUS status;
   IO_STATUS_BLOCK io;
+  HANDLE h = ph ?: get_handle ();
 
-  status = NtFsControlFile (ph ?: get_handle (), evt, NULL, NULL, &io,
+  status = NtFsControlFile (h, evt, NULL, NULL, &io,
 			    FSCTL_PIPE_PEEK, NULL, 0, pbuf, psize);
   if (status == STATUS_PENDING)
     {
       /* Very short-lived */
-      status = NtWaitForSingleObject (evt ?: get_handle (), FALSE, NULL);
+      status = NtWaitForSingleObject (evt ?: h, FALSE, NULL);
       if (NT_SUCCESS (status))
 	status = io.Status;
     }
