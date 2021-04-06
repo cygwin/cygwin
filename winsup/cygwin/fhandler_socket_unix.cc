@@ -1521,7 +1521,7 @@ fhandler_socket_unix::wait_open_pipe (HANDLE &ph, PUNICODE_STRING pipe_name)
 	  /*NOTREACHED*/
 	case WAIT_SIGNALED:
 	  set_errno (EINTR);
-	  break;
+	  goto out;
 	default:
 	  break;
 	}
