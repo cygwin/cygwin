@@ -1114,7 +1114,7 @@ fhandler_socket_unix::connect_pipe (PUNICODE_STRING pipe_name)
 }
 
 int
-fhandler_socket_unix::listen_pipe ()
+fhandler_socket_unix::listen_pipe (bool nonblocking)
 {
   NTSTATUS status;
   IO_STATUS_BLOCK io;
@@ -1123,7 +1123,7 @@ fhandler_socket_unix::listen_pipe ()
   int ret = -1;
 
   io.Status = STATUS_PENDING;
-  if (!is_nonblocking () && !(evt = create_event ()))
+  if (!nonblocking && !(evt = create_event ()))
     return -1;
   status = NtFsControlFile (get_handle (), evt, NULL, NULL, &io,
 			    FSCTL_PIPE_LISTEN, NULL, 0, NULL, 0);
@@ -1784,7 +1784,7 @@ fhandler_socket_unix::accept4 (struct sockaddr *peer, int *len, int flags)
       set_errno (EINVAL);
       return -1;
     }
-  if (listen_pipe () == 0)
+  if (listen_pipe (is_nonblocking ()) == 0)
     {
       /* Our handle is now connected with a client.  This handle is used
          for the accepted socket.  Our handle has to be replaced with a
@@ -2516,8 +2516,18 @@ fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
 	    /* We've created the pipe and we need to wait for a sender
 	       to connect to it. */
 	    {
-	      /* FIXME: What about nonblocking case? */
-	      if (listen_pipe () < 0)
+	      /* Handle MSG_DONTWAIT in blocking mode. */
+	      bool nonblocking = is_nonblocking ();
+
+	      if (!is_nonblocking () && (flags & MSG_DONTWAIT))
+		{
+		  nonblocking = true;
+		  set_pipe_non_blocking (true);
+		}
+	      int ret = listen_pipe (nonblocking);
+	      if (!is_nonblocking () && (flags & MSG_DONTWAIT))
+		set_pipe_non_blocking (false);
+	      if (ret < 0)
 		__leave;
 	      /* We'll need to disconnect at the end so that we can
 		 accept another connection later. */

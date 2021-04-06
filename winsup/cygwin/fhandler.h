@@ -1190,7 +1190,7 @@ class fhandler_socket_unix : public fhandler_socket
   void xchg_sock_info ();
   int wait_pipe (PUNICODE_STRING pipe_name);
   int connect_pipe (PUNICODE_STRING pipe_name);
-  int listen_pipe ();
+  int listen_pipe (bool nonblocking);
   int disconnect_pipe (HANDLE ph);
 
   pipe_end get_pipe_end () const { return _pipe_end; }
