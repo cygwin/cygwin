@@ -2193,10 +2193,7 @@ fhandler_socket_unix::select_write (select_stuff *ss)
   s->write_selected = true;
   s->write_ready = saw_shutdown_write () || connect_state () == unconnected;
   if (connect_state () != unconnected)
-    {
-      s->except_ready = saw_shutdown ();
-      s->except_on_write = true;
-    }
+    s->except_on_write = true;
   return s;
 }
 
@@ -2212,9 +2209,6 @@ fhandler_socket_unix::select_except (select_stuff *ss)
   s->verify = verify_ok;
   s->cleanup = socket_unix_cleanup;
   s->except_selected = true;
-  s->except_ready = saw_shutdown ();
-  grab_admin_pkt ();
-
   return s;
 }
 
