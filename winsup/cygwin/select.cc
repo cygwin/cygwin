@@ -1981,7 +1981,7 @@ peek_socket_unix (select_record *me, bool)
 		  {
 		    /* FIXME: Check for error? */
 		    fh->grab_admin_pkt (false);
-		    if (fh->saw_shutdown () & _SHUT_RECV)
+		    if (fh->saw_shutdown_read ())
 		      {
 			select_printf ("read: saw shutdown");
 			gotone += me->read_ready = true;
@@ -2175,7 +2175,7 @@ fhandler_socket_unix::select_read (select_stuff *ss)
   s->cleanup = socket_unix_cleanup;
   s->read_selected = true;
   grab_admin_pkt ();
-  s->read_ready = (saw_shutdown () & _SHUT_RECV);
+  s->read_ready = saw_shutdown_read ());
   return s;
 }
 
@@ -2191,8 +2191,7 @@ fhandler_socket_unix::select_write (select_stuff *ss)
   s->verify = verify_ok;
   s->cleanup = socket_unix_cleanup;
   s->write_selected = true;
-  s->write_ready = (saw_shutdown () & _SHUT_SEND)
-    || connect_state () == unconnected;
+  s->write_ready = saw_shutdown_write () || connect_state () == unconnected;
   if (connect_state () != unconnected)
     {
       s->except_ready = saw_shutdown ();

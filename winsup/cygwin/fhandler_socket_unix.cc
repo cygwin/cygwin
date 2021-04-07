@@ -2476,7 +2476,7 @@ fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
 	  /* FIXME: This isn't quite right.  There may be data in the
 	     pipe that hasn't been read yet. */
 	  grab_admin_pkt ();
-	  if (saw_shutdown () & _SHUT_RECV || tot == 0)
+	  if (saw_shutdown_read () || tot == 0)
 	    {
 	      ret = 0;
 	      __leave;
@@ -2607,7 +2607,7 @@ restart:
 		  {
 		    /* FIXME: Check for error? */
 		    grab_admin_pkt (false);
-		    if (saw_shutdown () & _SHUT_RECV)
+		    if (saw_shutdown_read ())
 		      {
 			ret = 0;
 			__leave;
@@ -2732,7 +2732,7 @@ restart1:
 		{
 		  /* FIXME: Check for error? */
 		  grab_admin_pkt (false);
-		  if (saw_shutdown () & _SHUT_RECV)
+		  if (saw_shutdown_read ())
 		    {
 		      ret = nbytes_read;
 		      __leave;
@@ -2805,7 +2805,7 @@ restart2:
 		  if (packet->admin_pkt)
 		    {
 		      process_admin_pkt (packet);
-		      if (saw_shutdown () & _SHUT_RECV)
+		      if (saw_shutdown_read ())
 			{
 			  ret = nbytes_read;
 			  __leave;
@@ -3178,7 +3178,7 @@ fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
 	      __leave;
 	    }
 	  grab_admin_pkt ();
-	  if (saw_shutdown () & _SHUT_SEND)
+	  if (saw_shutdown_write ())
 	    {
 	      set_errno (EPIPE);
 	      /* FIXME: Linux calls for SIGPIPE here, but Posix
