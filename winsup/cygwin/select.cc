@@ -1959,15 +1959,24 @@ peek_socket_unix (select_record *me, bool)
 	{
 	  select_printf ("already ready for read");
 	  gotone = 1;
-	  goto out;
+	  goto check_write;
 	}
       if (fh->get_unread ())
 	{
 	  select_printf ("ready for read");
 	  gotone += me->read_ready = true;
-	  goto out;
+	  goto check_write;
 	}
-      if (fh->connect_state () == connected)
+      if (fh->so_error ())
+	{
+	  select_printf ("pending error, so ready for read");
+	  gotone += me->read_ready = true;
+	  goto check_write;
+	}
+      if ((fh->get_socket_type () == SOCK_STREAM
+	   && fh->connect_state () == connected)
+	|| (fh->get_socket_type () == SOCK_DGRAM
+	    && fh->binding_state () == bound))
 	while (1)
 	  {
 	    PFILE_PIPE_PEEK_BUFFER pbuf
@@ -1985,9 +1994,7 @@ peek_socket_unix (select_record *me, bool)
 		      {
 			select_printf ("read: saw shutdown");
 			gotone += me->read_ready = true;
-			if (me->except_selected)
-			  gotone += me->except_ready = true;
-			goto out;
+			goto check_write;
 		      }
 		    continue;
 		  }
@@ -1996,30 +2003,20 @@ peek_socket_unix (select_record *me, bool)
 		    select_printf ("read: ready for read: avail %d",
 				   packet->data_len);
 		    gotone += me->read_ready = true;
-		    goto out;
-		  }
-		else if (fh->get_socket_type () == SOCK_DGRAM)
-		  {
-		    select_printf ("read: ready for read: 0-length datagram packet");
-		    gotone += me->read_ready = true;
-		    goto out;
+		    goto check_write;
 		  }
 		else
 		  {
-		    select_printf ("read: 0-length stream socket packet");
+		    select_printf ("read: ready for read: 0-length packet");
 		    gotone += me->read_ready = true;
-		    if (me->except_selected)
-		      gotone += me->except_ready = true;
-		    goto out;
+		    goto check_write;
 		  }
 	      }
 	    else if (!NT_SUCCESS (status))
 	      {
 		select_printf ("peek_pipe status %y", status);
 		gotone += me->read_ready = true;
-		if (me->except_selected)
-		  gotone += me->except_ready = true;
-		goto out;
+		goto check_write;
 	      }
 	    else
 	      break;
@@ -2041,32 +2038,60 @@ peek_socket_unix (select_record *me, bool)
 	      select_printf ("NtQueryInformationFile failed, status %y",
 			     status);
 	      gotone += me->read_ready = true;
-	      goto out;
+	      goto check_write;
 	    }
 	  if (fpli.NamedPipeState != FILE_PIPE_LISTENING_STATE)
 	    {
 	      select_printf ("pipe state %d", fpli.NamedPipeState);
 	      gotone += me->read_ready = true;
-	      goto out;
+	      goto check_write;
 	    }
 	}
     }
-out:
+check_write:
   if (me->write_selected)
     {
       if (me->write_ready)
 	{
 	  select_printf ("already ready for write");
 	  gotone += 1;
+	  goto out;
 	}
-      else
+      if (fh->so_error ())
+	{
+	  select_printf ("pending error, so ready for write");
+	  gotone += me->write_ready = true;
+	  goto out;
+	}
+      if (me->except_on_write && fh->connect_state () == connected)
+	{
+	  select_printf ("async connect completed, so ready for write");
+	  gotone += me->write_ready = true;
+	  goto out;
+	}
+      if (!me->read_selected)
+	fh->grab_admin_pkt ();
+      if (fh->saw_shutdown_write ())
+	{
+	  select_printf ("write: saw shutdown");
+	  gotone += me->write_ready = true;
+	  goto out;
+	}
+      /* FIXME: With our current implementation of datagram sockets,
+	 we have no send buffer, so we can't adequately test whether a
+	 write would block.  We might block waiting for a pipe
+	 connection. */
+      if (fh->get_socket_type () == SOCK_STREAM
+	  && fh->connect_state () == connected)
 	{
 	  /* FIXME: I'm not calling pipe_data_available because its
 	     test for space available in the buffer doesn't make sense
 	     to me.  Also, we probably don't want to consider the
 	     socket writable if there's only one byte available in the
 	     buffer.  But maybe I've gone too far in insisting on
-	     MAX_AF_PKT_LEN bytes available. */
+	     MAX_AF_PKT_LEN bytes available.  Stevens says there
+	     should be SO_SNDLOWAT bytes available, but we don't seem
+	     to set this. */
 	  IO_STATUS_BLOCK io;
 	  FILE_PIPE_LOCAL_INFORMATION fpli;
 	  NTSTATUS status
@@ -2079,14 +2104,17 @@ out:
 			     status);
 	      /* See the comment in pipe_data_available. */
 	      gotone += me->write_ready = true;
+	      goto out;
 	    }
-	  else if (fpli.WriteQuotaAvailable >= MAX_AF_PKT_LEN)
+	  if (fpli.WriteQuotaAvailable >= MAX_AF_PKT_LEN)
 	    {
 	      select_printf ("read for write");
 	      gotone += me->write_ready = true;
+	      goto out;
 	    }
 	}
     }
+out:
   return gotone;
 }
 
@@ -2160,8 +2188,6 @@ socket_unix_cleanup (select_record *, select_stuff *stuff)
   stuff->device_specific_socket_unix = NULL;
 }
 
-/* FIXME: Where in what follows should we be checking so_error? */
-
 select_record *
 fhandler_socket_unix::select_read (select_stuff *ss)
 {
@@ -2175,7 +2201,7 @@ fhandler_socket_unix::select_read (select_stuff *ss)
   s->cleanup = socket_unix_cleanup;
   s->read_selected = true;
   grab_admin_pkt ();
-  s->read_ready = saw_shutdown_read ());
+  s->read_ready = saw_shutdown_read () || so_error ();
   return s;
 }
 
@@ -2191,8 +2217,11 @@ fhandler_socket_unix::select_write (select_stuff *ss)
   s->verify = verify_ok;
   s->cleanup = socket_unix_cleanup;
   s->write_selected = true;
-  s->write_ready = saw_shutdown_write () || connect_state () == unconnected;
-  if (connect_state () != unconnected)
+  s->write_ready = saw_shutdown_write () || so_error ()
+    || (connect_state () == unconnected && get_socket_type () == SOCK_STREAM);
+  /* Contrary to the wsock case, we will use except_on_write only to
+     check for a successful async connect. */
+  if (connect_state () != connect_pending)
     s->except_on_write = true;
   return s;
 }

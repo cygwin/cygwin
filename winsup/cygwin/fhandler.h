@@ -1156,9 +1156,7 @@ class fhandler_socket_unix : public fhandler_socket
   void scm_fd_unlock () { shmem->scm_fd_unlock (); }
   bind_state binding_state (bind_state val)
     { return shmem->binding_state (val); }
-  bind_state binding_state () const { return shmem->binding_state (); }
   int so_error (int err) { return shmem->so_error (err); }
-  int so_error () const { return shmem->so_error (); }
   bool so_passcred (bool pc) { return shmem->so_passcred (pc); }
   bool so_passcred () const { return shmem->so_passcred (); }
   int reuseaddr (int err) { return shmem->reuseaddr (err); }
@@ -1263,6 +1261,8 @@ class fhandler_socket_unix : public fhandler_socket
   int saw_shutdown () const { return shmem->shutdown (); }
   bool saw_shutdown_read () const { return !!(saw_shutdown () & _SHUT_RECV); }
   bool saw_shutdown_write () const { return !!(saw_shutdown () & _SHUT_SEND); }
+  int so_error () const { return shmem->so_error (); }
+  bind_state binding_state () const { return shmem->binding_state (); }
 
   int open (int flags, mode_t mode = 0);
   int close ();

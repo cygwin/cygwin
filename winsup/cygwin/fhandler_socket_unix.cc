@@ -3208,6 +3208,9 @@ fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
 	      set_errno (EPROTOTYPE);
 	      __leave;
 	    }
+	  /* FIXME: Should we maintain our own send buffer(s) so that
+	     writing doesn't have to block while we wait for a pipe
+	     connection? */
 	  status = open_pipe (ph, &pipe_name);
 	  if (STATUS_PIPE_NO_INSTANCE_AVAILABLE (status))
 	    {
