@@ -2431,6 +2431,7 @@ fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
   bool waitall = false;
   bool disconnect = false;
   bool name_read = false;
+  int err;
 
   __try
     {
@@ -2438,6 +2439,13 @@ fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
       if (flags & ~(MSG_DONTWAIT | MSG_PEEK | MSG_WAITALL | MSG_TRUNC))
 	{
 	  set_errno (EOPNOTSUPP);
+	  __leave;
+	}
+      /* FIXME: Check this.  It's from Stevens, UNIX Network
+	 Programming, discussion of select. */
+      if ((err = so_error ()))
+	{
+	  set_errno (err);
 	  __leave;
 	}
       if (!(evt = create_event ()))
@@ -3156,6 +3164,7 @@ fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
   HANDLE ph = NULL;
   HANDLE evt = NULL;
   af_unix_pkt_hdr_t *packet;
+  int err;
 
   __try
     {
@@ -3163,6 +3172,13 @@ fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
       if (flags & ~(MSG_DONTWAIT | MSG_NOSIGNAL))
 	{
 	  set_errno (EOPNOTSUPP);
+	  __leave;
+	}
+      /* FIXME: Check this.  It's from Stevens, UNIX Network
+	 Programming, discussion of select. */
+      if ((err = so_error ()))
+	{
+	  set_errno (err);
 	  __leave;
 	}
       if (get_socket_type () == SOCK_STREAM)
