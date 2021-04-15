@@ -2077,12 +2077,17 @@ check_write:
 	  gotone += me->write_ready = true;
 	  goto out;
 	}
-      /* FIXME: With our current implementation of datagram sockets,
-	 we have no send buffer, so we can't adequately test whether a
-	 write would block.  We might block waiting for a pipe
-	 connection. */
-      if (fh->get_socket_type () == SOCK_STREAM
-	  && fh->connect_state () == connected)
+      if (fh->get_socket_type () == SOCK_DGRAM)
+	/* We have no send buffer to check for available space, so
+	   just report ready for write.  An attempt to send might
+	   still block waiting for a pipe connection, but that's
+	   allowable in view of the non-atomicity of select/send. */
+	{
+	  select_printf ("DGRAM, so ready for write");
+	  gotone += me->write_ready = true;
+	  goto out;
+	}
+      else if (fh->connect_state () == connected)
 	{
 	  /* FIXME: I'm not calling pipe_data_available because its
 	     test for space available in the buffer doesn't make sense
