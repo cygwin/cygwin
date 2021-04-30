@@ -966,7 +966,8 @@ _mq_receive (mqd_t mqd, char *ptr, size_t maxlen, unsigned int *priop,
 	}
       if (attr->mq_curmsgs == 0)	/* queue is empty */
 	{
-	  if (mqinfo->mqi_flags & O_NONBLOCK)
+	  /* Don't block if O_NONBLOCK is set or when peeking */
+	  if ((mqinfo->mqi_flags & O_NONBLOCK) || (flags & _MQ_PEEK_PACKET))
 	    {
 	      set_errno (EAGAIN);
 	      __leave;
