@@ -917,6 +917,9 @@ enum
   _MQ_RET_PARTIAL	= _BIT ( 2), /* return partial length (STREAM),
 					otherwise return full packet length
 					(DGRAM with MSG_TRUNC/MSG_CTRUNC) */
+  _MQ_PEEK_PACKET	= _BIT ( 3), /* Peek into the packet, return data,
+					but don't touch the packet at all
+					(MSG_PEEK) */
 };
 
 static ssize_t
@@ -933,7 +936,7 @@ _mq_receive (mqd_t mqd, char *ptr, size_t maxlen, unsigned int *priop,
   struct mq_info *mqinfo = (struct mq_info *) mqd;
   bool ipc_mutex_locked = false;
   bool partial_read = false;
-  bool keep_packet = false;
+  bool keep_packet = (flags & _MQ_PEEK_PACKET);
 
   pthread_testcancel ();
 
@@ -994,8 +997,7 @@ _mq_receive (mqd_t mqd, char *ptr, size_t maxlen, unsigned int *priop,
 	  partial_read = true;
 	  len = maxlen;
 	  /* Keep remainder of packet (STREAM sockets)? */
-	  if (flags & _MQ_KEEP_PARTIAL)
-	    keep_packet = true;
+	  keep_packet = (flags & _MQ_KEEP_PARTIAL);
 	}
       else
 	len = msghdr->msg_len;
@@ -1013,15 +1015,19 @@ _mq_receive (mqd_t mqd, char *ptr, size_t maxlen, unsigned int *priop,
       if (partial_read && !(flags & _MQ_RET_PARTIAL))
 	len = msghdr->msg_len;
 
-      /* If we keep the remainder of the packet, fix packet data,
-	 otherwise move packet to free list */
+      /* Keep the packet? */
       if (keep_packet)
 	{
-	  msghdr->msg_len -= maxlen;
-	  memmove (msghdr + 1, (int8_t *) (msghdr + 1) + maxlen,
-		   msghdr->msg_len);
+	  /* On MSG_PEEK, don't touch the packet.  Otherwise keep the
+	     remainder of the packet.  Fix packet data accordingly. */
+	  if (!(flags & _MQ_PEEK_PACKET))
+	    {
+	      msghdr->msg_len -= maxlen;
+	      memmove (msghdr + 1, (int8_t *) (msghdr + 1) + maxlen,
+		       msghdr->msg_len);
+	    }
 	}
-      else
+      else /* move packet to free list */
 	{
 	  /* Just-read message goes to front of free list */
 	  msghdr->msg_next = mqhdr->mqh_free;
@@ -1046,6 +1052,15 @@ extern "C" ssize_t
 _mq_recv (mqd_t mqd, char *ptr, size_t maxlen, int flags)
 {
   return _mq_receive (mqd, ptr, maxlen, NULL, NULL, _MQ_ALLOW_PARTIAL | flags);
+}
+
+/* Internal function to allow peeking into message packets.
+   Used from AF_UNIX code. */
+extern "C" ssize_t
+_mq_peek (mqd_t mqd, char *ptr, size_t maxlen, int flags)
+{
+  return _mq_receive (mqd, ptr, maxlen, NULL, NULL,
+		      _MQ_ALLOW_PARTIAL | _MQ_PEEK_PACKET | flags);
 }
 
 extern "C" ssize_t
