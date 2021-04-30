@@ -384,7 +384,7 @@ struct mq_hdr
 struct msg_hdr
 {
   int32_t         msg_next;	 /* index of next on linked list */
-  int32_t         msg_len;	 /* actual length */
+  uint32_t        msg_len;	 /* actual length */
   unsigned int    msg_prio;	 /* priority */
 };
 #pragma pack (pop)
@@ -813,7 +813,7 @@ _mq_send (mqd_t mqd, const char *ptr, size_t len, unsigned int prio,
 	  __leave;
 	}
       ipc_mutex_locked = true;
-      if (len > (size_t) attr->mq_msgsize)
+      if (len > attr->mq_msgsize)
 	{
 	  set_errno (EMSGSIZE);
 	  __leave;
@@ -908,9 +908,20 @@ mq_timedsend (mqd_t mqd, const char *ptr, size_t len, unsigned int prio,
   return _mq_send (mqd, ptr, len, prio, abstime);
 }
 
+enum
+{
+  _MQ_ALLOW_PARTIAL	= _BIT ( 0), /* allow partial reads */
+  _MQ_KEEP_PARTIAL	= _BIT ( 1), /* keep remainder of packet intact after
+					partial read (STREAM sockets),
+					otherwise drop remainder of packet */
+  _MQ_RET_PARTIAL	= _BIT ( 2), /* return partial length (STREAM),
+					otherwise return full packet length
+					(DGRAM with MSG_TRUNC/MSG_CTRUNC) */
+};
+
 static ssize_t
 _mq_receive (mqd_t mqd, char *ptr, size_t maxlen, unsigned int *priop,
-	     const struct timespec *abstime)
+	     const struct timespec *abstime, uint32_t flags)
 {
   int n;
   long index;
@@ -921,6 +932,8 @@ _mq_receive (mqd_t mqd, char *ptr, size_t maxlen, unsigned int *priop,
   struct msg_hdr *msghdr;
   struct mq_info *mqinfo = (struct mq_info *) mqd;
   bool ipc_mutex_locked = false;
+  bool partial_read = false;
+  bool keep_packet = false;
 
   pthread_testcancel ();
 
@@ -940,7 +953,10 @@ _mq_receive (mqd_t mqd, char *ptr, size_t maxlen, unsigned int *priop,
 	  __leave;
 	}
       ipc_mutex_locked = true;
-      if (maxlen < (size_t) attr->mq_msgsize)
+
+      /* Check if maxlen is too small.  When called from _mq_recv, that's ok,
+	 but for actual user space message queues, that's an error condition */
+      if (maxlen < (size_t) attr->mq_msgsize && (flags & _MQ_ALLOW_PARTIAL))
 	{
 	  set_errno (EMSGSIZE);
 	  __leave;
@@ -971,20 +987,51 @@ _mq_receive (mqd_t mqd, char *ptr, size_t maxlen, unsigned int *priop,
 	api_fatal ("mq_receive: curmsgs = %ld; head = 0", attr->mq_curmsgs);
 
       msghdr = (struct msg_hdr *) &mptr[index];
-      mqhdr->mqh_head = msghdr->msg_next;     /* new head of list */
-      len = msghdr->msg_len;
-      memcpy(ptr, msghdr + 1, len);           /* copy the message itself */
+
+      /* Partial read? */
+      if (maxlen < msghdr->msg_len)
+	{
+	  partial_read = true;
+	  len = maxlen;
+	  /* Keep remainder of packet (STREAM sockets)? */
+	  if (flags & _MQ_KEEP_PARTIAL)
+	    keep_packet = true;
+	}
+      else
+	len = msghdr->msg_len;
+
+      if (!keep_packet)
+	mqhdr->mqh_head = msghdr->msg_next;     /* new head of list */
+
+      memcpy(ptr, msghdr + 1, len);		/* copy the message itself */
+
       if (priop != NULL)
-	*priop = msghdr->msg_prio;
+	*priop = msghdr->msg_prio;		/* return priority */
 
-      /* Just-read message goes to front of free list */
-      msghdr->msg_next = mqhdr->mqh_free;
-      mqhdr->mqh_free = index;
+      /* Check if we have to return the entire packet size (MSG_{C}TRUNC)
+	 and set len accordingly */
+      if (partial_read && !(flags & _MQ_RET_PARTIAL))
+	len = msghdr->msg_len;
 
-      /* Wake up anyone blocked in mq_send waiting for room */
-      if (attr->mq_curmsgs == attr->mq_maxmsg)
-	ipc_cond_signal (mqinfo->mqi_waitsend);
-      attr->mq_curmsgs--;
+      /* If we keep the remainder of the packet, fix packet data,
+	 otherwise move packet to free list */
+      if (keep_packet)
+	{
+	  msghdr->msg_len -= maxlen;
+	  memmove (msghdr + 1, (int8_t *) (msghdr + 1) + maxlen,
+		   msghdr->msg_len);
+	}
+      else
+	{
+	  /* Just-read message goes to front of free list */
+	  msghdr->msg_next = mqhdr->mqh_free;
+	  mqhdr->mqh_free = index;
+
+	  /* Wake up anyone blocked in mq_send waiting for room */
+	  if (attr->mq_curmsgs == attr->mq_maxmsg)
+	    ipc_cond_signal (mqinfo->mqi_waitsend);
+	  attr->mq_curmsgs--;
+      }
     }
   __except (EBADF) {}
   __endtry
@@ -993,17 +1040,25 @@ _mq_receive (mqd_t mqd, char *ptr, size_t maxlen, unsigned int *priop,
   return len;
 }
 
+/* Internal function to allow reading partial message packets.
+   Used from AF_UNIX code. */
+extern "C" ssize_t
+_mq_recv (mqd_t mqd, char *ptr, size_t maxlen, int flags)
+{
+  return _mq_receive (mqd, ptr, maxlen, NULL, NULL, _MQ_ALLOW_PARTIAL | flags);
+}
+
 extern "C" ssize_t
 mq_receive (mqd_t mqd, char *ptr, size_t maxlen, unsigned int *priop)
 {
-  return _mq_receive (mqd, ptr, maxlen, priop, NULL);
+  return _mq_receive (mqd, ptr, maxlen, priop, NULL, 0);
 }
 
 extern "C" ssize_t
 mq_timedreceive (mqd_t mqd, char *ptr, size_t maxlen, unsigned int *priop,
 		 const struct timespec *abstime)
 {
-  return _mq_receive (mqd, ptr, maxlen, priop, abstime);
+  return _mq_receive (mqd, ptr, maxlen, priop, abstime, 0);
 }
 
 extern "C" int
