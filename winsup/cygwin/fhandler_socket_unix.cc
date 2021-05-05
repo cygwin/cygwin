@@ -252,9 +252,6 @@ fhandler_socket_unix::reopen_shmem ()
 /* Character length of pipe name, excluding trailing NUL. */
 #define CYGWIN_PIPE_SOCKET_NAME_LEN     47
 
-/* Character position encoding the socket type in a pipe name. */
-#define CYGWIN_PIPE_SOCKET_TYPE_POS    29
-
 /* Character length of mqueue name, excluding trailing NUL. */
 #define CYGWIN_MQUEUE_SOCKET_NAME_LEN     27
 
@@ -274,12 +271,12 @@ fhandler_socket_unix::gen_mqueue_name ()
 
 HANDLE
 fhandler_socket_unix::create_abstract_link (const sun_name_t *sun,
-					    PUNICODE_STRING pipe_name)
+					    const char *mqueue_name)
 {
-  WCHAR name[MAX_PATH];
+  WCHAR name[MAX_PATH], wmqueue_name[MAX_PATH];
   OBJECT_ATTRIBUTES attr;
   NTSTATUS status;
-  UNICODE_STRING uname;
+  UNICODE_STRING uname, umqueue_name;
   HANDLE fh = NULL;
 
   PWCHAR p = wcpcpy (name, L"af-unix-");
@@ -291,9 +288,11 @@ fhandler_socket_unix::create_abstract_link (const sun_name_t *sun,
   RtlInitUnicodeString (&uname, name);
   InitializeObjectAttributes (&attr, &uname, OBJ_CASE_INSENSITIVE,
 			      get_shared_parent_dir (), NULL);
-  /* Fill symlink with name of pipe */
+  /* Fill symlink with name of mqueue */
+  sys_mbstowcs (wmqueue_name, MAX_PATH, mqueue_name);
+  RtlInitUnicodeString (&umqueue_name, wmqueue_name);
   status = NtCreateSymbolicLinkObject (&fh, SYMBOLIC_LINK_ALL_ACCESS,
-				       &attr, pipe_name);
+				       &attr, &umqueue_name);
   if (!NT_SUCCESS (status))
     {
       if (status == STATUS_OBJECT_NAME_EXISTS
@@ -305,15 +304,9 @@ fhandler_socket_unix::create_abstract_link (const sun_name_t *sun,
   return fh;
 }
 
-struct rep_pipe_name_t
-{
-  USHORT Length;
-  WCHAR  PipeName[1];
-};
-
 HANDLE
 fhandler_socket_unix::create_reparse_point (const sun_name_t *sun,
-					    PUNICODE_STRING pipe_name)
+					    const char *mqueue_name)
 {
   ULONG access;
   HANDLE old_trans = NULL, trans = NULL;
@@ -322,10 +315,8 @@ fhandler_socket_unix::create_reparse_point (const sun_name_t *sun,
   NTSTATUS status;
   HANDLE fh = NULL;
   PREPARSE_GUID_DATA_BUFFER rp;
-  rep_pipe_name_t *rep_pipe_name;
 
-  const DWORD data_len = offsetof (rep_pipe_name_t, PipeName)
-			 + pipe_name->Length + sizeof (WCHAR);
+  const DWORD data_len = CYGWIN_MQUEUE_SOCKET_NAME_LEN + 1;
 
   path_conv pc (sun->un.sun_path, PC_SYM_FOLLOW);
   if (pc.error)
@@ -380,10 +371,7 @@ retry_after_transaction_error:
   rp->ReparseDataLength = data_len;
   rp->Reserved = 0;
   memcpy (&rp->ReparseGuid, CYGWIN_SOCKET_GUID, sizeof (GUID));
-  rep_pipe_name = (rep_pipe_name_t *) rp->GenericReparseBuffer.DataBuffer;
-  rep_pipe_name->Length = pipe_name->Length;
-  memcpy (rep_pipe_name->PipeName, pipe_name->Buffer, pipe_name->Length);
-  rep_pipe_name->PipeName[pipe_name->Length / sizeof (WCHAR)] = L'\0';
+  strcpy ((char *) rp->GenericReparseBuffer.DataBuffer, mqueue_name);
   status = NtFsControlFile (fh, NULL, NULL, NULL, &io,
 			    FSCTL_SET_REPARSE_POINT, rp,
 			    REPARSE_GUID_DATA_BUFFER_HEADER_SIZE
@@ -427,18 +415,18 @@ fhandler_socket_unix::create_file (const sun_name_t *sun)
       return NULL;
     }
   if (sun->un.sun_path[0] == '\0')
-    return create_abstract_link (sun, pc.get_nt_native_path ());
-  return create_reparse_point (sun, pc.get_nt_native_path ());
+    return create_abstract_link (sun, get_mqueue_name ());
+  return create_reparse_point (sun, get_mqueue_name ());
 }
 
 int
 fhandler_socket_unix::open_abstract_link (sun_name_t *sun,
-					  PUNICODE_STRING pipe_name)
+					  char *mqueue_name)
 {
-  WCHAR name[MAX_PATH];
+  WCHAR name[MAX_PATH], wmqueue_name[MAX_PATH];
   OBJECT_ATTRIBUTES attr;
   NTSTATUS status;
-  UNICODE_STRING uname;
+  UNICODE_STRING uname, umqueue_name;
   HANDLE fh;
 
   PWCHAR p = wcpcpy (name, L"af-unix-");
@@ -453,25 +441,28 @@ fhandler_socket_unix::open_abstract_link (sun_name_t *sun,
       __seterrno_from_nt_status (status);
       return -1;
     }
-  if (pipe_name)
-    status = NtQuerySymbolicLinkObject (fh, pipe_name, NULL);
+  if (mqueue_name)
+    {
+      RtlInitEmptyUnicodeString (&umqueue_name, wmqueue_name,
+				 MAX_PATH * sizeof (WCHAR));
+      status = NtQuerySymbolicLinkObject (fh, &umqueue_name, NULL);
+    }
   NtClose (fh);
-  if (pipe_name)
+  if (mqueue_name)
     {
       if (!NT_SUCCESS (status))
 	{
 	  __seterrno_from_nt_status (status);
 	  return -1;
 	}
-      /* Enforce NUL-terminated pipe name. */
-      pipe_name->Buffer[pipe_name->Length / sizeof (WCHAR)] = L'\0';
+      sys_wcstombs (mqueue_name, MAX_PATH, wmqueue_name);
     }
   return 0;
 }
 
 int
 fhandler_socket_unix::open_reparse_point (sun_name_t *sun,
-					  PUNICODE_STRING pipe_name)
+					  char *mqueue_name)
 {
   NTSTATUS status;
   HANDLE fh;
@@ -529,15 +520,8 @@ fhandler_socket_unix::open_reparse_point (sun_name_t *sun,
   if (rp->ReparseTag == IO_REPARSE_TAG_CYGUNIX
       && memcmp (CYGWIN_SOCKET_GUID, &rp->ReparseGuid, sizeof (GUID)) == 0)
     {
-      if (pipe_name)
-	{
-	  rep_pipe_name_t *rep_pipe_name = (rep_pipe_name_t *)
-					   rp->GenericReparseBuffer.DataBuffer;
-	  pipe_name->Length = rep_pipe_name->Length;
-	  /* pipe name in reparse point is NUL-terminated */
-	  memcpy (pipe_name->Buffer, rep_pipe_name->PipeName,
-		  rep_pipe_name->Length + sizeof (WCHAR));
-	}
+      if (mqueue_name)
+	strcpy (mqueue_name, (char *) rp->GenericReparseBuffer.DataBuffer);
       return 0;
     }
   return -1;
@@ -545,7 +529,7 @@ fhandler_socket_unix::open_reparse_point (sun_name_t *sun,
 
 int
 fhandler_socket_unix::open_file (sun_name_t *sun, int &type,
-				 PUNICODE_STRING pipe_name)
+				 char *mqueue_name)
 {
   int ret = -1;
 
@@ -553,11 +537,11 @@ fhandler_socket_unix::open_file (sun_name_t *sun, int &type,
       || (sun->un_len == 3 && sun->un.sun_path[0] == '\0'))
     set_errno (EINVAL);
   else if (sun->un.sun_path[0] == '\0')
-    ret = open_abstract_link (sun, pipe_name);
+    ret = open_abstract_link (sun, mqueue_name);
   else
-    ret = open_reparse_point (sun, pipe_name);
+    ret = open_reparse_point (sun, mqueue_name);
   if (!ret)
-    switch (pipe_name->Buffer[CYGWIN_PIPE_SOCKET_TYPE_POS])
+    switch (mqueue_name[CYGWIN_MQUEUE_SOCKET_TYPE_POS])
       {
       case 'd':
 	type = SOCK_DGRAM;
@@ -589,7 +573,7 @@ fhandler_socket_unix::autobind (sun_name_t* sun)
 		    + 1 /* leading NUL */
 		    + __small_sprintf (sun->un.sun_path + 1, "%5X", id);
     }
-  while ((fh = create_abstract_link (sun, pc.get_nt_native_path ())) == NULL);
+  while ((fh = create_abstract_link (sun, get_mqueue_name ())) == NULL);
   return fh;
 }
 
@@ -1052,6 +1036,12 @@ out:
   if (evt)
     NtClose (evt);
   return ret;
+}
+
+int
+fhandler_socket_unix::connect_mqueue (const char *mqueue_name)
+{
+  return 0;
 }
 
 int
@@ -1690,8 +1680,7 @@ fhandler_socket_unix::connect (const struct sockaddr *name, int namelen)
 {
   sun_name_t sun (name, namelen);
   int peer_type;
-  WCHAR pipe_name_buf[CYGWIN_PIPE_SOCKET_NAME_LEN + 1];
-  UNICODE_STRING pipe_name;
+  char mqueue_name[CYGWIN_MQUEUE_SOCKET_NAME_LEN + 1];
 
   /* Test and set connection state. */
   conn_lock ();
@@ -1742,8 +1731,7 @@ fhandler_socket_unix::connect (const struct sockaddr *name, int namelen)
       return -1;
     }
   /* Check if peer address exists. */
-  RtlInitEmptyUnicodeString (&pipe_name, pipe_name_buf, sizeof pipe_name_buf);
-  if (open_file (&sun, peer_type, &pipe_name) < 0)
+  if (open_file (&sun, peer_type, mqueue_name) < 0)
     {
       connect_state (unconnected);
       return -1;
@@ -1757,7 +1745,7 @@ fhandler_socket_unix::connect (const struct sockaddr *name, int namelen)
   peer_sun_path (&sun);
   if (get_socket_type () != SOCK_DGRAM)
     {
-      if (connect_pipe (&pipe_name) < 0)
+      if (connect_mqueue (mqueue_name) < 0)
 	{
 	  if (get_errno () != EINPROGRESS)
 	    {

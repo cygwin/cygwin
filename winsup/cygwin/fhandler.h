@@ -1082,13 +1082,13 @@ class fhandler_socket_unix : public fhandler_socket
   const char *get_mqueue_name () const { return pc.get_path (); }
   void gen_mqueue_name ();
   static HANDLE create_abstract_link (const sun_name_t *sun,
-				      PUNICODE_STRING pipe_name);
+				      const char *mqueue_name);
   static HANDLE create_reparse_point (const sun_name_t *sun,
-				      PUNICODE_STRING pipe_name);
+				      const char *mqueue_name);
   HANDLE create_file (const sun_name_t *sun);
-  static int open_abstract_link (sun_name_t *sun, PUNICODE_STRING pipe_name);
-  static int open_reparse_point (sun_name_t *sun, PUNICODE_STRING pipe_name);
-  static int open_file (sun_name_t *sun, int &type, PUNICODE_STRING pipe_name);
+  static int open_abstract_link (sun_name_t *sun, char *mqueue_name);
+  static int open_reparse_point (sun_name_t *sun, char *mqueue_name);
+  static int open_file (sun_name_t *sun, int &type, char *mqueue_name);
   HANDLE autobind (sun_name_t *sun);
   char get_type_char ();
   void set_pipe_non_blocking (bool nonblocking);
@@ -1100,6 +1100,7 @@ class fhandler_socket_unix : public fhandler_socket
   HANDLE create_pipe_instance ();
   NTSTATUS open_pipe (PUNICODE_STRING pipe_name, bool xchg_sock_info);
   int wait_pipe (PUNICODE_STRING pipe_name);
+  int connect_mqueue (const char *mqueue_name);
   int connect_pipe (PUNICODE_STRING pipe_name);
   int listen_pipe ();
   ULONG peek_pipe (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize, HANDLE evt);
