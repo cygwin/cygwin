@@ -406,7 +406,7 @@ out:
 }
 
 HANDLE
-fhandler_socket_unix::create_file (const sun_name_t *sun)
+fhandler_socket_unix::create_socket (const sun_name_t *sun)
 {
   if (sun->un_len <= (socklen_t) sizeof (sa_family_t)
       || (sun->un_len == 3 && sun->un.sun_path[0] == '\0'))
@@ -528,8 +528,8 @@ fhandler_socket_unix::open_reparse_point (sun_name_t *sun,
 }
 
 int
-fhandler_socket_unix::open_file (sun_name_t *sun, int &type,
-				 char *mqueue_name)
+fhandler_socket_unix::open_socket (sun_name_t *sun, int &type,
+				   char *mqueue_name)
 {
   int ret = -1;
 
@@ -1511,7 +1511,7 @@ fhandler_socket_unix::bind (const struct sockaddr *name, int namelen)
 	}
       set_handle (pipe);
     }
-  backing_file_handle = unnamed ? autobind (&sun) : create_file (&sun);
+  backing_file_handle = unnamed ? autobind (&sun) : create_socket (&sun);
   if (!backing_file_handle)
     {
       set_handle (NULL);
@@ -1731,7 +1731,7 @@ fhandler_socket_unix::connect (const struct sockaddr *name, int namelen)
       return -1;
     }
   /* Check if peer address exists. */
-  if (open_file (&sun, peer_type, mqueue_name) < 0)
+  if (open_socket (&sun, peer_type, mqueue_name) < 0)
     {
       connect_state (unconnected);
       return -1;

@@ -1085,10 +1085,10 @@ class fhandler_socket_unix : public fhandler_socket
 				      const char *mqueue_name);
   static HANDLE create_reparse_point (const sun_name_t *sun,
 				      const char *mqueue_name);
-  HANDLE create_file (const sun_name_t *sun);
+  HANDLE create_socket (const sun_name_t *sun);
   static int open_abstract_link (sun_name_t *sun, char *mqueue_name);
   static int open_reparse_point (sun_name_t *sun, char *mqueue_name);
-  static int open_file (sun_name_t *sun, int &type, char *mqueue_name);
+  static int open_socket (sun_name_t *sun, int &type, char *mqueue_name);
   HANDLE autobind (sun_name_t *sun);
   char get_type_char ();
   void set_pipe_non_blocking (bool nonblocking);
