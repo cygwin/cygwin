@@ -1077,7 +1077,10 @@ class fhandler_socket_unix : public fhandler_socket
 
   int create_shmem ();
   int reopen_shmem ();
-  void gen_pipe_name ();
+  void set_mqueue_name (const char *p) { pc.set_path (p); }
+  /* Returns empty string if mqueue name hasn't been generated. */
+  const char *get_mqueue_name () const { return pc.get_path (); }
+  void gen_mqueue_name ();
   static HANDLE create_abstract_link (const sun_name_t *sun,
 				      PUNICODE_STRING pipe_name);
   static HANDLE create_reparse_point (const sun_name_t *sun,
@@ -1087,7 +1090,7 @@ class fhandler_socket_unix : public fhandler_socket
   static int open_reparse_point (sun_name_t *sun, PUNICODE_STRING pipe_name);
   static int open_file (sun_name_t *sun, int &type, PUNICODE_STRING pipe_name);
   HANDLE autobind (sun_name_t *sun);
-  wchar_t get_type_char ();
+  char get_type_char ();
   void set_pipe_non_blocking (bool nonblocking);
   int send_sock_info (bool from_bind);
   int grab_admin_pkt ();

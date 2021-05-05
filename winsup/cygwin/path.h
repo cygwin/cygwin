@@ -389,6 +389,7 @@ class path_conv
   bool fs_is_prlfs () const {return fs.is_prlfs ();}
   fs_info_type fs_type () const {return fs.what_fs ();}
   ULONG fs_serial_number () const {return fs.serial_number ();}
+  inline const char *get_path () const { return path; }
   inline const char *set_path (const char *p)
   {
     if (path)

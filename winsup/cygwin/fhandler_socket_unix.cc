@@ -262,17 +262,14 @@ fhandler_socket_unix::reopen_shmem ()
 #define CYGWIN_MQUEUE_SOCKET_TYPE_POS	9
 
 void
-fhandler_socket_unix::gen_pipe_name ()
+fhandler_socket_unix::gen_mqueue_name ()
 {
-  WCHAR pipe_name_buf[CYGWIN_PIPE_SOCKET_NAME_LEN + 1];
-  UNICODE_STRING pipe_name;
+  char mqueue_name_buf[CYGWIN_MQUEUE_SOCKET_NAME_LEN + 1];
 
-  __small_swprintf (pipe_name_buf, L"cygwin-%S-unix-%C-%016_X",
-		    &cygheap->installation_key,
+  __small_sprintf (mqueue_name_buf, "/af-unix-%c-%016x",
 		    get_type_char (),
 		    get_unique_id ());
-  RtlInitUnicodeString (&pipe_name, pipe_name_buf);
-  pc.set_nt_native_path (&pipe_name);
+  set_mqueue_name (mqueue_name_buf);
 }
 
 HANDLE
@@ -596,7 +593,7 @@ fhandler_socket_unix::autobind (sun_name_t* sun)
   return fh;
 }
 
-wchar_t
+char
 fhandler_socket_unix::get_type_char ()
 {
   switch (get_socket_type ())
@@ -1447,7 +1444,7 @@ fhandler_socket_unix::socketpair (int af, int type, int protocol, int flags,
   set_unique_id ();
   set_ino (get_unique_id ());
   /* bind/listen 1st socket */
-  gen_pipe_name ();
+  gen_mqueue_name ();
   pipe = create_pipe (true);
   if (!pipe)
     goto create_pipe_failed;
@@ -1513,7 +1510,7 @@ fhandler_socket_unix::bind (const struct sockaddr *name, int namelen)
     }
   binding_state (bind_pending);
   bind_unlock ();
-  gen_pipe_name ();
+  gen_mqueue_name ();
   if (get_socket_type () == SOCK_DGRAM)
     {
       pipe = create_pipe (true);
