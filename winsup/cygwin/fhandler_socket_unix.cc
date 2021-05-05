@@ -27,6 +27,7 @@ GUID __cygwin_socket_guid = {
 #include <sys/param.h>
 #include <sys/statvfs.h>
 #include <cygwin/acl.h>
+#include <mqueue.h>
 #include "cygerrno.h"
 #include "path.h"
 #include "fhandler.h"
@@ -38,6 +39,14 @@ GUID __cygwin_socket_guid = {
 #include "tls_pbuf.h"
 
 /*
+   Message queue:
+
+     A socket that wants to read creates a POSIX message queue.  The
+     name of the mqueue is "/af-unix-[sd]-<uniq_id>".
+
+    - [sd] is s for SOCK_STREAM, d for SOCK_DGRAM
+    - <uniq_id> is an 8 byte hex unique number
+
    Abstract socket:
 
      An abstract socket is represented by a symlink in the native
@@ -50,24 +59,16 @@ GUID __cygwin_socket_guid = {
      <sun_path> is the transposed sun_path string, including the leading
      NUL.  The transposition is simplified in that it uses every byte
      in the valid sun_path name as is, no extra multibyte conversion.
-     The content of the symlink is the basename of the underlying pipe.
+     The content of the symlink is the name of the underlying mqueue.
 
   Named socket:
 
     A named socket is represented by a reparse point with a Cygwin-specific
-    tag and GUID.  The GenericReparseBuffer content is the basename of the
-    underlying pipe.
-
-  Pipe:
-
-    The pipe is named \\.\pipe\cygwin-<installation_key>-unix-[sd]-<uniq_id>
-
-    - <installation_key> is the 8 byte hex Cygwin installation key
-    - [sd] is s for SOCK_STREAM, d for SOCK_DGRAM
-    - <uniq_id> is an 8 byte hex unique number
+    tag and GUID.  The GenericReparseBuffer content is the name of the
+    underlying mqueue.
 
    Note: We use MAX_PATH below for convenience where sufficient.  It's
-   big enough to hold sun_paths as well as pipe names as well as packet
+   big enough to hold sun_paths as well as mqueue names as well as packet
    headers etc., so we don't have to use tmp_pathbuf as often.
 
    Every packet sent to a peer is a combination of the socket name of the
@@ -76,37 +77,13 @@ GUID __cygwin_socket_guid = {
    for the entire packet, as well as for all three data blocks.  The
    combined maximum size of a packet is 64K, including the header.
 
-   A connecting, bound STREAM socket sends it's local sun_path once after
+   A connecting, bound STREAM socket sends its local sun_path once after
    a successful connect.  An already connected socket also sends its local
    sun_path after a successful bind (border case, but still...).  These
-   packages don't contain any other data (cmsg_len == 0, data_len == 0).
+   packets don't contain any other data (cmsg_len == 0, data_len == 0).
 
    A bound DGRAM socket sends its sun_path with each sendmsg/sendto.
 */
-class af_unix_pkt_hdr_t
-{
- public:
-  uint16_t	pckt_len;	/* size of packet including header	*/
-  bool		admin_pkg : 1;	/* admin packets are marked as such	*/
-  shut_state	shut_info : 2;	/* _SHUT_RECV /_SHUT_SEND.		*/
-  uint8_t	name_len;	/* size of name, a sockaddr_un		*/
-  uint16_t	cmsg_len;	/* size of ancillary data block		*/
-  uint16_t	data_len;	/* size of user data			*/
-
-  af_unix_pkt_hdr_t (bool a, shut_state s, uint8_t n, uint16_t c, uint16_t d)
-    { init (a, s, n, c, d); }
-  void init (bool a, shut_state s, uint8_t n, uint16_t c, uint16_t d)
-    {
-      admin_pkg = a;
-      shut_info = s;
-      name_len = n;
-      cmsg_len = c;
-      data_len = d;
-      pckt_len = sizeof (*this) + name_len + cmsg_len + data_len;
-    }
-};
-
-#define MAX_AF_UN_PKT_LEN	UINT16_MAX
 
 static inline ptrdiff_t
 AF_UNIX_PKT_OFFSETOF_NAME (af_unix_pkt_hdr_t *phdr)
@@ -276,7 +253,13 @@ fhandler_socket_unix::reopen_shmem ()
 #define CYGWIN_PIPE_SOCKET_NAME_LEN     47
 
 /* Character position encoding the socket type in a pipe name. */
-#define CYGWIN_PIPE_SOCKET_TYPE_POS	29
+#define CYGWIN_PIPE_SOCKET_TYPE_POS    29
+
+/* Character length of mqueue name, excluding trailing NUL. */
+#define CYGWIN_MQUEUE_SOCKET_NAME_LEN     27
+
+/* Character position encoding the socket type in an mqueue name. */
+#define CYGWIN_MQUEUE_SOCKET_TYPE_POS	9
 
 void
 fhandler_socket_unix::gen_pipe_name ()
@@ -709,7 +692,7 @@ fhandler_socket_unix::send_sock_info (bool from_bind)
 /* Checks if the next packet in the pipe is an administrative packet.
    If so, it reads it from the pipe, handles it.  Returns an error code. */
 int
-fhandler_socket_unix::grab_admin_pkg ()
+fhandler_socket_unix::grab_admin_pkt ()
 {
   HANDLE evt;
   NTSTATUS status;
@@ -727,7 +710,7 @@ fhandler_socket_unix::grab_admin_pkg ()
       return 0;
     }
   af_unix_pkt_hdr_t *packet = (af_unix_pkt_hdr_t *) pbuf->Data;
-  if (!packet->admin_pkg)
+  if (!packet->admin_pkt)
     io_unlock ();
   else
     {
