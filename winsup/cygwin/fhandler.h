@@ -1106,6 +1106,7 @@ class fhandler_socket_unix : public fhandler_socket
   int connect_mqueue (const char *mqueue_name);
   int connect_pipe (PUNICODE_STRING pipe_name);
   int listen_pipe ();
+  ssize_t peek_mqueue (char *buf, size_t buflen, bool nonblocking = true);
   ULONG peek_pipe (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize, HANDLE evt);
   int disconnect_pipe (HANDLE ph);
   /* The NULL pointer check is required for FS methods like fstat.  When

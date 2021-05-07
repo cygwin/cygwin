@@ -1105,6 +1105,17 @@ fhandler_socket_unix::listen_pipe ()
   return ret;
 }
 
+ssize_t
+fhandler_socket_unix::peek_mqueue (char *buf, size_t buflen, bool nonblocking)
+{
+  if (get_mqd_in () == (mqd_t) -1)
+    {
+      /* FIXME: Set appropriate errno. */
+      return -1;
+    }
+  return _mq_peek (get_mqd_in (), buf, buflen, nonblocking);
+}
+
 ULONG
 fhandler_socket_unix::peek_pipe (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize,
 				 HANDLE evt)
