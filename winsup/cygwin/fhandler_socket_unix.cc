@@ -1197,8 +1197,12 @@ fhandler_socket_unix::set_close_on_exec (bool val)
     set_no_inheritance (shmem_handle, val);
 }
 
-fhandler_socket_unix::fhandler_socket_unix ()
+fhandler_socket_unix::fhandler_socket_unix () :
+  fhandler_socket (),
+  shmem_handle (NULL), shmem (NULL), backing_file_handle (NULL),
+  connect_wait_thr (NULL), cwt_termination_evt (NULL), cwt_param (NULL)
 {
+  need_fork_fixup (true);
 }
 
 fhandler_socket_unix::~fhandler_socket_unix ()
