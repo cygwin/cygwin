@@ -1038,6 +1038,7 @@ class af_unix_pkt_hdr_t
 
 class fhandler_socket_unix : public fhandler_socket
 {
+  mqd_t mqd_in, mqd_out;
  protected:
   HANDLE shmem_handle;		/* Shared memory region used to share
 				   socket-wide state. */
@@ -1097,7 +1098,7 @@ class fhandler_socket_unix : public fhandler_socket
   int grab_admin_pkt ();
   int recv_peer_info ();
   static NTSTATUS npfs_handle (HANDLE &nph);
-  HANDLE create_pipe (bool single_instance);
+  int create_mqueue (bool listener = false);
   HANDLE create_pipe_instance ();
   NTSTATUS open_pipe (PUNICODE_STRING pipe_name, bool xchg_sock_info);
   mqd_t open_mqueue (const char *mqueue_name, bool nonblocking);
@@ -1134,6 +1135,11 @@ class fhandler_socket_unix : public fhandler_socket
  public:
   fhandler_socket_unix ();
   ~fhandler_socket_unix ();
+
+  mqd_t get_mqd_in () const { return mqd_in; }
+  mqd_t get_mqd_out () const { return mqd_out; }
+  void set_mqd_in (mqd_t m) { mqd_in = m; }
+  void set_mqd_out (mqd_t m) { mqd_out = m; }
 
   int dup (fhandler_base *child, int);
 

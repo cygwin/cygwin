@@ -835,46 +835,39 @@ fhandler_socket_unix::npfs_handle (HANDLE &nph)
   return status;
 }
 
-HANDLE
-fhandler_socket_unix::create_pipe (bool single_instance)
+/* FIXME: What about close_on_exec? */
+int
+fhandler_socket_unix::create_mqueue (bool listener)
 {
-  NTSTATUS status;
-  HANDLE npfsh;
-  HANDLE ph;
-  ACCESS_MASK access;
-  OBJECT_ATTRIBUTES attr;
-  IO_STATUS_BLOCK io;
-  ULONG sharing;
-  ULONG nonblocking;
-  ULONG max_instances;
-  LARGE_INTEGER timeout;
+  mqd_t mqd;
+  struct mq_attr attr;
+  int flags = O_RDWR | O_CREAT | O_EXCL;
+  mode_t mode = S_IRUSR | S_IWUSR | S_IWGRP | S_IWOTH;
 
-  status = npfs_handle (npfsh);
-  if (!NT_SUCCESS (status))
+  if (mq_unlink (get_mqueue_name ()) < 0 && get_errno () != ENOENT)
     {
-      __seterrno_from_nt_status (status);
-      return NULL;
+      debug_printf ("Can't unlink old mqueue, %E");
+      return -1;
     }
-  access = GENERIC_READ | FILE_READ_ATTRIBUTES
-	   | GENERIC_WRITE |  FILE_WRITE_ATTRIBUTES
-	   | SYNCHRONIZE;
-  sharing = FILE_SHARE_READ | FILE_SHARE_WRITE;
-  InitializeObjectAttributes (&attr, pc.get_nt_native_path (),
-			      OBJ_INHERIT | OBJ_CASE_INSENSITIVE,
-			      npfsh, NULL);
-  nonblocking = is_nonblocking () ? FILE_PIPE_COMPLETE_OPERATION
-				  : FILE_PIPE_QUEUE_OPERATION;
-  max_instances = single_instance ? 1 : -1;
-  timeout.QuadPart = -500000;
-  status = NtCreateNamedPipeFile (&ph, access, &attr, &io, sharing,
-				  FILE_CREATE, 0,
-				  FILE_PIPE_MESSAGE_TYPE,
-				  FILE_PIPE_MESSAGE_MODE,
-				  nonblocking, max_instances,
-				  rmem (), wmem (), &timeout);
-  if (!NT_SUCCESS (status))
-    __seterrno_from_nt_status (status);
-  return ph;
+  if (listener)
+    {
+      /* A listener can only handle one connection request at a time,
+	 and it is small. */
+      attr.mq_maxmsg = 1;
+      attr.mq_msgsize = MAX_PATH;
+    }
+  else
+    {
+      attr.mq_maxmsg = 10;		/* Probably too small. */
+      attr.mq_msgsize = MAX_AF_UN_PKT_LEN;
+    }
+  if (is_nonblocking ())
+    flags |= O_NONBLOCK;
+  mqd = mq_open (get_mqueue_name (), flags, mode, &attr);
+  if (mqd == (mqd_t) -1)
+    return -1;
+  set_mqd_in (mqd);
+  return 0;
 }
 
 HANDLE
@@ -1214,6 +1207,7 @@ fhandler_socket_unix::set_close_on_exec (bool val)
 
 fhandler_socket_unix::fhandler_socket_unix () :
   fhandler_socket (),
+  mqd_in ((mqd_t) -1), mqd_out ((mqd_t) -1),
   shmem_handle (NULL), shmem (NULL), backing_file_handle (NULL),
   connect_wait_thr (NULL), cwt_termination_evt (NULL), cwt_param (NULL)
 {
@@ -1413,7 +1407,6 @@ int
 fhandler_socket_unix::socketpair (int af, int type, int protocol, int flags,
 				  fhandler_socket *fh_out)
 {
-  HANDLE pipe;
   sun_name_t sun;
   fhandler_socket_unix *fh = (fhandler_socket_unix *) fh_out;
 
@@ -1447,17 +1440,15 @@ fhandler_socket_unix::socketpair (int af, int type, int protocol, int flags,
   set_ino (get_unique_id ());
   /* bind/listen 1st socket */
   gen_mqueue_name ();
-  pipe = create_pipe (true);
-  if (!pipe)
-    goto create_pipe_failed;
-  set_handle (pipe);
+  if (create_mqueue () < 0)
+    goto create_mqueue_failed;
   sun_path (&sun);
   fh->peer_sun_path (&sun);
   connect_state (listener);
   /* connect 2nd socket, even for DGRAM.  There's no difference as far
      as socketpairs are concerned. */
-  if (fh->open_pipe (pc.get_nt_native_path (), false) < 0)
-    goto fh_open_pipe_failed;
+  if (fh->open_mqueue (get_mqueue_name (), false) == (mqd_t) -1)
+    goto fh_open_mqueue_failed;
   fh->connect_state (connected);
   if (flags & SOCK_NONBLOCK)
     {
@@ -1471,9 +1462,10 @@ fhandler_socket_unix::socketpair (int af, int type, int protocol, int flags,
     }
   return 0;
 
-fh_open_pipe_failed:
-  NtClose (pipe);
-create_pipe_failed:
+fh_open_mqueue_failed:
+  mq_close (get_mqd_in ());
+  mq_unlink (get_mqueue_name ());
+create_mqueue_failed:
   NtUnmapViewOfSection (NtCurrentProcess (), fh->shmem);
   NtClose (fh->shmem_handle);
 fh_shmem_failed:
@@ -1482,15 +1474,14 @@ fh_shmem_failed:
   return -1;
 }
 
-/* Bind creates the backing file, generates the pipe name and sets
-   bind_state.  On DGRAM sockets it also creates the pipe.  On STREAM
+/* Bind creates the backing file, generates the mqueue name and sets
+   bind_state.  On DGRAM sockets it also creates the mqueue.  On STREAM
    sockets either listen or connect will do that. */
 int
 fhandler_socket_unix::bind (const struct sockaddr *name, int namelen)
 {
   sun_name_t sun (name, namelen);
   bool unnamed = (sun.un_len == sizeof sun.un.sun_family);
-  HANDLE pipe = NULL;
 
   if (sun.un.sun_family != AF_UNIX)
     {
@@ -1513,22 +1504,19 @@ fhandler_socket_unix::bind (const struct sockaddr *name, int namelen)
   binding_state (bind_pending);
   bind_unlock ();
   gen_mqueue_name ();
-  if (get_socket_type () == SOCK_DGRAM)
+  if (get_socket_type () == SOCK_DGRAM && create_mqueue () < 0)
     {
-      pipe = create_pipe (true);
-      if (!pipe)
-	{
-	  binding_state (unbound);
-	  return -1;
-	}
-      set_handle (pipe);
+      binding_state (unbound);
+      return -1;
     }
   backing_file_handle = unnamed ? autobind (&sun) : create_socket (&sun);
   if (!backing_file_handle)
     {
-      set_handle (NULL);
-      if (pipe)
-	NtClose (pipe);
+      if (get_mqd_in () != (mqd_t) -1)
+	{
+	  mq_close (get_mqd_in ());
+	  mq_unlink (get_mqueue_name ());
+	}
       binding_state (unbound);
       return -1;
     }
@@ -1544,7 +1532,7 @@ fhandler_socket_unix::bind (const struct sockaddr *name, int namelen)
   return 0;
 }
 
-/* Create pipe on non-DGRAM sockets and set conn_state to listener. */
+/* Create mqueue on non-DGRAM sockets and set conn_state to listener. */
 int
 fhandler_socket_unix::listen (int backlog)
 {
@@ -1570,13 +1558,11 @@ fhandler_socket_unix::listen (int backlog)
       conn_unlock ();
       return -1;
     }
-  HANDLE pipe = create_pipe (false);
-  if (!pipe)
+  if (create_mqueue (true) < 0)
     {
       connect_state (unconnected);
       return -1;
     }
-  set_handle (pipe);
   state_lock ();
   set_cred ();
   state_unlock ();
