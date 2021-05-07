@@ -419,7 +419,7 @@ fhandler_socket_unix::create_socket (const sun_name_t *sun)
   return create_reparse_point (sun, get_mqueue_name ());
 }
 
-int
+HANDLE
 fhandler_socket_unix::open_abstract_link (sun_name_t *sun,
 					  char *mqueue_name)
 {
@@ -439,7 +439,7 @@ fhandler_socket_unix::open_abstract_link (sun_name_t *sun,
   if (!NT_SUCCESS (status))
     {
       __seterrno_from_nt_status (status);
-      return -1;
+      return NULL;
     }
   if (mqueue_name)
     {
@@ -447,20 +447,20 @@ fhandler_socket_unix::open_abstract_link (sun_name_t *sun,
 				 MAX_PATH * sizeof (WCHAR));
       status = NtQuerySymbolicLinkObject (fh, &umqueue_name, NULL);
     }
-  NtClose (fh);
   if (mqueue_name)
     {
       if (!NT_SUCCESS (status))
 	{
+	  NtClose (fh);
 	  __seterrno_from_nt_status (status);
-	  return -1;
+	  return NULL;
 	}
       sys_wcstombs (mqueue_name, MAX_PATH, wmqueue_name);
     }
-  return 0;
+  return fh;
 }
 
-int
+HANDLE
 fhandler_socket_unix::open_reparse_point (sun_name_t *sun,
 					  char *mqueue_name)
 {
@@ -475,12 +475,12 @@ fhandler_socket_unix::open_reparse_point (sun_name_t *sun,
   if (pc.error)
     {
       set_errno (pc.error);
-      return -1;
+      return NULL;
     }
   if (!pc.exists ())
     {
       set_errno (ENOENT);
-      return -1;
+      return NULL;
     }
   pc.get_object_attr (attr, sec_none_nih);
   do
@@ -502,45 +502,47 @@ fhandler_socket_unix::open_reparse_point (sun_name_t *sun,
               && !_my_tls.call_signal_handler ())
             {
               set_errno (EINTR);
-              return -1;
+              return NULL;
             }
           yield ();
         }
       else if (!NT_SUCCESS (status))
         {
           __seterrno_from_nt_status (status);
-          return -1;
+          return NULL;
         }
     }
   while (status == STATUS_SHARING_VIOLATION);
   rp = (PREPARSE_GUID_DATA_BUFFER) tp.c_get ();
   status = NtFsControlFile (fh, NULL, NULL, NULL, &io, FSCTL_GET_REPARSE_POINT,
 			    NULL, 0, rp, MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
-  NtClose (fh);
   if (rp->ReparseTag == IO_REPARSE_TAG_CYGUNIX
       && memcmp (CYGWIN_SOCKET_GUID, &rp->ReparseGuid, sizeof (GUID)) == 0)
     {
       if (mqueue_name)
 	strcpy (mqueue_name, (char *) rp->GenericReparseBuffer.DataBuffer);
-      return 0;
+      return fh;
     }
-  return -1;
+  NtClose (fh);
+  return NULL;
 }
 
-int
+HANDLE
 fhandler_socket_unix::open_socket (sun_name_t *sun, int &type,
 				   char *mqueue_name)
 {
-  int ret = -1;
+  HANDLE fh = NULL;
 
   if (sun->un_len <= (socklen_t) sizeof (sa_family_t)
       || (sun->un_len == 3 && sun->un.sun_path[0] == '\0'))
     set_errno (EINVAL);
+  else if (sun->un.sun_family != AF_UNIX)
+    set_errno (EAFNOSUPPORT);
   else if (sun->un.sun_path[0] == '\0')
-    ret = open_abstract_link (sun, mqueue_name);
+    fh = open_abstract_link (sun, mqueue_name);
   else
-    ret = open_reparse_point (sun, mqueue_name);
-  if (!ret)
+    fh = open_reparse_point (sun, mqueue_name);
+  if (fh)
     switch (mqueue_name[CYGWIN_MQUEUE_SOCKET_TYPE_POS])
       {
       case 'd':
@@ -551,10 +553,11 @@ fhandler_socket_unix::open_socket (sun_name_t *sun, int &type,
 	break;
       default:
 	set_errno (EINVAL);
-	ret = -1;
+	NtClose (fh);
+	fh = NULL;
 	break;
       }
-  return ret;
+  return fh;
 }
 
 HANDLE
@@ -1681,6 +1684,7 @@ fhandler_socket_unix::connect (const struct sockaddr *name, int namelen)
   sun_name_t sun (name, namelen);
   int peer_type;
   char mqueue_name[CYGWIN_MQUEUE_SOCKET_NAME_LEN + 1];
+  HANDLE fh = NULL;
 
   /* Test and set connection state. */
   conn_lock ();
@@ -1711,27 +1715,9 @@ fhandler_socket_unix::connect (const struct sockaddr *name, int namelen)
     }
   connect_state (connect_pending);
   conn_unlock ();
-  /* Check validity of name */
-  if (sun.un_len <= (int) sizeof (sa_family_t))
-    {
-      set_errno (EINVAL);
-      connect_state (unconnected);
-      return -1;
-    }
-  if (sun.un.sun_family != AF_UNIX)
-    {
-      set_errno (EAFNOSUPPORT);
-      connect_state (unconnected);
-      return -1;
-    }
-  if (sun.un_len == 3 && sun.un.sun_path[0] == '\0')
-    {
-      set_errno (EINVAL);
-      connect_state (unconnected);
-      return -1;
-    }
   /* Check if peer address exists. */
-  if (open_socket (&sun, peer_type, mqueue_name) < 0)
+  fh = open_socket (&sun, peer_type, mqueue_name);
+  if (!fh)
     {
       connect_state (unconnected);
       return -1;
@@ -1739,22 +1725,22 @@ fhandler_socket_unix::connect (const struct sockaddr *name, int namelen)
   if (peer_type != get_socket_type ())
     {
       set_errno (EINVAL);
+      NtClose (fh);
       connect_state (unconnected);
       return -1;
     }
   peer_sun_path (&sun);
-  if (get_socket_type () != SOCK_DGRAM)
+  if (get_socket_type () != SOCK_DGRAM && connect_mqueue (mqueue_name) < 0)
     {
-      if (connect_mqueue (mqueue_name) < 0)
+      NtClose (fh);
+      if (get_errno () != EINPROGRESS)
 	{
-	  if (get_errno () != EINPROGRESS)
-	    {
-	      peer_sun_path (NULL);
-	      connect_state (connect_failed);
-	    }
-	  return -1;
+	  peer_sun_path (NULL);
+	  connect_state (connect_failed);
 	}
+      return -1;
     }
+  NtClose (fh);
   connect_state (connected);
   return 0;
 }
