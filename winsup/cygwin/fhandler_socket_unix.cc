@@ -168,6 +168,14 @@ AF_UNIX_PKT_DATA_APPEND (af_unix_pkt_hdr_t *phdr, void *data, uint16_t dlen)
 /* Default timeout value of connect: 20 secs, as on Linux. */
 #define AF_UNIX_CONNECT_TIMEOUT (-20 * NS100PERSEC)
 
+/* Message queue priorities */
+enum
+{
+  af_un_prio_normal,
+  af_un_prio_admin,
+  af_un_prio_rewrite,		/* For rewritten packet after partial read. */
+};
+
 void
 sun_name_t::set (const struct sockaddr_un *name, socklen_t namelen)
 {
@@ -641,8 +649,7 @@ fhandler_socket_unix::send_sock_info (bool from_bind)
   size_t plen;
   size_t clen = 0;
   af_unix_pkt_hdr_t *packet;
-  NTSTATUS status;
-  IO_STATUS_BLOCK io;
+  int ret;
 
   if (!from_bind)
     {
@@ -677,17 +684,14 @@ fhandler_socket_unix::send_sock_info (bool from_bind)
 
   /* The theory: Fire and forget. */
   io_lock ();
-  set_pipe_non_blocking (true);
-  status = NtWriteFile (get_handle (), NULL, NULL, NULL, &io, packet,
-			packet->pckt_len, NULL, NULL);
-  set_pipe_non_blocking (is_nonblocking ());
+  set_mqueue_non_blocking (get_mqd_out (), true);
+  ret = mq_send (get_mqd_out (), (const char *) packet, packet->pckt_len,
+		 af_un_prio_admin);
+  set_mqueue_non_blocking (get_mqd_out (), is_nonblocking ());
   io_unlock ();
-  if (!NT_SUCCESS (status))
-    {
-      debug_printf ("Couldn't send my name: NtWriteFile: %y", status);
-      return -1;
-    }
-  return 0;
+  if (ret < 0)
+    debug_printf ("Couldn't send my name: mq_send, %E");
+  return ret;
 }
 
 /* Reads an administrative packet from the pipe and handles it.  If
