@@ -1095,7 +1095,7 @@ class fhandler_socket_unix : public fhandler_socket
   char get_type_char ();
   void set_pipe_non_blocking (bool nonblocking);
   int send_sock_info (bool from_bind);
-  int grab_admin_pkt ();
+  int grab_admin_pkt (bool peek = true);
   int recv_peer_info ();
   static NTSTATUS npfs_handle (HANDLE &nph);
   int create_mqueue (bool listener = false);
@@ -1107,7 +1107,6 @@ class fhandler_socket_unix : public fhandler_socket
   int connect_pipe (PUNICODE_STRING pipe_name);
   int listen_pipe ();
   ssize_t peek_mqueue (char *buf, size_t buflen, bool nonblocking = true);
-  ULONG peek_pipe (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize, HANDLE evt);
   int disconnect_pipe (HANDLE ph);
   /* The NULL pointer check is required for FS methods like fstat.  When
      called via stat or lstat, there's no shared memory, just a path in pc. */

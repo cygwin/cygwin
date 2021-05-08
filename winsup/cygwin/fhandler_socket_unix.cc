@@ -673,72 +673,63 @@ fhandler_socket_unix::send_sock_info (bool from_bind)
   return 0;
 }
 
-/* Checks if the next packet in the pipe is an administrative packet.
-   If so, it reads it from the pipe, handles it.  Returns an error code. */
+/* Reads an administrative packet from the pipe and handles it.  If
+   PEEK is true, checks first to see if the next packet in the pipe is
+   an administrative packet; otherwise the caller must set io_lock and
+   check this.  Returns an error code, but callers ignore it. */
 int
-fhandler_socket_unix::grab_admin_pkt ()
+fhandler_socket_unix::grab_admin_pkt (bool peek)
 {
-  HANDLE evt;
-  NTSTATUS status;
-  IO_STATUS_BLOCK io;
   /* MAX_PATH is more than sufficient for admin packets. */
-  PFILE_PIPE_PEEK_BUFFER pbuf = (PFILE_PIPE_PEEK_BUFFER) alloca (MAX_PATH);
-  if (!(evt = create_event ()))
-    return 0;
-  io_lock ();
-  ULONG ret_len = peek_pipe (pbuf, MAX_PATH, evt);
-  if (pbuf->NumberOfMessages == 0 || ret_len < sizeof (af_unix_pkt_hdr_t))
+  af_unix_pkt_hdr_t *packet = (af_unix_pkt_hdr_t *) alloca (MAX_PATH);
+  ssize_t nr;
+
+  if (peek)
     {
-      io_unlock ();
-      NtClose (evt);
-      return 0;
-    }
-  af_unix_pkt_hdr_t *packet = (af_unix_pkt_hdr_t *) pbuf->Data;
-  if (!packet->admin_pkt)
-    io_unlock ();
-  else
-    {
-      packet = (af_unix_pkt_hdr_t *) pbuf;
-      status = NtReadFile (get_handle (), evt, NULL, NULL, &io, packet,
-			   MAX_PATH, NULL, NULL);
-      if (status == STATUS_PENDING)
+      io_lock ();
+      nr = peek_mqueue ((char *) packet, MAX_PATH);
+      if (nr < 0)
 	{
-	  /* Very short-lived */
-	  status = NtWaitForSingleObject (evt, FALSE, NULL);
-	  if (NT_SUCCESS (status))
-	    status = io.Status;
+	  io_unlock ();
+	  if (get_errno () == EAGAIN)
+	    return 0;
+	  return get_errno ();
 	}
-      io_unlock ();
-      if (NT_SUCCESS (status))
+      if (!packet->admin_pkt)
 	{
-	  state_lock ();
-	  if (packet->shut_info)
-	    {
-	      /* Peer's shutdown sends the SHUT flags as used by the peer.
-		 They have to be reversed for our side. */
-	      int shut_info = saw_shutdown ();
-	      if (packet->shut_info & _SHUT_RECV)
-		shut_info |= _SHUT_SEND;
-	      if (packet->shut_info & _SHUT_SEND)
-		shut_info |= _SHUT_RECV;
-	      saw_shutdown (shut_info);
-	      /* FIXME: anything else here? */
-	    }
-	  if (packet->name_len > 0)
-	    peer_sun_path (AF_UNIX_PKT_NAME (packet), packet->name_len);
-	  if (packet->cmsg_len > 0)
-	    {
-	      struct cmsghdr *cmsg = (struct cmsghdr *)
-				     alloca (packet->cmsg_len);
-	      memcpy (cmsg, AF_UNIX_PKT_CMSG (packet), packet->cmsg_len);
-	      if (cmsg->cmsg_level == SOL_SOCKET
-		  && cmsg->cmsg_type == SCM_CREDENTIALS)
-		peer_cred ((struct ucred *) CMSG_DATA(cmsg));
-	    }
-	  state_unlock ();
+	  io_unlock ();
+	  return 0;
 	}
     }
-  NtClose (evt);
+  nr = _mq_recv (get_mqd_in (), (char *) packet, MAX_PATH, 0);
+  io_unlock ();
+  if (nr < 0)
+    return get_errno ();
+  state_lock ();
+  if (packet->shut_info)
+    {
+      /* Peer's shutdown sends the SHUT flags as used by the peer.
+	 They have to be reversed for our side. */
+      int shut_info = saw_shutdown ();
+      if (packet->shut_info & _SHUT_RECV)
+	shut_info |= _SHUT_SEND;
+      if (packet->shut_info & _SHUT_SEND)
+	shut_info |= _SHUT_RECV;
+      saw_shutdown (shut_info);
+      /* FIXME: anything else here? */
+    }
+  if (packet->name_len > 0)
+    peer_sun_path (AF_UNIX_PKT_NAME (packet), packet->name_len);
+  if (packet->cmsg_len > 0)
+    {
+      struct cmsghdr *cmsg = (struct cmsghdr *)
+	alloca (packet->cmsg_len);
+      memcpy (cmsg, AF_UNIX_PKT_CMSG (packet), packet->cmsg_len);
+      if (cmsg->cmsg_level == SOL_SOCKET
+	  && cmsg->cmsg_type == SCM_CREDENTIALS)
+	peer_cred ((struct ucred *) CMSG_DATA(cmsg));
+    }
+  state_unlock ();
   return 0;
 }
 
@@ -1114,27 +1105,6 @@ fhandler_socket_unix::peek_mqueue (char *buf, size_t buflen, bool nonblocking)
       return -1;
     }
   return _mq_peek (get_mqd_in (), buf, buflen, nonblocking);
-}
-
-ULONG
-fhandler_socket_unix::peek_pipe (PFILE_PIPE_PEEK_BUFFER pbuf, ULONG psize,
-				 HANDLE evt)
-{
-  NTSTATUS status;
-  IO_STATUS_BLOCK io;
-
-  status = NtFsControlFile (get_handle (), evt, NULL, NULL, &io,
-			    FSCTL_PIPE_PEEK, NULL, 0, pbuf, psize);
-  if (status == STATUS_PENDING)
-    {
-      /* Very short-lived */
-      status = NtWaitForSingleObject (evt ?: get_handle (), FALSE, NULL);
-      if (NT_SUCCESS (status))
-	status = io.Status;
-    }
-  return NT_SUCCESS (status) ? (io.Information
-				- offsetof (FILE_PIPE_PEEK_BUFFER, Data))
-			     : 0;
 }
 
 int
