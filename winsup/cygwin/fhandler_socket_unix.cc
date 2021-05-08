@@ -750,53 +750,31 @@ fhandler_socket_unix::grab_admin_pkt (bool peek)
   return 0;
 }
 
+/* FIXME: This is temporary until we no longer need the old
+   AF_UNIX_CONNECT_TIMEOUT. */
+#define AF_UNIX_CONNECT_TIMEOUT_MQ 20
+
 /* Returns an error code.  Locking is not required when called from accept4,
    user space doesn't know about this socket yet. */
 int
 fhandler_socket_unix::recv_peer_info ()
 {
-  HANDLE evt;
-  NTSTATUS status;
-  IO_STATUS_BLOCK io;
   af_unix_pkt_hdr_t *packet;
   struct sockaddr_un *un;
-  ULONG len;
+  size_t len;
   int ret = 0;
+  struct timespec timeout;
 
-  if (!(evt = create_event ()))
-    return ENOBUFS;
   len = sizeof *packet + sizeof *un + CMSG_SPACE (sizeof (struct ucred));
   packet = (af_unix_pkt_hdr_t *) alloca (len);
-  set_pipe_non_blocking (false);
-  status = NtReadFile (get_handle (), evt, NULL, NULL, &io, packet, len,
-		       NULL, NULL);
-  if (status == STATUS_PENDING)
-    {
-      DWORD ret;
-      LARGE_INTEGER timeout;
-
-      timeout.QuadPart = AF_UNIX_CONNECT_TIMEOUT;
-      ret = cygwait (evt, &timeout, cw_sig_eintr);
-      switch (ret)
-	{
-	case WAIT_OBJECT_0:
-	  status = io.Status;
-	  break;
-	case WAIT_TIMEOUT:
-	  ret = ECONNABORTED;
-	  break;
-	case WAIT_SIGNALED:
-	  ret = EINTR;
-	  break;
-	default:
-	  ret = EPROTO;
-	  break;
-	}
-    }
-  set_pipe_non_blocking (is_nonblocking ());
-  NtClose (evt);
-  if (!NT_SUCCESS (status) && ret == 0)
-    ret = geterrno_from_nt_status (status);
+  set_mqueue_non_blocking (get_mqd_in (), false);
+  clock_gettime (CLOCK_REALTIME, &timeout);
+  timeout.tv_sec += AF_UNIX_CONNECT_TIMEOUT_MQ;
+  if (_mq_timedrecv (get_mqd_in (), (char *) packet, len, &timeout, 0) < 0)
+    ret = get_errno ();
+  if (ret == ETIMEDOUT)
+    ret = ECONNABORTED;
+  set_mqueue_non_blocking (get_mqd_in (), is_nonblocking ());
   if (ret == 0)
     {
       if (packet->name_len > 0)
