@@ -594,6 +594,23 @@ fhandler_socket_unix::get_type_char ()
     }
 }
 
+/* Returns error code, but callers don't check it. */
+static int
+set_mqueue_non_blocking (mqd_t mqd, bool nonblocking)
+{
+  struct mq_attr attr;
+
+  if (mq_getattr (mqd, &attr) < 0)
+    return get_errno ();
+  if (nonblocking)
+    attr.mq_flags |= O_NONBLOCK;
+  else
+    attr.mq_flags &= ~O_NONBLOCK;
+  if (mq_setattr (mqd, &attr, NULL) < 0)
+    return get_errno ();
+  return 0;
+}
+
 /* This also sets the pipe to message mode unconditionally. */
 void
 fhandler_socket_unix::set_pipe_non_blocking (bool nonblocking)
