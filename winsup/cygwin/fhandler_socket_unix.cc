@@ -1271,8 +1271,9 @@ fhandler_socket_unix::socket (int af, int type, int protocol, int flags)
     }
   if (create_shmem () < 0)
     return -1;
-  rmem (262144);
-  wmem (262144);
+  /* rmem and wmem have no effect in mqueue implementation. */
+  /* rmem (262144); */
+  /* wmem (262144); */
   set_addr_family (AF_UNIX);
   set_socket_type (type);
   set_flags (O_RDWR | O_BINARY);
@@ -1291,6 +1292,7 @@ int
 fhandler_socket_unix::socketpair (int af, int type, int protocol, int flags,
 				  fhandler_socket *fh_out)
 {
+  mqd_t mqd;
   sun_name_t sun;
   fhandler_socket_unix *fh = (fhandler_socket_unix *) fh_out;
 
@@ -1310,30 +1312,16 @@ fhandler_socket_unix::socketpair (int af, int type, int protocol, int flags,
   if (fh->create_shmem () < 0)
     goto fh_shmem_failed;
   /* socket() on both sockets */
-  rmem (262144);
-  fh->rmem (262144);
-  wmem (262144);
-  fh->wmem (262144);
+  /* rmem (262144); */
+  /* fh->rmem (262144); */
+  /* wmem (262144); */
+  /* fh->wmem (262144); */
   set_addr_family (AF_UNIX);
   fh->set_addr_family (AF_UNIX);
   set_socket_type (type);
   fh->set_socket_type (type);
-  set_cred ();
-  fh->set_cred ();
-  set_unique_id ();
-  set_ino (get_unique_id ());
-  /* bind/listen 1st socket */
-  gen_mqueue_name ();
-  if (create_mqueue () < 0)
-    goto create_mqueue_failed;
-  sun_path (&sun);
-  fh->peer_sun_path (&sun);
-  connect_state (listener);
-  /* connect 2nd socket, even for DGRAM.  There's no difference as far
-     as socketpairs are concerned. */
-  if (fh->open_mqueue (get_mqueue_name (), false) == (mqd_t) -1)
-    goto fh_open_mqueue_failed;
-  fh->connect_state (connected);
+  set_flags (O_RDWR | O_BINARY);
+  fh->set_flags (O_RDWR | O_BINARY);
   if (flags & SOCK_NONBLOCK)
     {
       set_nonblocking (true);
@@ -1344,8 +1332,40 @@ fhandler_socket_unix::socketpair (int af, int type, int protocol, int flags,
       set_close_on_exec (true);
       fh->set_close_on_exec (true);
     }
+  set_cred ();
+  fh->set_cred ();
+  set_unique_id ();
+  fh->set_unique_id ();
+  set_ino (get_unique_id ());
+  fh->set_ino (fh->get_unique_id ());
+  /* Create and open mqueues. */
+  gen_mqueue_name ();
+  if (create_mqueue () < 0)
+    goto create_mqueue_failed;
+  mqd = fh->open_mqueue (get_mqueue_name (), is_nonblocking ());
+  if (mqd == (mqd_t) -1)
+    goto fh_open_mqueue_failed;
+  fh->set_mqd_out (mqd);
+  fh->gen_mqueue_name ();
+  if (fh->create_mqueue () < 0)
+    goto fh_create_mqueue_failed;
+  mqd = open_mqueue (get_mqueue_name (), is_nonblocking ());
+  if (mqd == (mqd_t) -1)
+    goto open_mqueue_failed;
+  set_mqd_out (mqd);
+  /* bind 1st socket */
+  sun_path (&sun);
+  fh->peer_sun_path (&sun);
+  connect_state (connected);
+  /* connect 2nd socket, even for DGRAM.  There's no difference as far
+     as socketpairs are concerned. */
+  fh->connect_state (connected);
   return 0;
-
+open_mqueue_failed:
+  mq_close (fh->get_mqd_in ());
+  mq_unlink (fh->get_mqueue_name ());
+fh_create_mqueue_failed:
+  mq_close (fh->get_mqd_out ());
 fh_open_mqueue_failed:
   mq_close (get_mqd_in ());
   mq_unlink (get_mqueue_name ());
