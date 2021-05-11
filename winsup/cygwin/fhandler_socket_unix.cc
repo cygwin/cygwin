@@ -1719,6 +1719,8 @@ fhandler_socket_unix::open (int flags, mode_t mode)
 int
 fhandler_socket_unix::close ()
 {
+  int ret = 0;
+
   if (get_flags () & O_PATH)
     return fhandler_base::close ();
 
@@ -1747,7 +1749,15 @@ fhandler_socket_unix::close ()
   param = InterlockedExchangePointer ((PVOID *) &shmem, NULL);
   if (param)
     NtUnmapViewOfSection (NtCurrentProcess (), param);
-  return 0;
+  if (get_mqd_in () != (mqd_t) -1)
+    ret = mq_close (get_mqd_in ());
+  if (get_mqd_out () != (mqd_t) -1)
+    ret |= mq_close (get_mqd_out ());
+  /* FIXME: Maybe we should keep a reference count on the mqueues and
+     unlink it after the last one is close.  OTOH, this will become
+     unnecessary if the mqueue implementation is changed to use
+     Windows shared memory. */
+  return ret;
 }
 
 int
