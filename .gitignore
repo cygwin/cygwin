@@ -7,6 +7,7 @@
 .#*
 *#
 
+*.exe
 *.flt
 *.gmo
 *.info
@@ -47,3 +48,6 @@ core
 !core/
 
 lost+found
+
+ename.c.inc
+libafunix.a
