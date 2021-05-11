@@ -1804,6 +1804,12 @@ fhandler_socket_unix::getsockname (struct sockaddr *name, int *namelen)
 int
 fhandler_socket_unix::getpeername (struct sockaddr *name, int *namelen)
 {
+  if (connect_state () != connected)
+    {
+      set_errno (ENOTCONN);
+      return -1;
+    }
+
   sun_name_t *sun = peer_sun_path ();
   memcpy (name, sun, MIN (*namelen, sun->un_len));
   *namelen = sun->un_len;
