@@ -604,6 +604,8 @@ class fhandler_socket: public fhandler_base
   virtual int getsockopt (int level, int optname, const void *optval,
 			  __socklen_t *optlen) = 0;
 
+  virtual bool saw_shutdown_read () const = 0;
+  virtual bool saw_shutdown_write () const = 0;
   virtual int ioctl (unsigned int cmd, void *);
   virtual int fcntl (int cmd, intptr_t);
 
@@ -1036,6 +1038,8 @@ class fhandler_socket_unix : public fhandler_socket
   bind_state binding_state () const { return shmem->binding_state (); }
   int saw_shutdown (int shut) { return shmem->shutdown (shut); }
   int saw_shutdown () const { return shmem->shutdown (); }
+  bool saw_shutdown_read () const { return saw_shutdown () & _SHUT_RECV; }
+  bool saw_shutdown_write () const { return saw_shutdown () & _SHUT_SEND; }
   int so_error (int err) { return shmem->so_error (err); }
   int so_error () const { return shmem->so_error (); }
   bool so_passcred (bool pc) { return shmem->so_passcred (pc); }
