@@ -700,6 +700,44 @@ fhandler_socket_unix::xchg_sock_info ()
   recv_peer_info ();
 }
 
+void
+fhandler_socket_unix::record_shut_info (af_unix_pkt_hdr_t *packet)
+{
+  state_lock ();
+  if (packet->shut_info)
+    {
+      /* Peer's shutdown sends the SHUT flags as used by the peer.
+	 They have to be reversed for our side. */
+      int shut_info = saw_shutdown ();
+      if (packet->shut_info & _SHUT_RECV)
+	shut_info |= _SHUT_SEND;
+      if (packet->shut_info & _SHUT_SEND)
+	shut_info |= _SHUT_RECV;
+      saw_shutdown (shut_info);
+      /* FIXME: anything else here? */
+    }
+  state_unlock ();
+}
+
+void
+fhandler_socket_unix::process_admin_pkt (af_unix_pkt_hdr_t *packet)
+{
+  record_shut_info (packet);
+  state_lock ();
+  if (packet->name_len > 0)
+    peer_sun_path (AF_UNIX_PKT_NAME (packet), packet->name_len);
+  if (packet->cmsg_len > 0)
+    {
+      struct cmsghdr *cmsg = (struct cmsghdr *)
+	alloca (packet->cmsg_len);
+      memcpy (cmsg, AF_UNIX_PKT_CMSG (packet), packet->cmsg_len);
+      if (cmsg->cmsg_level == SOL_SOCKET
+	  && cmsg->cmsg_type == SCM_CREDENTIALS)
+	peer_cred ((struct ucred *) CMSG_DATA(cmsg));
+    }
+  state_unlock ();
+}
+
 /* Reads an administrative packet from the pipe and handles it.  If
    PEEK is true, checks first to see if the next packet in the pipe is
    an administrative packet; otherwise the caller must set io_lock and
@@ -732,31 +770,7 @@ fhandler_socket_unix::grab_admin_pkt (bool peek)
   io_unlock ();
   if (nr < 0)
     return get_errno ();
-  state_lock ();
-  if (packet->shut_info)
-    {
-      /* Peer's shutdown sends the SHUT flags as used by the peer.
-	 They have to be reversed for our side. */
-      int shut_info = saw_shutdown ();
-      if (packet->shut_info & _SHUT_RECV)
-	shut_info |= _SHUT_SEND;
-      if (packet->shut_info & _SHUT_SEND)
-	shut_info |= _SHUT_RECV;
-      saw_shutdown (shut_info);
-      /* FIXME: anything else here? */
-    }
-  if (packet->name_len > 0)
-    peer_sun_path (AF_UNIX_PKT_NAME (packet), packet->name_len);
-  if (packet->cmsg_len > 0)
-    {
-      struct cmsghdr *cmsg = (struct cmsghdr *)
-	alloca (packet->cmsg_len);
-      memcpy (cmsg, AF_UNIX_PKT_CMSG (packet), packet->cmsg_len);
-      if (cmsg->cmsg_level == SOL_SOCKET
-	  && cmsg->cmsg_type == SCM_CREDENTIALS)
-	peer_cred ((struct ucred *) CMSG_DATA(cmsg));
-    }
-  state_unlock ();
+  process_admin_pkt (packet);
   return 0;
 }
 
@@ -1803,11 +1817,297 @@ fhandler_socket_unix::getpeereid (pid_t *pid, uid_t *euid, gid_t *egid)
   return ret;
 }
 
+bool
+fhandler_socket_unix::evaluate_cmsg_data (af_unix_pkt_hdr_t *packet,
+					  struct msghdr *msg, bool cloexec)
+{
+  return true;
+}
+
+int
+fhandler_socket_unix::handle_partial_read (af_unix_pkt_hdr_t *packet,
+					   size_t excess)
+{
+  tmp_pathbuf tp;
+  af_unix_pkt_hdr_t *new_pkt = (af_unix_pkt_hdr_t *) tp.w_get ();
+
+  new_pkt->init (false, _SHUT_NONE, 0, 0, excess);
+  memcpy (AF_UNIX_PKT_DATA (new_pkt),
+	  (char *) AF_UNIX_PKT_DATA_END (packet) - excess, excess);
+  return mq_send (get_mqd_in (), (const char *) new_pkt, new_pkt->pckt_len,
+		  af_un_prio_rewrite);
+}
+
 ssize_t
 fhandler_socket_unix::recvmsg (struct msghdr *msg, int flags)
 {
-  set_errno (EAFNOSUPPORT);
-  return -1;
+  size_t nbytes_read = 0;
+  ssize_t ret = -1;
+  size_t tot;
+  bool waitall = false;
+  bool name_read = false;
+  bool shutdown = saw_shutdown_read ();
+  int err;
+  tmp_pathbuf tp;
+  af_unix_pkt_hdr_t *packet = (af_unix_pkt_hdr_t *) tp.w_get ();
+
+  __try
+    {
+      /* Valid flags: MSG_DONTWAIT, MSG_PEEK, MSG_WAITALL, MSG_TRUNC. */
+      if (flags & ~(MSG_DONTWAIT | MSG_PEEK | MSG_WAITALL | MSG_TRUNC))
+	{
+	  set_errno (EOPNOTSUPP);
+	  __leave;
+	}
+      /* FIXME: Check this.  It's from Stevens, UNIX Network
+	 Programming, discussion of select.  He doesn't say whether we
+	 should also clear so_error. */
+      err = so_error ();
+      if (err)
+	{
+	  set_errno (err);
+	  __leave;
+	}
+
+      /* Make local copy of scatter-gather array and calculate number
+	 of bytes to be read. */
+      size_t my_iovlen = msg->msg_iovlen;
+      struct iovec my_iov[my_iovlen];
+      struct iovec *my_iovptr = my_iov + my_iovlen;
+      const struct iovec *iovptr = msg->msg_iov + msg->msg_iovlen;
+      tot = 0;
+      while (--my_iovptr >= my_iov)
+	{
+	  *my_iovptr = *(--iovptr);
+	  tot += iovptr->iov_len;
+	}
+      if (!tot)
+	{
+	  ret = 0;
+	  __leave;
+	}
+      if (get_socket_type () == SOCK_STREAM)
+	{
+	  if (connect_state () != connected)
+	    {
+	      set_errno (ENOTCONN);
+	      __leave;
+	    }
+	  if ((flags & MSG_WAITALL) && !(flags & (MSG_PEEK | MSG_DONTWAIT))
+	      && !is_nonblocking ())
+	    waitall = true;
+	}
+      else
+	{
+	  if (connect_state () == connected)
+	    {
+	      /* FIXME: Make sure sender really is peer? */
+	      ;
+	    }
+	  if (bind_state () != bound)
+	    {
+	      if (is_nonblocking () || (flags & MSG_DONTWAIT))
+		{
+		  set_errno (EAGAIN);
+		  __leave;
+		}
+	      else
+		{
+		  /* FIXME: Linux blocks, but I'm not sure what to
+		     wait for.  Do we need to poll to see if we become
+		     bound? */
+		  ;
+		}
+	    }
+	}
+
+      if (flags & MSG_PEEK)
+	{
+	  bool nonblocking = is_nonblocking () || (flags & MSG_DONTWAIT);
+
+	  while (1)
+	    {
+	      ssize_t nr;
+
+	      io_lock ();
+	      if (shutdown)
+		{
+		  nr = peek_mqueue ((char *) packet, MAX_AF_UN_PKT_LEN, true);
+		  if (nr <= 0)
+		    {
+		      io_unlock ();
+		      ret = 0;	/* EOF */
+		      __leave;
+		    }
+		}
+	      else
+		nr = peek_mqueue ((char *) packet, MAX_AF_UN_PKT_LEN,
+				  nonblocking);
+	      if (nr < 0)
+		{
+		  io_unlock ();
+		  __leave;
+		}
+	      if (packet->admin_pkt)
+		{
+		  grab_admin_pkt (false); /* Will call io_unlock. */
+		  shutdown = saw_shutdown_read ();
+		  continue;
+		}
+	      io_unlock ();
+	      record_shut_info (packet);
+	      ret = packet->data_len;
+	      size_t nbytes = ret; /* Number of bytes to copy to buffers. */
+	      if (tot < nbytes)
+		{
+		  nbytes = tot;
+		  if (get_socket_type () == SOCK_STREAM)
+		    ret = tot;
+		}
+	      char *ptr = (char *) AF_UNIX_PKT_DATA (packet);
+	      for (struct iovec *iovptr = msg->msg_iov; nbytes > 0; ++iovptr)
+		{
+		  size_t frag = MIN (nbytes, iovptr->iov_len);
+		  memcpy (iovptr->iov_base, ptr, frag);
+		  ptr += frag;
+		  nbytes -= frag;
+		}
+	      __leave;
+	    }
+	}
+
+      /* MSG_PEEK is not set.  Normal read. */
+      my_iovptr = my_iov;
+      msg->msg_flags = 0;
+      while (tot)
+	{
+	  size_t nbytes_now = 0;
+	  size_t excess = 0;
+	  ssize_t nr;
+
+	  if (shutdown)
+	    {
+	      if (peek_mqueue ((char *) packet, MAX_AF_UN_PKT_LEN, true) < 0)
+		{
+		  ret = nbytes_read;
+		  __leave;
+		}
+	    }
+	  io_lock ();
+	  /* Handle MSG_DONTWAIT in blocking mode. */
+	  if (!is_nonblocking () && (flags & MSG_DONTWAIT))
+	    set_mqueue_non_blocking (get_mqd_in (), true);
+	  nr = _mq_recv (get_mqd_in (), (char *) packet,
+			 MAX_AF_UN_PKT_LEN, _MQ_HOLD_LOCK);
+	  if (!is_nonblocking () && (flags & MSG_DONTWAIT))
+	    set_mqueue_non_blocking (get_mqd_in (), false);
+	  io_unlock ();
+	  /* FIXME: Check for error in _mq_unlock calls below? */
+	  if (nr < 0)
+	    {
+	      _mq_unlock (get_mqd_in ());
+	      __leave;
+	    }
+	  if (packet->admin_pkt)
+	    {
+	      _mq_unlock (get_mqd_in ());
+	      process_admin_pkt (packet);
+	      shutdown = saw_shutdown_read ();
+	      continue;
+	    }
+	  record_shut_info (packet);
+	  shutdown = saw_shutdown_read ();
+	  nbytes_now = packet->data_len;
+	  nbytes_read += nbytes_now;
+	  if (nbytes_now > tot)
+	    excess = nbytes_now - tot;
+	  if (excess)
+	    {
+	      nbytes_now = tot;
+	      if (get_socket_type () == SOCK_STREAM)
+		{
+		  nbytes_read -= excess;
+		  /* Put excess bytes back on the message queue. */
+		  if (handle_partial_read (packet, excess) < 0)
+		    {
+		      _mq_unlock (get_mqd_in ());
+		      debug_printf ("Couldn't handle partial read, %E");
+		      __leave;
+		    }
+		}
+	      else
+		{
+		  /* Truncate the data to what was requested. */
+		  if (!(flags & MSG_TRUNC))
+		    nbytes_read = tot;
+		  msg->msg_flags |= MSG_TRUNC;
+		}
+	    }
+	  _mq_unlock (get_mqd_in ());
+	  if (msg->msg_name && !name_read)
+	    {
+	      sun_name_t sun ((struct sockaddr *) AF_UNIX_PKT_NAME (packet),
+			      packet->name_len);
+	      memcpy (msg->msg_name, &sun.un,
+		      MIN (msg->msg_namelen, sun.un_len + 1));
+	      msg->msg_namelen = sun.un_len;
+	      name_read = true;
+	    }
+	  if (msg->msg_controllen)
+	    {
+	      if (!evaluate_cmsg_data (packet, msg))
+		__leave;
+	      /* https://man7.org/linux/man-pages/man7/unix.7.html
+		 says that ancillary data is a barrier to further
+		 reading. */
+	      waitall = false;
+	    }
+	  if (!nbytes_now)
+	    {
+	      /* 0-length datagrams are allowed. */
+	      if (get_socket_type () == SOCK_DGRAM)
+		{
+		  ret = 0;
+		  __leave;
+		}
+	      else
+		{
+		  set_errno (EIO);
+		  __leave;
+		}
+	    }
+	  /* Copy data to scatter-gather buffers. */
+	  char *ptr = (char *) AF_UNIX_PKT_DATA (packet);
+	  while (nbytes_now && my_iovlen)
+	    {
+	      if (my_iovptr->iov_len > nbytes_now)
+		{
+		  memcpy (my_iovptr->iov_base, ptr, nbytes_now);
+		  my_iovptr->iov_base = (char *) my_iovptr->iov_base
+		    + nbytes_now;
+		  my_iovptr->iov_len -= nbytes_now;
+		  nbytes_now = 0;
+		}
+	      else
+		{
+		  memcpy (my_iovptr->iov_base, ptr, my_iovptr->iov_len);
+		  ptr += my_iovptr->iov_len;
+		  nbytes_now -= my_iovptr->iov_len;
+		  ++my_iovptr;
+		  --my_iovlen;
+		}
+	    }
+	  if (!(waitall && my_iovlen))
+	    break;
+	}
+      if (nbytes_read)
+	ret = nbytes_read;
+    }
+  __except (EFAULT)
+  __endtry
+  if (msg->msg_name && !name_read)
+    msg->msg_namelen = 0;
+  return ret;
 }
 
 ssize_t
@@ -1836,8 +2136,6 @@ fhandler_socket_unix::recvfrom (void *ptr, size_t len, int flags,
 void __reg3
 fhandler_socket_unix::read (void *ptr, size_t& len)
 {
-  set_errno (EAFNOSUPPORT);
-  len = 0;
   struct iovec iov;
   struct msghdr msg;
 
@@ -1900,7 +2198,7 @@ fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
 	}
       /* FIXME: Check this.  It's from Stevens, UNIX Network
 	 Programming, discussion of select.  He doesn't say whether we
-	 also clear so_error.*/
+	 should also clear so_error.*/
       err = so_error ();
       if (err)
 	{

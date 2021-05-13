@@ -1102,6 +1102,8 @@ class fhandler_socket_unix : public fhandler_socket
   void set_pipe_non_blocking (bool nonblocking);
   int send_sock_info (bool from_bind);
   void xchg_sock_info ();
+  void record_shut_info (af_unix_pkt_hdr_t *packet);
+  void process_admin_pkt (af_unix_pkt_hdr_t *packet);
   int grab_admin_pkt (bool peek = true);
   int recv_peer_info ();
   static NTSTATUS npfs_handle (HANDLE &nph);
@@ -1164,6 +1166,9 @@ class fhandler_socket_unix : public fhandler_socket
   int open (int flags, mode_t mode = 0);
   int close ();
   int getpeereid (pid_t *pid, uid_t *euid, gid_t *egid);
+  bool evaluate_cmsg_data (af_unix_pkt_hdr_t *packet, struct msghdr *msg,
+			   bool cloexec = false);
+  int handle_partial_read (af_unix_pkt_hdr_t *packet, size_t excess);
   ssize_t recvmsg (struct msghdr *msg, int flags);
   ssize_t recvfrom (void *ptr, size_t len, int flags,
 		    struct sockaddr *from, int *fromlen);
