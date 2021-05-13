@@ -1171,6 +1171,7 @@ class fhandler_socket_unix : public fhandler_socket
   ssize_t __stdcall readv (const struct iovec *const iov, int iovcnt,
 			   ssize_t tot = -1);
 
+  bool create_cmsg_data (af_unix_pkt_hdr_t *packet, const struct msghdr *msg);
   ssize_t sendmsg (const struct msghdr *msg, int flags);
   ssize_t sendto (const void *ptr, size_t len, int flags,
 		  const struct sockaddr *to, int tolen);

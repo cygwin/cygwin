@@ -1869,11 +1869,172 @@ fhandler_socket_unix::readv (const struct iovec *const iov, int iovcnt,
   return recvmsg (&msg, 0);
 }
 
+bool
+fhandler_socket_unix::create_cmsg_data (af_unix_pkt_hdr_t *packet,
+					const struct msghdr *msg)
+{
+  return true;
+}
+
+
 ssize_t
 fhandler_socket_unix::sendmsg (const struct msghdr *msg, int flags)
 {
-  set_errno (EAFNOSUPPORT);
-  return -1;
+  tmp_pathbuf tp;
+  char mqueue_name[CYGWIN_MQUEUE_SOCKET_NAME_LEN + 1];
+  ssize_t ret = -1;
+  int send_ret = -1;
+  HANDLE fh = NULL;
+  mqd_t mqd_dgram = (mqd_t) -1;
+  mqd_t mqd_out;
+  af_unix_pkt_hdr_t *packet;
+  int err;
+
+  __try
+    {
+      /* Valid flags: MSG_DONTWAIT, MSG_NOSIGNAL */
+      if (flags & ~(MSG_DONTWAIT | MSG_NOSIGNAL))
+	{
+	  set_errno (EOPNOTSUPP);
+	  __leave;
+	}
+      /* FIXME: Check this.  It's from Stevens, UNIX Network
+	 Programming, discussion of select.  He doesn't say whether we
+	 also clear so_error.*/
+      err = so_error ();
+      if (err)
+	{
+	  set_errno (err);
+	  __leave;
+	}
+      if (get_socket_type () == SOCK_STREAM)
+	{
+	  if (msg->msg_namelen)
+	    {
+	      set_errno (connect_state () == connected ? EISCONN : EOPNOTSUPP);
+	      __leave;
+	    }
+	  if (connect_state () != connected)
+	    {
+	      set_errno (ENOTCONN);
+	      __leave;
+	    }
+	}
+      else
+	{
+	  sun_name_t sun;
+	  int peer_type;
+
+	  if (msg->msg_namelen)
+	    sun.set ((const struct sockaddr_un *) msg->msg_name,
+		     msg->msg_namelen);
+	  else
+	    sun = *peer_sun_path ();
+	  fh = open_socket (&sun, peer_type, mqueue_name);
+	  if (!fh)
+	    __leave;
+	  NtClose (fh);
+	  if (peer_type != SOCK_DGRAM)
+	    {
+	      set_errno (EPROTOTYPE);
+	      __leave;
+	    }
+	  mqd_dgram = open_mqueue (mqueue_name,
+			     is_nonblocking () || flags & MSG_DONTWAIT);
+	  if (mqd_dgram == (mqd_t) -1)
+	    __leave;
+	}
+      packet = (af_unix_pkt_hdr_t *) tp.w_get ();
+      /* For STREAM sockets, always send shutdown info in case a
+	 shutdown call failed. */
+      shut_state shut_info =
+	get_socket_type () == SOCK_STREAM
+	? (shut_state) saw_shutdown ()
+	: _SHUT_NONE;
+      if (get_socket_type () == SOCK_DGRAM && binding_state () == bound)
+	{
+	  packet->init (false, shut_info, sun_path ()->un_len, 0, 0);
+	  memcpy (AF_UNIX_PKT_NAME (packet), &sun_path ()->un,
+		  sun_path ()->un_len);
+	}
+      else
+	packet->init (false, shut_info, 0, 0, 0);
+      if (!create_cmsg_data (packet, msg))
+	__leave;
+      for (int i = 0; i < msg->msg_iovlen; ++i)
+	if (!AF_UNIX_PKT_DATA_APPEND (packet, msg->msg_iov[i].iov_base,
+				      msg->msg_iov[i].iov_len))
+	  {
+	    if (packet->data_len == 0)
+	      {
+		set_errno (EMSGSIZE);
+		__leave;
+	      }
+	    else
+	      break;
+	  }
+      /* A packet can have 0 length only on a datagram socket. */
+      if (packet->data_len == 0 && get_socket_type () == SOCK_STREAM)
+	{
+	  ret = 0;
+	  __leave;
+	}
+      io_lock ();
+      /* Handle MSG_DONTWAIT in blocking mode.  Already done in DGRAM case. */
+      if (get_socket_type () == SOCK_STREAM && !is_nonblocking ()
+	  && (flags & MSG_DONTWAIT))
+	set_mqueue_non_blocking (get_mqd_out (), true);
+
+      mqd_out = mqd_dgram != (mqd_t) -1 ? mqd_dgram : get_mqd_out ();
+      bool nonblocking = is_nonblocking () || (flags & MSG_DONTWAIT);
+      grab_admin_pkt ();
+      bool shutdown = saw_shutdown_write ();
+      if (!shutdown && nonblocking)
+	send_ret = mq_send (mqd_out, (const char *) packet,
+			    packet->pckt_len, 0);
+      else
+	{
+	  /* FIXME: Is this reasonable? */
+#define AF_UNIX_SEND_TIMEOUT 10 * NSPERSEC/MSPERSEC      /* 10 ms */
+	  struct timespec timeout;
+	  clock_gettime (CLOCK_REALTIME, &timeout);
+	  while (!shutdown)
+	    {
+	      /* We don't want to block forever if the peer has shut
+		 down.  FIXME: This might only be appropriate for
+		 STREAM sockets. */
+	      timeout.tv_nsec += AF_UNIX_SEND_TIMEOUT;
+	      if (timeout.tv_nsec >= NSPERSEC)
+		{
+		  timeout.tv_nsec -= NSPERSEC;
+		  ++timeout.tv_sec;
+		}
+	      send_ret = mq_timedsend (mqd_out, (const char *) packet,
+				       packet->pckt_len, 0, &timeout);
+	      if (send_ret >= 0 || get_errno () != ETIMEDOUT)
+		break;
+	      grab_admin_pkt ();
+	      shutdown = saw_shutdown_write ();
+	    }
+	}
+      if (get_socket_type () == SOCK_STREAM && !is_nonblocking ()
+	  && (flags & MSG_DONTWAIT))
+	set_mqueue_non_blocking (get_mqd_out (), false);
+      io_unlock ();
+      if (send_ret == 0)
+	ret = packet->data_len;
+      else if (shutdown && get_socket_type () == SOCK_STREAM)
+	{
+	  set_errno (EPIPE);
+	  if (!(flags & MSG_NOSIGNAL))
+	    raise (SIGPIPE);
+	}
+    }
+  __except (EFAULT)
+  __endtry
+  if (mqd_dgram != (mqd_t) -1)
+    mq_close (mqd_dgram);
+  return ret;
 }
 
 ssize_t
