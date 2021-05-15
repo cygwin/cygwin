@@ -950,6 +950,15 @@ fhandler_socket_unix::open_pipe (PUNICODE_STRING pipe_name, bool xchg_sock_info)
   return status;
 }
 
+mqd_t
+fhandler_socket_unix::open_mqueue (const char *mqueue_name, bool nonblocking)
+{
+  int flags = O_WRONLY;
+  if (nonblocking)
+    flags |= O_NONBLOCK;
+  return mq_open (mqueue_name, flags);
+}
+
 struct conn_wait_info_t
 {
   fhandler_socket_unix *fh;

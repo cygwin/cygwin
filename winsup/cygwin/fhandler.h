@@ -14,6 +14,7 @@ details. */
 #include <cygwin/_socketflags.h>
 #include <cygwin/_ucred.h>
 #include <sys/un.h>
+#include <mqueue.h>
 
 /* newlib used to define O_NDELAY differently from O_NONBLOCK.  Now it
    properly defines both to be the same.  Unfortunately, we have to
@@ -1099,6 +1100,7 @@ class fhandler_socket_unix : public fhandler_socket
   HANDLE create_pipe (bool single_instance);
   HANDLE create_pipe_instance ();
   NTSTATUS open_pipe (PUNICODE_STRING pipe_name, bool xchg_sock_info);
+  mqd_t open_mqueue (const char *mqueue_name, bool nonblocking);
   int wait_pipe (PUNICODE_STRING pipe_name);
   int connect_mqueue (const char *mqueue_name);
   int connect_pipe (PUNICODE_STRING pipe_name);
