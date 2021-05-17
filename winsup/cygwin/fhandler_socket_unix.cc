@@ -1671,12 +1671,16 @@ fhandler_socket_unix::getpeername (struct sockaddr *name, int *namelen)
 int
 fhandler_socket_unix::shutdown (int how)
 {
-  NTSTATUS status = STATUS_SUCCESS;
-  IO_STATUS_BLOCK io;
+  int ret;
 
   if (how < SHUT_RD || how > SHUT_RDWR)
     {
       set_errno (EINVAL);
+      return -1;
+    }
+  if (connect_state () != connected)
+    {
+      set_errno (ENOTCONN);
       return -1;
     }
   /* Convert SHUT_RD/SHUT_WR/SHUT_RDWR to _SHUT_RECV/_SHUT_SEND bits. */
@@ -1687,23 +1691,25 @@ fhandler_socket_unix::shutdown (int how)
   if (new_shutdown_mask != old_shutdown_mask)
     saw_shutdown (new_shutdown_mask);
   state_unlock ();
-  if (new_shutdown_mask != old_shutdown_mask)
+  if (new_shutdown_mask != old_shutdown_mask
+      && get_socket_type () == SOCK_STREAM)
     {
       /* Send shutdown info to peer.  Note that it's not necessarily fatal
 	 if the info isn't sent here.  The info will be reproduced by any
 	 followup package sent to the peer. */
       af_unix_pkt_hdr_t packet (true, (shut_state) new_shutdown_mask, 0, 0, 0);
       io_lock ();
-      set_pipe_non_blocking (true);
-      status = NtWriteFile (get_handle (), NULL, NULL, NULL, &io, &packet,
-			    packet.pckt_len, NULL, NULL);
-      set_pipe_non_blocking (is_nonblocking ());
+      set_mqueue_non_blocking (get_mqd_out (), true);
+      ret = mq_send (get_mqd_out (), (const char *) &packet, packet.pckt_len,
+		     af_un_prio_admin);
+      set_mqueue_non_blocking (get_mqd_out (), is_nonblocking ());
       io_unlock ();
     }
-  if (!NT_SUCCESS (status))
+  if (ret < 0)
     {
-      debug_printf ("Couldn't send shutdown info: NtWriteFile: %y", status);
-      return -1;
+      debug_printf ("Couldn't send shutdown info, %E");
+      if (get_errno () != EAGAIN)
+	return -1;
     }
   return 0;
 }
