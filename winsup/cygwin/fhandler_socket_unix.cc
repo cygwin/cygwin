@@ -1122,6 +1122,7 @@ fhandler_socket_unix::fixup_helper ()
   connect_wait_thr = NULL;
   cwt_termination_evt = NULL;
   cwt_param = NULL;
+  inc_ndesc ();
 }
 
 /* ========================== public methods ========================= */
@@ -1209,6 +1210,7 @@ fhandler_socket_unix::dup (fhandler_base *child, int flags)
   fhs->connect_wait_thr = NULL;
   fhs->cwt_termination_evt = NULL;
   fhs->cwt_param = NULL;
+  inc_ndesc ();
   return 0;
 }
 
@@ -1285,6 +1287,7 @@ fhandler_socket_unix::socket (int af, int type, int protocol, int flags)
   set_handle (NULL);
   set_unique_id ();
   set_ino (get_unique_id ());
+  inc_ndesc ();
   return 0;
 }
 
@@ -1753,10 +1756,11 @@ fhandler_socket_unix::close ()
     ret = mq_close (get_mqd_in ());
   if (get_mqd_out () != (mqd_t) -1)
     ret |= mq_close (get_mqd_out ());
-  /* FIXME: Maybe we should keep a reference count on the mqueues and
-     unlink it after the last one is close.  OTOH, this will become
-     unnecessary if the mqueue implementation is changed to use
-     Windows shared memory. */
+  if (dec_ndesc () <= 0)
+    {
+      shutdown (SHUT_RDWR);
+      mq_unlink (get_mqueue_name ());
+    }
   return ret;
 }
 
