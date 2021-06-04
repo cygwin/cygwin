@@ -3149,7 +3149,8 @@ public:
   int mq_timedsend (const char *, size_t, unsigned int,
 		    const struct timespec *);
   ssize_t mq_timedrecv (char *, size_t, unsigned int *,
-			const struct timespec *);
+			const struct timespec *, uint32_t = 0);
+  void mq_unlock ();
 
   struct mq_info *mqinfo () { return &mqi; }
 

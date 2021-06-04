@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <sys/signal.h>
 #include <sys/cdefs.h>
+#include <cygwin/bits.h>
 
 #ifndef _MQUEUE_H
 #define _MQUEUE_H
@@ -37,6 +38,25 @@ ssize_t mq_timedreceive (mqd_t, char *, size_t, unsigned int *,
 int     mq_timedsend (mqd_t, const char *, size_t, unsigned int,
 		      const struct timespec *);
 int     mq_unlink (const char *name);
+
+#ifdef __INSIDE_CYGWIN__
+enum
+{
+  _MQ_ALLOW_PARTIAL	= _BIT ( 0), /* allow partial reads */
+  _MQ_PEEK	        = _BIT ( 1), /* Peek into the packet, return data,
+					but don't touch the packet at all
+					(MSG_PEEK) */
+  _MQ_PEEK_NONBLOCK     = _BIT ( 2), /* Peek into the packet, return data,
+					but don't touch the packet at all,
+					and don't block (grab_admin_pkt) */
+  _MQ_HOLD_LOCK         = _BIT ( 3), /* Don't unlock mutex after reading. */
+};
+
+ssize_t _mq_recv (mqd_t, char *, size_t, int);
+ssize_t _mq_timedrecv (mqd_t, char *, size_t, const struct timespec *, int);
+ssize_t _mq_peek (mqd_t, char *, size_t, bool);
+int     _mq_unlock (mqd_t);
+#endif
 
 __END_DECLS
 

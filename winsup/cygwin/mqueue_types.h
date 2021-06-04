@@ -46,7 +46,7 @@ struct mq_hdr
 struct msg_hdr
 {
   int32_t         msg_next;	 /* index of next on linked list */
-  int32_t         msg_len;	 /* actual length */
+  uint32_t        msg_len;	 /* actual length */
   unsigned int    msg_prio;	 /* priority */
 };
 #pragma pack (pop)

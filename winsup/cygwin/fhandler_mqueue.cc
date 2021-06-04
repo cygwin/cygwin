@@ -931,7 +931,7 @@ fhandler_mqueue::mq_timedsend (const char *ptr, size_t len, unsigned int prio,
 
 ssize_t
 fhandler_mqueue::mq_timedrecv (char *ptr, size_t maxlen, unsigned int *priop,
-			       const struct timespec *abstime)
+			       const struct timespec *abstime, uint32_t flags)
 {
   int n;
   long index;
@@ -941,6 +941,7 @@ fhandler_mqueue::mq_timedrecv (char *ptr, size_t maxlen, unsigned int *priop,
   struct mq_fattr *attr;
   struct msg_hdr *msghdr;
   bool mutex_locked = false;
+  bool keep_packet = flags & (_MQ_PEEK | _MQ_PEEK_NONBLOCK);
 
   pthread_testcancel ();
 
@@ -955,14 +956,17 @@ fhandler_mqueue::mq_timedrecv (char *ptr, size_t maxlen, unsigned int *priop,
 	  __leave;
 	}
       mutex_locked = true;
-      if (maxlen < (size_t) attr->mq_msgsize)
+
+      /* Check if maxlen is too small.  When called from _mq_recv, that's ok,
+	 but for actual user space message queues, that's an error condition. */
+      if (maxlen < (size_t) attr->mq_msgsize && !(flags & _MQ_ALLOW_PARTIAL))
 	{
 	  set_errno (EMSGSIZE);
 	  __leave;
 	}
       if (attr->mq_curmsgs == 0)	/* queue is empty */
 	{
-	  if (is_nonblocking ())
+	  if (is_nonblocking () || (flags & _MQ_PEEK_NONBLOCK))
 	    {
 	      set_errno (EAGAIN);
 	      __leave;
@@ -986,24 +990,37 @@ fhandler_mqueue::mq_timedrecv (char *ptr, size_t maxlen, unsigned int *priop,
 	api_fatal ("mq_receive: curmsgs = %ld; head = 0", attr->mq_curmsgs);
 
       msghdr = (struct msg_hdr *) &mptr[index];
-      mqhdr->mqh_head = msghdr->msg_next;     /* new head of list */
-      len = msghdr->msg_len;
-      memcpy(ptr, msghdr + 1, len);           /* copy the message itself */
+
+      /* Partial read? */
+      if (maxlen < msghdr->msg_len)
+	len = maxlen;
+      else
+	len = msghdr->msg_len;
+      memcpy(ptr, msghdr + 1, len);		/* copy the message itself */
       if (priop != NULL)
 	*priop = msghdr->msg_prio;
 
-      /* Just-read message goes to front of free list */
-      msghdr->msg_next = mqhdr->mqh_free;
-      mqhdr->mqh_free = index;
-
-      /* Wake up anyone blocked in mq_send waiting for room */
-      if (attr->mq_curmsgs == attr->mq_maxmsg)
-	cond_signal (mqinfo ()->mqi_waitsend);
-      attr->mq_curmsgs--;
+      if (!keep_packet)
+	{
+	  mqhdr->mqh_head = msghdr->msg_next;     /* new head of list */
+	  /* Just-read message goes to front of free list */
+	  msghdr->msg_next = mqhdr->mqh_free;
+	  mqhdr->mqh_free = index;
+	  /* Wake up anyone blocked in mq_send waiting for room */
+	  if (attr->mq_curmsgs == attr->mq_maxmsg)
+	    cond_signal (mqinfo ()->mqi_waitsend);
+	  attr->mq_curmsgs--;
+	}
     }
   __except (EBADF) {}
   __endtry
-  if (mutex_locked)
+  if (mutex_locked && !(flags & _MQ_HOLD_LOCK))
     mutex_unlock (mqinfo ()->mqi_lock);
   return len;
+}
+
+void
+fhandler_mqueue::mq_unlock ()
+{
+  mutex_unlock (mqinfo ()->mqi_lock);
 }

@@ -303,6 +303,68 @@ mq_receive (mqd_t mqd, char *ptr, size_t maxlen, unsigned int *priop)
   return mq_timedreceive (mqd, ptr, maxlen, priop, NULL);
 }
 
+/* Internal function to allow reading partial message packets.
+   Used from AF_UNIX code. */
+extern "C" ssize_t
+_mq_recv (mqd_t mqd, char *ptr, size_t maxlen, int flags)
+{
+  return _mq_timedrecv (mqd, ptr, maxlen, NULL, flags);
+}
+
+/* Internal function to allow reading partial message packets with timeout.
+   Used from AF_UNIX code. */
+extern "C" ssize_t
+_mq_timedrecv (mqd_t mqd, char *ptr, size_t maxlen,
+	       const struct timespec *abstime, int flags)
+{
+  int ret = -1;
+
+  cygheap_fdget fd ((int) mqd, true);
+  fhandler_mqueue *fh = fd->is_mqueue ();
+  if (!fh)
+    set_errno (EBADF);
+  else
+    ret = fh->mq_timedrecv (ptr, maxlen, NULL, abstime,
+			    _MQ_ALLOW_PARTIAL | flags);
+  return ret;
+}
+
+/* Internal function to allow peeking into message packets.
+   Used from AF_UNIX code. */
+extern "C" ssize_t
+_mq_peek (mqd_t mqd, char *ptr, size_t maxlen, bool nonblocking)
+{
+  int ret = -1;
+  int flags = _MQ_ALLOW_PARTIAL | (nonblocking ? _MQ_PEEK_NONBLOCK : _MQ_PEEK);
+
+  cygheap_fdget fd ((int) mqd, true);
+  fhandler_mqueue *fh = fd->is_mqueue ();
+  if (!fh)
+    set_errno (EBADF);
+  else
+    ret = fh->mq_timedrecv (ptr, maxlen, NULL, NULL, flags);
+  return ret;
+}
+
+/* Internal function to unlock a queue after mq_receive was called
+   with _MQ_HOLD_LOCK.  Used from AF_UNIX code. */
+extern "C" int
+_mq_unlock (mqd_t mqd)
+{
+  int ret = -1;
+
+  cygheap_fdget fd ((int) mqd, true);
+  fhandler_mqueue *fh = fd->is_mqueue ();
+  if (!fh)
+    set_errno (EBADF);
+  else
+    {
+      fh->mq_unlock ();
+      ret = 0;
+    }
+  return ret;
+}
+
 extern "C" int
 mq_close (mqd_t mqd)
 {
