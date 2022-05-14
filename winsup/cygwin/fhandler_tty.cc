@@ -534,7 +534,9 @@ fhandler_pty_master::accept_input ()
       acquire_attach_mutex (mutex_timeout);
       pinfo pinfo_resume = pinfo (myself->ppid);
       DWORD resume_pid;
-      if (pinfo_resume)
+      if (helper_pid)
+	resume_pid = helper_pid;
+      else if (pinfo_resume)
 	resume_pid = pinfo_resume->dwProcessId;
       else
 	resume_pid = get_console_process_id (myself->dwProcessId, false);
@@ -2170,6 +2172,16 @@ fhandler_pty_master::close ()
 	  get_ttyp ()->stop_fwd_thread = true;
 	  WriteFile (to_master_nat, "", 0, &len, NULL);
 	  master_fwd_thread->detach ();
+	  if (helper_goodbye)
+	    {
+	      SetEvent (helper_goodbye);
+	      WaitForSingleObject (helper_h_process, INFINITE);
+	      CloseHandle (helper_h_process);
+	      CloseHandle (helper_goodbye);
+	      helper_pid = 0;
+	      helper_h_process = 0;
+	      helper_goodbye = NULL;
+	    }
 	}
     }
 
@@ -2878,7 +2890,9 @@ fhandler_pty_master::pty_master_fwd_thread (const master_fwd_thread_param_t *p)
       acquire_attach_mutex (mutex_timeout);
       pinfo pinfo_resume = pinfo (myself->ppid);
       DWORD resume_pid;
-      if (pinfo_resume)
+      if (p->helper_pid)
+	resume_pid = p->helper_pid;
+      else if (pinfo_resume)
 	resume_pid = pinfo_resume->dwProcessId;
       else
 	resume_pid = get_console_process_id (myself->dwProcessId, false);
@@ -3071,6 +3085,57 @@ fhandler_pty_master::setup ()
       goto err;
     }
   WaitForSingleObject (thread_param_copied_event, INFINITE);
+
+  if (wincap.has_broken_attach_console ()
+      && _major (myself->ctty) == DEV_CONS_MAJOR
+      && !(!pinfo (myself->ppid) && getenv ("ConEmuPID")))
+    {
+      HANDLE hello = CreateEvent (&sec_none, true, false, NULL);
+      HANDLE goodbye = CreateEvent (&sec_none, true, false, NULL);
+      WCHAR cmd[MAX_PATH];
+      path_conv helper ("/bin/cygwin-console-helper.exe");
+      size_t len = helper.get_wide_win32_path_len ();
+      helper.get_wide_win32_path (cmd);
+      __small_swprintf (cmd + len, L" %p %p", hello, goodbye);
+
+      STARTUPINFOEXW si;
+      PROCESS_INFORMATION pi;
+      ZeroMemory (&si, sizeof (si));
+      si.StartupInfo.cb = sizeof (STARTUPINFOEXW);
+
+      SIZE_T bytesRequired;
+      InitializeProcThreadAttributeList (NULL, 1, 0, &bytesRequired);
+      si.lpAttributeList = (PPROC_THREAD_ATTRIBUTE_LIST)
+	HeapAlloc (GetProcessHeap (), 0, bytesRequired);
+      InitializeProcThreadAttributeList (si.lpAttributeList,
+					 1, 0, &bytesRequired);
+      HANDLE handles_to_inherit[] = {hello, goodbye};
+      UpdateProcThreadAttribute (si.lpAttributeList,
+				 0,
+				 PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+				 handles_to_inherit,
+				 sizeof (handles_to_inherit),
+				 NULL, NULL);
+      if (CreateProcessW (NULL, cmd, &sec_none, &sec_none,
+			  TRUE, EXTENDED_STARTUPINFO_PRESENT,
+			  NULL, NULL, &si.StartupInfo, &pi))
+	{
+	  WaitForSingleObject (hello, INFINITE);
+	  CloseHandle (hello);
+	  CloseHandle (pi.hThread);
+	  helper_goodbye = goodbye;
+	  helper_pid = pi.dwProcessId;
+	  helper_h_process = pi.hProcess;
+	}
+      else
+	{
+	  CloseHandle (hello);
+	  CloseHandle (goodbye);
+	}
+      DeleteProcThreadAttributeList (si.lpAttributeList);
+      HeapFree (GetProcessHeap (), 0, si.lpAttributeList);
+    }
+
   master_fwd_thread = new cygthread (::pty_master_fwd_thread, this, "ptymf");
   if (!master_fwd_thread)
     {
@@ -3875,6 +3940,7 @@ fhandler_pty_master::get_master_fwd_thread_param (master_fwd_thread_param_t *p)
   p->from_slave_nat = from_slave_nat;
   p->output_mutex = output_mutex;
   p->ttyp = get_ttyp ();
+  p->helper_pid = helper_pid;
   SetEvent (thread_param_copied_event);
 }
 

@@ -359,7 +359,9 @@ fhandler_termios::process_sigs (char c, tty* ttyp, fhandler_termios *fh)
 	  acquire_attach_mutex (mutex_timeout);
 	  pinfo pinfo_resume = pinfo (myself->ppid);
 	  DWORD resume_pid = 0;
-	  if (pinfo_resume)
+	  if (fh && fh->get_helper_pid ())
+	    resume_pid = fh->get_helper_pid ();
+	  else if (pinfo_resume)
 	    resume_pid = pinfo_resume->dwProcessId;
 	  else
 	    resume_pid = fhandler_pty_common::get_console_process_id
