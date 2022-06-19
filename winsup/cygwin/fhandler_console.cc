@@ -73,19 +73,59 @@ private:
   static const size_t WPBUF_LEN = 256u;
   char buf[WPBUF_LEN];
   size_t ixput;
+  HANDLE output_handle;
 public:
+  void init (HANDLE &handle)
+  {
+    output_handle = handle;
+    empty ();
+  }
   inline void put (char x)
   {
-    if (ixput < WPBUF_LEN)
-      buf[ixput++] = x;
+    if (ixput == WPBUF_LEN)
+      send ();
+    buf[ixput++] = x;
   }
   inline void empty () { ixput = 0u; }
-  inline void send (HANDLE &handle)
+  inline void send ()
   {
+    if (!output_handle)
+      {
+	empty ();
+	return;
+      }
+    mbtowc_p f_mbtowc =
+      (__MBTOWC == __ascii_mbtowc) ? __utf8_mbtowc : __MBTOWC;
     wchar_t bufw[WPBUF_LEN];
-    DWORD len = sys_mbstowcs (bufw, WPBUF_LEN, buf, ixput);
+    DWORD len = 0;
+    mbstate_t ps;
+    memset (&ps, 0, sizeof (ps));
+    char *p = buf;
+    while (ixput)
+      {
+	int bytes = f_mbtowc (_REENT, bufw + len, p, ixput, &ps);
+	if (bytes < 0)
+	  {
+	    if ((size_t) ps.__count < ixput)
+	      { /* Discard one byte and retry. */
+		p++;
+		ixput--;
+		memset (&ps, 0, sizeof (ps));
+		continue;
+	      }
+	    /* Halfway through the multibyte char. */
+	    memmove (buf, p, ixput);
+	    break;
+	  }
+	else
+	  {
+	    len++;
+	    p += bytes;
+	    ixput -= bytes;
+	  }
+      }
     acquire_attach_mutex (mutex_timeout);
-    WriteConsoleW (handle, bufw, len, NULL, 0);
+    WriteConsoleW (output_handle, bufw, len, NULL, 0);
     release_attach_mutex ();
   }
 } wpbuf;
@@ -1483,6 +1523,7 @@ fhandler_console::open (int flags, mode_t)
     }
   set_output_handle (h);
   handle_set.output_handle = h;
+  wpbuf.init (get_output_handle ());
 
   setup_io_mutex ();
   handle_set.input_mutex = input_mutex;
@@ -2351,7 +2392,7 @@ fhandler_console::char_command (char c)
 	  wpbuf.put (c);
 	  if (wincap.has_con_esc_rep ())
 	    /* Just send the sequence */
-	    wpbuf.send (get_output_handle ());
+	    wpbuf.send ();
 	  else if (last_char && last_char != L'\n')
 	    {
 	      acquire_attach_mutex (mutex_timeout);
@@ -2365,7 +2406,7 @@ fhandler_console::char_command (char c)
 	  con.scroll_region.Bottom = con.args[1] ? con.args[1] - 1 : -1;
 	  wpbuf.put (c);
 	  /* Just send the sequence */
-	  wpbuf.send (get_output_handle ());
+	  wpbuf.send ();
 	  break;
 	case 'L': /* IL */
 	  if (wincap.has_con_broken_il_dl ())
@@ -2398,7 +2439,7 @@ fhandler_console::char_command (char c)
 				srBottom + 1 - con.b.srWindow.Top);
 	      WriteConsoleW (get_output_handle (), bufw, wcslen (bufw), 0, 0);
 	      wpbuf.put ('T');
-	      wpbuf.send (get_output_handle ());
+	      wpbuf.send ();
 	      __small_swprintf (bufw, L"\033[%d;%dr",
 				srTop + 1 - con.b.srWindow.Top,
 				srBottom + 1 - con.b.srWindow.Top);
@@ -2412,7 +2453,7 @@ fhandler_console::char_command (char c)
 	    {
 	      wpbuf.put (c);
 	      /* Just send the sequence */
-	      wpbuf.send (get_output_handle ());
+	      wpbuf.send ();
 	    }
 	  break;
 	case 'M': /* DL */
@@ -2435,7 +2476,7 @@ fhandler_console::char_command (char c)
 	      acquire_attach_mutex (mutex_timeout);
 	      WriteConsoleW (get_output_handle (), bufw, wcslen (bufw), 0, 0);
 	      wpbuf.put ('S');
-	      wpbuf.send (get_output_handle ());
+	      wpbuf.send ();
 	      __small_swprintf (bufw, L"\033[%d;%dr",
 				srTop + 1 - con.b.srWindow.Top,
 				srBottom + 1 - con.b.srWindow.Top);
@@ -2449,7 +2490,7 @@ fhandler_console::char_command (char c)
 	    {
 	      wpbuf.put (c);
 	      /* Just send the sequence */
-	      wpbuf.send (get_output_handle ());
+	      wpbuf.send ();
 	    }
 	  break;
 	case 'J': /* ED */
@@ -2478,13 +2519,13 @@ fhandler_console::char_command (char c)
 	    }
 	  else
 	    /* Just send the sequence */
-	    wpbuf.send (get_output_handle ());
+	    wpbuf.send ();
 	  break;
 	case 'h': /* DECSET */
 	case 'l': /* DECRST */
 	  wpbuf.put (c);
 	  /* Just send the sequence */
-	  wpbuf.send (get_output_handle ());
+	  wpbuf.send ();
 	  if (con.saw_question_mark)
 	    {
 	      bool need_fix_tab_position = false;
@@ -2513,7 +2554,7 @@ fhandler_console::char_command (char c)
 	    }
 	  wpbuf.put (c);
 	  /* Just send the sequence */
-	  wpbuf.send (get_output_handle ());
+	  wpbuf.send ();
 	  break;
 	case 'm':
 	  if (con.saw_greater_than_sign)
@@ -2521,13 +2562,13 @@ fhandler_console::char_command (char c)
 	  /* Text attribute settings */
 	  wpbuf.put (c);
 	  /* Just send the sequence */
-	  wpbuf.send (get_output_handle ());
+	  wpbuf.send ();
 	  break;
 	default:
 	  /* Other escape sequences */
 	  wpbuf.put (c);
 	  /* Just send the sequence */
-	  wpbuf.send (get_output_handle ());
+	  wpbuf.send ();
 	  break;
 	}
       return;
@@ -3378,7 +3419,7 @@ fhandler_console::write (const void *vsrc, size_t len)
 		  /* For xterm mode only */
 		  /* Just send the sequence */
 		  wpbuf.put (*src);
-		  wpbuf.send (get_output_handle ());
+		  wpbuf.send ();
 		}
 	      else if (con.savex >= 0 && con.savey >= 0)
 		cursor_set (false, con.savex, con.savey);
@@ -3392,7 +3433,7 @@ fhandler_console::write (const void *vsrc, size_t len)
 		  /* For xterm mode only */
 		  /* Just send the sequence */
 		  wpbuf.put (*src);
-		  wpbuf.send (get_output_handle ());
+		  wpbuf.send ();
 		}
 	      else
 		cursor_get (&con.savex, &con.savey);
@@ -3425,7 +3466,7 @@ fhandler_console::write (const void *vsrc, size_t len)
 		}
 	      else
 		wpbuf.put (*src);
-	      wpbuf.send (get_output_handle ());
+	      wpbuf.send ();
 	      con.state = normal;
 	      wpbuf.empty();
 	    }
@@ -3450,7 +3491,7 @@ fhandler_console::write (const void *vsrc, size_t len)
 		 handled and just sent them. */
 	      wpbuf.put (*src);
 	      /* Just send the sequence */
-	      wpbuf.send (get_output_handle ());
+	      wpbuf.send ();
 	      con.state = normal;
 	      wpbuf.empty();
 	    }
@@ -3547,7 +3588,7 @@ fhandler_console::write (const void *vsrc, size_t len)
 	    {
 	      wpbuf.put (*src);
 	      if (wincap.has_con_24bit_colors () && !con_is_legacy)
-		wpbuf.send (get_output_handle ());
+		wpbuf.send ();
 	      wpbuf.empty ();
 	      con.state = normal;
 	      src++;
@@ -3564,7 +3605,7 @@ fhandler_console::write (const void *vsrc, size_t len)
 	    if (*src < ' ')
 	      {
 		if (wincap.has_con_24bit_colors () && !con_is_legacy)
-		  wpbuf.send (get_output_handle ());
+		  wpbuf.send ();
 		else if (*src == '\007' && con.state == gettitle)
 		  set_console_title (con.my_title_buf);
 		con.state = normal;
@@ -3589,7 +3630,7 @@ fhandler_console::write (const void *vsrc, size_t len)
 	      /* Send OSC Ps; Pt BEL other than OSC Ps; ? BEL */
 	      if (wincap.has_con_24bit_colors () && !con_is_legacy
 		  && !con.saw_question_mark)
-		wpbuf.send (get_output_handle ());
+		wpbuf.send ();
 	      con.state = normal;
 	      wpbuf.empty();
 	    }
@@ -3602,7 +3643,7 @@ fhandler_console::write (const void *vsrc, size_t len)
 	      /* Send OSC Ps; Pt ST other than OSC Ps; ? ST */
 	      if (wincap.has_con_24bit_colors () && !con_is_legacy
 		  && !con.saw_question_mark)
-		wpbuf.send (get_output_handle ());
+		wpbuf.send ();
 	      con.state = normal;
 	    }
 	  else
@@ -3866,6 +3907,7 @@ fhandler_console::fixup_after_fork_exec (bool execing)
 {
   set_unit ();
   setup_io_mutex ();
+  wpbuf.init (get_output_handle ());
 
   if (!execing)
     return;
