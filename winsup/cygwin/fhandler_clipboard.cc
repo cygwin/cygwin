@@ -19,6 +19,27 @@ details. */
 #include "child_info.h"
 #include <sys/clipboard.h>
 
+/* Opening clipboard immediately after CloseClipboard()
+   sometimes fails. Therefore use retry-loop. */
+static inline bool
+open_clipboard ()
+{
+  const int max_retry = 10;
+  for (int i = 0; i < max_retry; i++)
+    {
+      if (OpenClipboard (NULL))
+	return true;
+      Sleep (1);
+    }
+  return false;
+}
+
+static inline bool
+close_clipboard ()
+{
+  return CloseClipboard ();
+}
+
 /*
  * Robert Collins:
  * FIXME: should we use GetClipboardSequenceNumber to tell if the clipboard has
@@ -29,9 +50,9 @@ fhandler_dev_clipboard::fhandler_dev_clipboard ()
   : fhandler_base (), pos (0), membuffer (NULL), msize (0)
 {
   /* FIXME: check for errors and loop until we can open the clipboard */
-  OpenClipboard (NULL);
+  open_clipboard ();
   cygnativeformat = RegisterClipboardFormatW (CYGWIN_NATIVE);
-  CloseClipboard ();
+  close_clipboard ();
 }
 
 /*
@@ -53,7 +74,7 @@ fhandler_dev_clipboard::set_clipboard (const void *buf, size_t len)
 {
   HGLOBAL hmem;
   /* Native CYGWIN format */
-  if (OpenClipboard (NULL))
+  if (open_clipboard ())
     {
       cygcb_t *clipbuf;
 
@@ -61,7 +82,7 @@ fhandler_dev_clipboard::set_clipboard (const void *buf, size_t len)
       if (!hmem)
 	{
 	  __seterrno ();
-	  CloseClipboard ();
+	  close_clipboard ();
 	  return -1;
 	}
       clipbuf = (cygcb_t *) GlobalLock (hmem);
@@ -81,7 +102,7 @@ fhandler_dev_clipboard::set_clipboard (const void *buf, size_t len)
       GlobalUnlock (hmem);
       EmptyClipboard ();
       HANDLE ret = SetClipboardData (cygnativeformat, hmem);
-      CloseClipboard ();
+      close_clipboard ();
       /* According to MSDN, hmem must not be free'd after transferring the
 	 data to the clipboard via SetClipboardData. */
       /* GlobalFree (hmem); */
@@ -99,7 +120,7 @@ fhandler_dev_clipboard::set_clipboard (const void *buf, size_t len)
       set_errno (EILSEQ);
       return -1;
     }
-  if (OpenClipboard (NULL))
+  if (open_clipboard ())
     {
       PWCHAR clipbuf;
 
@@ -107,14 +128,14 @@ fhandler_dev_clipboard::set_clipboard (const void *buf, size_t len)
       if (!hmem)
 	{
 	  __seterrno ();
-	  CloseClipboard ();
+	  close_clipboard ();
 	  return -1;
 	}
       clipbuf = (PWCHAR) GlobalLock (hmem);
       sys_mbstowcs (clipbuf, len + 1, (const char *) buf);
       GlobalUnlock (hmem);
       HANDLE ret = SetClipboardData (CF_UNICODETEXT, hmem);
-      CloseClipboard ();
+      close_clipboard ();
       /* According to MSDN, hmem must not be free'd after transferring the
 	 data to the clipboard via SetClipboardData. */
       /* GlobalFree (hmem); */
@@ -168,7 +189,7 @@ fhandler_dev_clipboard::fstat (struct stat *buf)
   buf->st_ctim.tv_nsec = 0L;
   buf->st_birthtim = buf->st_atim = buf->st_mtim = buf->st_ctim;
 
-  if (OpenClipboard (NULL))
+  if (open_clipboard ())
     {
       UINT formatlist[1] = { cygnativeformat };
       int format;
@@ -191,7 +212,7 @@ fhandler_dev_clipboard::fstat (struct stat *buf)
 	  buf->st_size = clipbuf->cb_size;
 	  GlobalUnlock (hglb);
 	}
-      CloseClipboard ();
+      close_clipboard ();
     }
 
   return 0;
@@ -207,7 +228,7 @@ fhandler_dev_clipboard::read (void *ptr, size_t& len)
   LPVOID cb_data;
   int rach;
 
-  if (!OpenClipboard (NULL))
+  if (!open_clipboard ())
     {
       len = 0;
       return;
@@ -218,7 +239,7 @@ fhandler_dev_clipboard::read (void *ptr, size_t& len)
       || !(hglb = GetClipboardData (format))
       || !(cb_data = GlobalLock (hglb)))
     {
-      CloseClipboard ();
+      close_clipboard ();
       len = 0;
       return;
     }
@@ -305,7 +326,7 @@ fhandler_dev_clipboard::read (void *ptr, size_t& len)
 	}
     }
   GlobalUnlock (hglb);
-  CloseClipboard ();
+  close_clipboard ();
   len = ret;
 }
 
