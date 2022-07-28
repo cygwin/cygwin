@@ -1602,6 +1602,8 @@ fhandler_console::dup (fhandler_base *child, int flags)
   return 0;
 }
 
+static void hook_conemu_cygwin_connector();
+
 int
 fhandler_console::open (int flags, mode_t)
 {
@@ -1689,6 +1691,12 @@ fhandler_console::open (int flags, mode_t)
 
   if (myself->pid == con.owner)
     {
+#ifdef __x86_64__
+      if (GetModuleHandle ("ConEmuHk64.dll"))
+#else
+      if (GetModuleHandle ("ConEmuHk.dll"))
+#endif
+	hook_conemu_cygwin_connector ();
       char name[MAX_PATH];
       shared_name (name, CONS_THREAD_SYNC, get_minor ());
       thread_sync_event = CreateEvent(NULL, FALSE, FALSE, name);
@@ -3980,6 +3988,7 @@ fhandler_console::set_console_mode_to_native ()
 DEF_HOOK (CreateProcessA);
 DEF_HOOK (CreateProcessW);
 DEF_HOOK (ContinueDebugEvent);
+DEF_HOOK (LoadLibraryA); /* Hooked for ConEmu cygwin connector */
 
 static BOOL WINAPI
 CreateProcessA_Hooked
@@ -4021,6 +4030,24 @@ ContinueDebugEvent_Hooked
   return ContinueDebugEvent_Orig (p, t, s);
 }
 
+/* Hooked for ConEmu cygwin connector */
+static HMODULE WINAPI
+LoadLibraryA_Hooked (LPCSTR m)
+{
+  const char *p;
+  if ((p = strrchr(m, '\\')))
+    p++;
+  else
+    p = m;
+#ifdef __x86_64__
+  if (strcasecmp(p, "ConEmuHk64.dll") == 0)
+#else
+  if (strcasecmp(p, "ConEmuHk.dll") == 0)
+#endif
+    fhandler_console::set_disable_master_thread (true);
+  return LoadLibraryA_Orig (m);
+}
+
 void
 fhandler_console::fixup_after_fork_exec (bool execing)
 {
@@ -4042,6 +4069,12 @@ fhandler_console::fixup_after_fork_exec (bool execing)
   DO_HOOK (NULL, CreateProcessA);
   DO_HOOK (NULL, CreateProcessW);
   DO_HOOK (NULL, ContinueDebugEvent);
+}
+
+static void
+hook_conemu_cygwin_connector()
+{
+  DO_HOOK (NULL, LoadLibraryA);
 }
 
 // #define WINSTA_ACCESS (WINSTA_READATTRIBUTES | STANDARD_RIGHTS_READ | STANDARD_RIGHTS_WRITE | WINSTA_CREATEDESKTOP | WINSTA_EXITWINDOWS)
