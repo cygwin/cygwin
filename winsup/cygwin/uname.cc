@@ -45,7 +45,7 @@ uname_x (struct utsname *name)
 #ifdef CYGPORT_RELEASE_INFO
       stpcpy (name->release, __XSTRING (CYGPORT_RELEASE_INFO));
 #else
-      __small_sprintf (name->release, "%d.%d.%d-0.%d.local",
+      __small_sprintf (name->release, "%d.%d.%d-0.%d.local.",
 		       cygwin_version.dll_major / 1000,
 		       cygwin_version.dll_major % 1000,
 		       cygwin_version.dll_minor,
@@ -58,10 +58,10 @@ uname_x (struct utsname *name)
       switch (wincap.cpu_arch ())
 	{
 	  case PROCESSOR_ARCHITECTURE_AMD64:
-	    strcat (name->release, strcpy (name->machine, ".x86_64"));
+	    strcat (name->release, strcpy (name->machine, "x86_64"));
 	    break;
 	  default:
-	    strcpy (name->machine, ".unknown");
+	    strcpy (name->machine, "unknown");
 	    break;
 	}
       /* domainame */
