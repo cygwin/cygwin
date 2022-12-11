@@ -11,7 +11,7 @@ details. */
    changes to the DLL and is mainly informative in nature. */
 
 #define CYGWIN_VERSION_DLL_MAJOR 3004
-#define CYGWIN_VERSION_DLL_MINOR 2
+#define CYGWIN_VERSION_DLL_MINOR 3
 
 /* CYGWIN_VERSION_DLL_COMBINED gives us a single number representing the
    combined DLL major and minor numbers. */
