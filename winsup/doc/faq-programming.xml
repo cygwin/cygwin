@@ -679,8 +679,14 @@ rewriting the runtime library in question from specs...
 installed; you at least need <literal>gcc-g++</literal>,
 <literal>make</literal>, <literal>automake</literal>,
 <literal>autoconf</literal>, <literal>git</literal>, <literal>perl</literal>,
-<literal>gettext-devel</literal>, <literal>libiconv-devel</literal>, <literal>libzstd-devel</literal>,
-<literal>zlib-devel</literal>, <literal>cocom</literal> and <literal>patch</literal>.
+<literal>cocom</literal> and <literal>patch</literal>.
+</para>
+
+<para>
+Additionally, building the <code>dumper</code> utility requires
+<literal>gettext-devel</literal>, <literal>libiconv-devel</literal>, <literal>libzstd-devel</literal> and
+<literal>zlib-devel</literal>.  Building this program can be disabled with the
+<literal>--disable-dumper</literal> option to <literal>configure</literal>.
 </para>
 
 <para>
