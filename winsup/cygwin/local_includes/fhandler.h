@@ -2766,6 +2766,7 @@ class fhandler_dev_dsp: public fhandler_base
   ssize_t write (const void *, size_t);
   void read (void *, size_t&);
   int ioctl (unsigned int, void *);
+  int fcntl (int cmd, intptr_t);
   int close ();
   void fixup_after_fork (HANDLE);
   void fixup_after_exec ();
@@ -2774,6 +2775,7 @@ class fhandler_dev_dsp: public fhandler_base
   ssize_t _write (const void *, size_t);
   void _read (void *, size_t&);
   int _ioctl (unsigned int, void *);
+  int _fcntl (int cmd, intptr_t);
   void _fixup_after_fork (HANDLE);
   void _fixup_after_exec ();
 
