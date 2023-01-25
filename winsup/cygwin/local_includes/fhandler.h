@@ -2758,6 +2758,7 @@ class fhandler_dev_dsp: public fhandler_base
   int audiochannels_;
   Audio_out *audio_out_;
   Audio_in  *audio_in_;
+  bool being_closed;
  public:
   fhandler_dev_dsp ();
   fhandler_dev_dsp *base () const {return (fhandler_dev_dsp *)archetype;}
