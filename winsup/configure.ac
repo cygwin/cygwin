@@ -116,6 +116,13 @@ AC_CHECK_LIB([bfd], [bfd_init], [true],
 
 AM_CONDITIONAL(BUILD_DUMPER, [test "x$ac_cv_lib_bfd_bfd_init" = "xyes"])
 
+# libbfd.a doesn't have a pkgconfig file, so we guess what it's dependencies
+# are, based on what's present in the build environment
+BFD_LIBS="-lintl -liconv -liberty -lz"
+AC_CHECK_LIB([sframe], [sframe_decode], [BFD_LIBS="${BFD_LIBS} -lsframe"])
+AC_CHECK_LIB([zstd], [ZSTD_isError], [BFD_LIBS="${BFD_LIBS} -lzstd"])
+AC_SUBST([BFD_LIBS])
+
 AC_CONFIG_FILES([
     Makefile
     cygwin/Makefile

@@ -679,7 +679,7 @@ rewriting the runtime library in question from specs...
 installed; you at least need <literal>gcc-g++</literal>,
 <literal>make</literal>, <literal>automake</literal>,
 <literal>autoconf</literal>, <literal>git</literal>, <literal>perl</literal>,
-<literal>gettext-devel</literal>, <literal>libiconv-devel</literal>
+<literal>gettext-devel</literal>, <literal>libiconv-devel</literal>, <literal>libzstd-devel</literal>,
 <literal>zlib-devel</literal>, <literal>cocom</literal> and <literal>patch</literal>.
 </para>
 
