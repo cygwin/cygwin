@@ -252,7 +252,7 @@ REGEX_FILES = \
 	regex/regcomp.c \
 	regex/regerror.c \
 	regex/regexec.c \
-	regex/regfree.c
+	regex/tre-mem.c
 
 SEC_FILES= \
 	sec/acl.cc \
