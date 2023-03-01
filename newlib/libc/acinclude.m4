@@ -10,6 +10,10 @@ AM_CONDITIONAL(HAVE_XDR_DIR, test x${xdr_dir} != x)
 AM_CONDITIONAL(HAVE_SYSCALL_DIR, test x${syscall_dir} != x)
 AM_CONDITIONAL(HAVE_UNIX_DIR, test x${unix_dir} != x)
 
+dnl Cygwin doesn't want the regex functions in the posix dir,
+dnl so we need a way to define this.  Requires posix_dir.
+AM_CONDITIONAL(HAVE_REGEX_FILES, test x${regex_files} != x)
+
 dnl We always recur into sys and machine, and let them decide what to do.
 m4_foreach_w([SYS_DIR], [
   a29khif amdgcn arm

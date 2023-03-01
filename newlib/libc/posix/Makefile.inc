@@ -4,9 +4,13 @@ libc_a_SOURCES += \
 	%D%/closedir.c %D%/collate.c %D%/collcmp.c %D%/creat.c %D%/dirfd.c \
 	%D%/fnmatch.c %D%/glob.c %D%/_isatty.c %D%/isatty.c \
 	%D%/opendir.c %D%/readdir.c %D%/readdir_r.c \
-	%D%/regcomp.c %D%/regerror.c %D%/regexec.c %D%/regfree.c \
 	%D%/rewinddir.c %D%/sleep.c %D%/usleep.c \
 	%D%/telldir.c %D%/ftw.c %D%/nftw.c
+
+if HAVE_REGEX_FILES
+libc_a_SOURCES += \
+	%D%/regcomp.c %D%/regerror.c %D%/regexec.c %D%/regfree.c
+endif
 
 %C%_ELIX_2_SOURCES = \
 	%D%/scandir.c %D%/seekdir.c

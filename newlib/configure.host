@@ -43,6 +43,8 @@
 #   stdio64_dir		"stdio64" to build libc/stdio64, "" otherwise
 #   syscall_dir		"syscalls" to build libc/syscalls, "" otherwise
 #   unix_dir		"unix" to build libc/unix, "" otherwise
+#   regex_files		"regex" to build libc/psoix/reg*.c, "" otherwise
+#			Set by default.  Requires posix_dir to be set.
 #   lpfx		library object prefix - generated when no libtool
 #   crt1                name of crt1 object if one is provided
 #   crt1_dir            directory where crt1 object is found
@@ -63,6 +65,7 @@ stdio64_dir=
 xdr_dir=
 syscall_dir=
 unix_dir=
+regex_files=regex
 noinclude=
 mach_add_setjmp=
 crt1=
@@ -421,6 +424,7 @@ fi
 case "${host}" in
   *-*-cygwin*)
 	posix_dir=posix
+	regex_files=	# newlib's BSD regex collides with Cygwin's MUSL regex
 	xdr_dir=xdr
 	;;
   *-*-netware*)
