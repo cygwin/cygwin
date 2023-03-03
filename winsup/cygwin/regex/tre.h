@@ -32,6 +32,7 @@
 #include <regex.h>
 #include <wchar.h>
 #include <wctype.h>
+#include "collate.h"
 
 #undef  TRE_MBSTATE
 
@@ -106,6 +107,8 @@ struct tnfa_transition {
   union {
     /* Character class assertion. */
     tre_ctype_t class;
+    /* Equivalence class assertion. */
+    tre_cint_t equiv;
     /* Back reference assertion. */
     int backref;
   } u;
@@ -124,7 +127,8 @@ struct tnfa_transition {
 #define ASSERT_AT_WB		 64   /* Word boundary. */
 #define ASSERT_AT_WB_NEG	128   /* Not a word boundary. */
 #define ASSERT_BACKREF		256   /* A back reference in `backref'. */
-#define ASSERT_LAST		256
+#define ASSERT_EQUIV_CLASS	512   /* Equivalence class in `equiv'. */
+#define ASSERT_LAST		512
 
 /* Tag directions. */
 typedef enum {

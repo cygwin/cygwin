@@ -87,12 +87,11 @@ tre_fill_pmatch(size_t nmatch, regmatch_t pmatch[], int cflags,
         && (tnfa->cflags & REG_ICASE)                                         \
         && !tre_isctype(tre_tolower((tre_cint_t)prev_c),trans_i->u.class)     \
 	&& !tre_isctype(tre_toupper((tre_cint_t)prev_c),trans_i->u.class))    \
+    || ((trans_i->assertions & ASSERT_EQUIV_CLASS)                            \
+        && !is_unicode_equiv((tre_cint_t)prev_c, trans_i->u.equiv))           \
     || ((trans_i->assertions & ASSERT_CHAR_CLASS_NEG)                         \
         && tre_neg_char_classes_match(trans_i->neg_classes,(tre_cint_t)prev_c,\
                                       tnfa->cflags & REG_ICASE)))
-
-
-
 
 /* Returns 1 if `t1' wins `t2', 0 otherwise. */
 static int
@@ -124,13 +123,16 @@ tre_tag_order(int num_tags, tre_tag_direction_t *tag_directions,
 static int
 tre_neg_char_classes_match(tre_ctype_t *classes, tre_cint_t wc, int icase)
 {
-  while (*classes != (tre_ctype_t)0)
-    if ((!icase && tre_isctype(wc, *classes))
+  while (*classes != (tre_ctype_t)0) {
+    if (*classes & 0x80000000) {
+      if (is_unicode_equiv(*classes & ~0x80000000, wc))
+	return 1;
+    } else if ((!icase && tre_isctype(wc, *classes))
 	|| (icase && (tre_isctype(tre_toupper(wc), *classes)
 		      || tre_isctype(tre_tolower(wc), *classes))))
       return 1; /* Match. */
-    else
-      classes++;
+    classes++;
+  }
   return 0; /* No match. */
 }
 

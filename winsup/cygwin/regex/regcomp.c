@@ -30,6 +30,7 @@
 */
 
 #include "winsup.h"
+#include "collate.h"
 #include <string.h>
 #include <stdlib.h>
 #include <regex.h>
@@ -52,6 +53,7 @@ typedef struct {
   int *tags;
   int assertions;
   tre_ctype_t class;
+  tre_cint_t equiv;
   tre_ctype_t *neg_classes;
   int backref;
 } tre_pos_and_tags_t;
@@ -104,6 +106,7 @@ typedef struct {
   long code_max;
   int position;
   tre_ctype_t class;
+  long equiv;
   tre_ctype_t *neg_classes;
 } tre_literal_t;
 
@@ -533,12 +536,14 @@ static reg_errcode_t parse_bracket_terms(tre_parse_ctx_t *ctx, const char *s, st
 {
 	const char *start = s;
 	tre_ctype_t class;
+	tre_cint_t equiv;
 	int min, max;
 	wint_t wc;
 	int len;
 
 	for (;;) {
 		class = 0;
+		equiv = 0;
 		len = mbrtowi(&wc, s, -1, NULL);
 		if (len <= 0)
 			return *s ? REG_BADPAT : REG_EBRACK;
@@ -550,10 +555,24 @@ static reg_errcode_t parse_bracket_terms(tre_parse_ctx_t *ctx, const char *s, st
 		    /* extension: [a-z--@] is accepted as [a-z]|[--@] */
 		    (s[1] != '-' || s[2] == ']'))
 			return REG_ERANGE;
-		if (*s == '[' && (s[1] == '.' || s[1] == '='))
-			/* collating symbols and equivalence classes are not supported */
+		if (*s == '[' && s[1] == '.')
+			/* collating symbols are not supported */
 			return REG_ECOLLATE;
-		if (*s == '[' && s[1] == ':') {
+		if (*s == '[' && s[1] == '=') {
+			s += 2;
+			if (*s == '=' && s[1] == ']')
+				return REG_ECOLLATE;
+			len = mbrtowi(&wc, s, -1, NULL);
+			if (len <= 0)
+				return *s ? REG_BADPAT : REG_EBRACK;
+			s += len;
+			if (*s != '=' || s[1] != ']')
+				return REG_ECOLLATE;
+			min = 0;
+			max = TRE_CHAR_MAX;
+			equiv = wc;
+			s += 2;
+		} else if (*s == '[' && s[1] == ':') {
 			char tmp[CHARCLASS_NAME_MAX+1];
 			s += 2;
 			for (len=0; len < CHARCLASS_NAME_MAX && s[len]; len++) {
@@ -576,9 +595,8 @@ static reg_errcode_t parse_bracket_terms(tre_parse_ctx_t *ctx, const char *s, st
 				s++;
 				len = mbrtowi(&wc, s, -1, NULL);
 				max = wc;
-				/* XXX - Should use collation order instead of
-				   encoding values in character ranges. */
-				if (len <= 0 || min > max)
+				if (len <= 0 ||
+				    __wcollate_range_cmp (min, max) < 0)
 					return REG_ERANGE;
 				s += len;
 			}
@@ -588,6 +606,10 @@ static reg_errcode_t parse_bracket_terms(tre_parse_ctx_t *ctx, const char *s, st
 			if (neg->len >= MAX_NEG_CLASSES)
 				return REG_ESPACE;
 			neg->a[neg->len++] = class;
+		} else if (equiv && neg->negate) {
+			if (neg->len >= MAX_NEG_CLASSES)
+				return REG_ESPACE;
+			neg->a[neg->len++] = equiv | 0x80000000;
 		} else  {
 			tre_literal_t *lit = tre_new_lit(ls);
 			if (!lit)
@@ -596,6 +618,7 @@ static reg_errcode_t parse_bracket_terms(tre_parse_ctx_t *ctx, const char *s, st
 			lit->code_max = max;
 			lit->class = class;
 			lit->position = -1;
+			lit->equiv = equiv;
 
 			/* Add opposite-case codepoints if REG_ICASE is present.
 			   It seems that POSIX requires that bracket negation
@@ -680,7 +703,7 @@ static reg_errcode_t parse_bracket(tre_parse_ctx_t *ctx, const char *s)
 		lit = ls.a[i];
 		min = lit->code_min;
 		max = lit->code_max;
-		if (neg.negate) {
+		if (neg.negate && !lit->equiv) {
 			if (min <= negmin) {
 				/* Overlap. */
 				negmin = MAX(max + 1, negmin);
@@ -1751,6 +1774,7 @@ tre_copy_ast(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *ast,
 		else {
 		  tre_literal_t *p = (*result)->obj;
 		  p->class = lit->class;
+		  p->equiv = lit->equiv;
 		  p->neg_classes = lit->neg_classes;
 		}
 
@@ -2038,7 +2062,8 @@ tre_set_empty(tre_mem_t mem)
 
 static tre_pos_and_tags_t *
 tre_set_one(tre_mem_t mem, int position, int code_min, int code_max,
-	    tre_ctype_t class, tre_ctype_t *neg_classes, int backref)
+	    tre_ctype_t class, tre_cint_t equiv, tre_ctype_t *neg_classes,
+	    int backref)
 {
   tre_pos_and_tags_t *new_set;
 
@@ -2050,6 +2075,7 @@ tre_set_one(tre_mem_t mem, int position, int code_min, int code_max,
   new_set[0].code_min = code_min;
   new_set[0].code_max = code_max;
   new_set[0].class = class;
+  new_set[0].equiv = equiv;
   new_set[0].neg_classes = neg_classes;
   new_set[0].backref = backref;
   new_set[1].position = -1;
@@ -2082,6 +2108,7 @@ tre_set_union(tre_mem_t mem, tre_pos_and_tags_t *set1, tre_pos_and_tags_t *set2,
       new_set[s1].code_max = set1[s1].code_max;
       new_set[s1].assertions = set1[s1].assertions | assertions;
       new_set[s1].class = set1[s1].class;
+      new_set[s1].equiv = set1[s1].equiv;
       new_set[s1].neg_classes = set1[s1].neg_classes;
       new_set[s1].backref = set1[s1].backref;
       if (set1[s1].tags == NULL && tags == NULL)
@@ -2110,6 +2137,7 @@ tre_set_union(tre_mem_t mem, tre_pos_and_tags_t *set1, tre_pos_and_tags_t *set2,
       /* XXX - why not | assertions here as well? */
       new_set[s1 + s2].assertions = set2[s2].assertions;
       new_set[s1 + s2].class = set2[s2].class;
+      new_set[s1 + s2].equiv = set2[s2].equiv;
       new_set[s1 + s2].neg_classes = set2[s2].neg_classes;
       new_set[s1 + s2].backref = set2[s2].backref;
       if (set2[s2].tags == NULL)
@@ -2273,11 +2301,11 @@ tre_compute_nfl(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *tree)
 		       lastpos = {i}. */
 		    node->nullable = 0;
 		    node->firstpos = tre_set_one(mem, lit->position, 0,
-					     TRE_CHAR_MAX, 0, NULL, -1);
+					     TRE_CHAR_MAX, 0, 0, NULL, -1);
 		    if (!node->firstpos)
 		      return REG_ESPACE;
 		    node->lastpos = tre_set_one(mem, lit->position, 0,
-						TRE_CHAR_MAX, 0, NULL,
+						TRE_CHAR_MAX, 0, 0, NULL,
 						(int)lit->code_max);
 		    if (!node->lastpos)
 		      return REG_ESPACE;
@@ -2301,13 +2329,14 @@ tre_compute_nfl(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *tree)
 		    node->nullable = 0;
 		    node->firstpos =
 		      tre_set_one(mem, lit->position, (int)lit->code_min,
-				  (int)lit->code_max, 0, NULL, -1);
+				  (int)lit->code_max, 0, 0, NULL, -1);
 		    if (!node->firstpos)
 		      return REG_ESPACE;
 		    node->lastpos = tre_set_one(mem, lit->position,
 						(int)lit->code_min,
 						(int)lit->code_max,
-						lit->class, lit->neg_classes,
+						lit->class, lit->equiv,
+						lit->neg_classes,
 						-1);
 		    if (!node->lastpos)
 		      return REG_ESPACE;
@@ -2528,16 +2557,20 @@ tre_make_trans(tre_pos_and_tags_t *p1, tre_pos_and_tags_t *p2,
 	    trans->state_id = p2->position;
 	    trans->assertions = p1->assertions | p2->assertions
 	      | (p1->class ? ASSERT_CHAR_CLASS : 0)
+	      | (p1->equiv ? ASSERT_EQUIV_CLASS : 0)
 	      | (p1->neg_classes != NULL ? ASSERT_CHAR_CLASS_NEG : 0);
 	    if (p1->backref >= 0)
 	      {
 		assert((trans->assertions & ASSERT_CHAR_CLASS) == 0);
+		assert((trans->assertions & ASSERT_EQUIV_CLASS) == 0);
 		assert(p2->backref < 0);
 		trans->u.backref = p1->backref;
 		trans->assertions |= ASSERT_BACKREF;
 	      }
-	    else
+	    else if (p1->class)
 	      trans->u.class = p1->class;
+	    else if (p1->equiv)
+	      trans->u.equiv = p1->equiv;
 	    if (p1->neg_classes != NULL)
 	      {
 		for (i = 0; p1->neg_classes[i] != (tre_ctype_t)0; i++);
