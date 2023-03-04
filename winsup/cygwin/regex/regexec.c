@@ -52,7 +52,7 @@ tre_fill_pmatch(size_t nmatch, regmatch_t pmatch[], int cflags,
 
 #define GET_NEXT_WCHAR() do {                                                 \
     prev_c = next_c; pos += pos_add_next;                                     \
-    if ((pos_add_next = mbtowc(&next_c, str_byte, MB_LEN_MAX)) <= 0) {        \
+    if ((pos_add_next = mbrtowi(&next_c, str_byte, MB_LEN_MAX, NULL)) <= 0) {        \
         if (pos_add_next < 0) { ret = REG_NOMATCH; goto error_exit; }         \
         else pos_add_next++;                                                  \
     }                                                                         \

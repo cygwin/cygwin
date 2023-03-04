@@ -41,7 +41,7 @@
 #define TRE_REGEX_T_FIELD __opaque
 typedef int reg_errcode_t;
 
-typedef wchar_t tre_char_t;
+typedef wint_t tre_char_t;
 
 #define DPRINT(msg) do { } while(0)
 
