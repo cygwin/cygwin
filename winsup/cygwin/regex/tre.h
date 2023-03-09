@@ -71,7 +71,7 @@ typedef wint_t tre_cint_t;
 #define tre_strlen  wcslen
 
 /* Use system provided iswctype() and wctype(). */
-typedef wctype_t tre_ctype_t;
+typedef wint_t tre_ctype_t;	/* wint_t required by equivalence class */
 #define tre_isctype iswctype
 #define tre_ctype   wctype
 
@@ -129,6 +129,9 @@ struct tnfa_transition {
 #define ASSERT_BACKREF		256   /* A back reference in `backref'. */
 #define ASSERT_EQUIV_CLASS	512   /* Equivalence class in `equiv'. */
 #define ASSERT_LAST		512
+
+#define ASSERT_EQUIV_MATCH 0x80000000 /* For marking equivalence class in
+					 `neg_classes' */
 
 /* Tag directions. */
 typedef enum {

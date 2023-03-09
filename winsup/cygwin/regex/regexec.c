@@ -124,8 +124,8 @@ static int
 tre_neg_char_classes_match(tre_ctype_t *classes, tre_cint_t wc, int icase)
 {
   while (*classes != (tre_ctype_t)0) {
-    if (*classes & 0x80000000) {
-      if (is_unicode_equiv(*classes & ~0x80000000, wc))
+    if (*classes & ASSERT_EQUIV_MATCH) {
+      if (is_unicode_equiv(*classes & ~(ASSERT_EQUIV_MATCH), wc))
 	return 1;
     } else if ((!icase && tre_isctype(wc, *classes))
 	|| (icase && (tre_isctype(tre_toupper(wc), *classes)

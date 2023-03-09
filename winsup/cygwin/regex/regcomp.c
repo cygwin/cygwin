@@ -609,7 +609,7 @@ static reg_errcode_t parse_bracket_terms(tre_parse_ctx_t *ctx, const char *s, st
 		} else if (equiv && neg->negate) {
 			if (neg->len >= MAX_NEG_CLASSES)
 				return REG_ESPACE;
-			neg->a[neg->len++] = equiv | 0x80000000;
+			neg->a[neg->len++] = equiv | ASSERT_EQUIV_MATCH;
 		} else  {
 			tre_literal_t *lit = tre_new_lit(ls);
 			if (!lit)
