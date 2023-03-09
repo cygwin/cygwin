@@ -129,6 +129,49 @@ wcintowcs (wchar_t *dest, wint_t *src, size_t len)
   *dest = '\0';
 }
 
+/* replacement function for wcstombs, converting a UTF-32 string to
+   a multibyte string. */
+extern "C" size_t
+wcitombs (char *dest, const wint_t *src, size_t n)
+{
+  char *ptr = dest;
+  size_t max = n;
+  char buf[8];
+  size_t i, bytes, num_to_copy;
+  mbstate_t state;
+
+  if (dest == NULL)
+    {
+      size_t num_bytes = 0;
+      while (*src != '\0')
+        {
+          bytes = wirtomb (buf, *src++, &state);
+          if (bytes == (size_t) -1)
+            return (size_t) -1;
+          num_bytes += bytes;
+        }
+      return num_bytes;
+    }
+  else
+    {
+      while (n > 0)
+        {
+          bytes = wirtomb (buf, *src++, &state);
+          if (bytes == (size_t) -1)
+            return (size_t) -1;
+          num_to_copy = (n > bytes ? bytes : (int)n);
+          for (i = 0; i < num_to_copy; ++i)
+            *ptr++ = buf[i];
+
+          if (*src == '\0')
+            return ptr - dest - (n >= bytes);
+          ++src;
+          n -= num_to_copy;
+        }
+      return max;
+    }
+}
+
 /* replacement function for wcrtomb, converting a UTF-32 char to a
    multibyte string. */
 extern "C" size_t
