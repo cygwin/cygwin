@@ -21,6 +21,7 @@ int is_unicode_equiv (wint_t, wint_t);
 int is_unicode_coll_elem (const wint_t *);
 
 size_t next_unicode_char (wint_t *);
+size_t next_unicode_mbs (wint_t *, const char *, size_t);
 
 #ifdef __cplusplus
 };

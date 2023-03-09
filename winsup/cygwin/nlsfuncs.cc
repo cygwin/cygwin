@@ -1360,6 +1360,22 @@ next_unicode_char (wint_t *inp)
   return 1;
 }
 
+/* Return the number of bytes making up the next full character in inp, and
+   copies them over to out.  This is basically next_unicode_char(), just for
+   multibyte input.  outlen is the buffer size of the out buffer. */
+extern "C" size_t
+next_unicode_mbs (wint_t *out, const char *inp, size_t outlen)
+{
+  size_t ret;
+
+  /* Max collation element is 8 wint_t's. */
+  ret = mbsnrtowci (out, &inp, SIZE_MAX, outlen - 1, NULL);
+  out[ret] = L'\0'; /* mbsnrtowci never returns -1 */
+  ret = next_unicode_char (out);
+  out[ret] = L'\0';
+  return wcitombs (NULL, out, 0);
+}
+
 extern "C" size_t
 wcsxfrm_l (wchar_t *__restrict ws1, const wchar_t *__restrict ws2, size_t wsn,
 	   struct __locale_t *locale)
