@@ -50,12 +50,13 @@ tre_fill_pmatch(size_t nmatch, regmatch_t pmatch[], int cflags,
  from tre-match-utils.h
 ***********************************************************************/
 
+
 #define GET_NEXT_WCHAR() do {                                                 \
-    prev_c = next_c; pos += pos_add_next;                                     \
-    if ((pos_add_next = mbrtowi(&next_c, str_byte, MB_LEN_MAX, NULL)) <= 0) {        \
-        if (pos_add_next < 0) { ret = REG_NOMATCH; goto error_exit; }         \
-        else pos_add_next++;                                                  \
-    }                                                                         \
+    memcpy(prev_c, next_c, sizeof prev_c);				      \
+    pos += pos_add_next;		                                      \
+    if ((pos_add_next = next_unicode_mbs(next_c, str_byte,		      \
+					 elementsof(next_c))) == 0)	      \
+        pos_add_next++;							      \
     str_byte += pos_add_next;                                                 \
   } while (0)
 
@@ -64,33 +65,34 @@ tre_fill_pmatch(size_t nmatch, regmatch_t pmatch[], int cflags,
 #define CHECK_ASSERTIONS(assertions)					      \
   (((assertions & ASSERT_AT_BOL)					      \
     && (pos > 0 || reg_notbol)						      \
-    && (prev_c != L'\n' || !reg_newline))				      \
+    && (prev_c[0] != L'\n' || !reg_newline))				      \
    || ((assertions & ASSERT_AT_EOL)					      \
-       && (next_c != L'\0' || reg_noteol)				      \
-       && (next_c != L'\n' || !reg_newline))				      \
+       && (next_c[0] != L'\0' || reg_noteol)				      \
+       && (next_c[0] != L'\n' || !reg_newline))				      \
    || ((assertions & ASSERT_AT_BOW)					      \
-       && (IS_WORD_CHAR(prev_c) || !IS_WORD_CHAR(next_c)))	              \
+       && (IS_WORD_CHAR(prev_c[0]) || !IS_WORD_CHAR(next_c[0])))	      \
    || ((assertions & ASSERT_AT_EOW)					      \
-       && (!IS_WORD_CHAR(prev_c) || IS_WORD_CHAR(next_c)))		      \
+       && (!IS_WORD_CHAR(prev_c[0]) || IS_WORD_CHAR(next_c[0])))	      \
    || ((assertions & ASSERT_AT_WB)					      \
-       && (pos != 0 && next_c != L'\0'					      \
-	   && IS_WORD_CHAR(prev_c) == IS_WORD_CHAR(next_c)))		      \
+       && (pos != 0 && next_c[0] != L'\0'				      \
+	   && IS_WORD_CHAR(prev_c[0]) == IS_WORD_CHAR(next_c[0])))	      \
    || ((assertions & ASSERT_AT_WB_NEG)					      \
-       && (pos == 0 || next_c == L'\0'					      \
-	   || IS_WORD_CHAR(prev_c) != IS_WORD_CHAR(next_c))))
+       && (pos == 0 || next_c[0] == L'\0'				      \
+	   || IS_WORD_CHAR(prev_c[0]) != IS_WORD_CHAR(next_c[0]))))
 
 #define CHECK_CHAR_CLASSES(trans_i, tnfa, eflags)                             \
   (((trans_i->assertions & ASSERT_CHAR_CLASS)                                 \
        && !(tnfa->cflags & REG_ICASE)                                         \
-       && !tre_isctype((tre_cint_t)prev_c, trans_i->u.class))                 \
+       && !tre_isctype((tre_cint_t)prev_c[0], trans_i->u.class))                 \
     || ((trans_i->assertions & ASSERT_CHAR_CLASS)                             \
         && (tnfa->cflags & REG_ICASE)                                         \
-        && !tre_isctype(tre_tolower((tre_cint_t)prev_c),trans_i->u.class)     \
-	&& !tre_isctype(tre_toupper((tre_cint_t)prev_c),trans_i->u.class))    \
+        && !tre_isctype(tre_tolower((tre_cint_t)prev_c[0]),trans_i->u.class)  \
+	&& !tre_isctype(tre_toupper((tre_cint_t)prev_c[0]),trans_i->u.class)) \
     || ((trans_i->assertions & ASSERT_EQUIV_CLASS)                            \
-        && !is_unicode_equiv((tre_cint_t)prev_c, trans_i->u.equiv))           \
+        && !is_unicode_equiv((tre_cint_t)prev_c[0], trans_i->u.equiv))        \
     || ((trans_i->assertions & ASSERT_CHAR_CLASS_NEG)                         \
-        && tre_neg_char_classes_match(trans_i->neg_classes,(tre_cint_t)prev_c,\
+        && tre_neg_char_classes_match(trans_i->neg_classes,		      \
+				      (tre_cint_t)prev_c[0],		      \
                                       tnfa->cflags & REG_ICASE)))
 
 /* Returns 1 if `t1' wins `t2', 0 otherwise. */
@@ -174,7 +176,7 @@ tre_tnfa_run_parallel(const tre_tnfa_t *tnfa, const void *string,
 		      regoff_t *match_end_ofs)
 {
   /* State variables required by GET_NEXT_WCHAR. */
-  tre_char_t prev_c = 0, next_c = 0;
+  tre_char_t prev_c[10] = { 0 }, next_c[10] = { 0 };
   const char *str_byte = string;
   regoff_t pos = -1;
   regoff_t pos_add_next = 1;
@@ -321,7 +323,7 @@ tre_tnfa_run_parallel(const tre_tnfa_t *tnfa, const void *string,
 	}
 
       /* Check for end of string. */
-      if (!next_c) break;
+      if (!next_c[0]) break;
 
       GET_NEXT_WCHAR();
 
@@ -381,8 +383,8 @@ tre_tnfa_run_parallel(const tre_tnfa_t *tnfa, const void *string,
 	  for (trans_i = reach_i->state; trans_i->state; trans_i++)
 	    {
 	      /* Does this transition match the input symbol? */
-	      if (trans_i->code_min <= (tre_cint_t)prev_c &&
-		  trans_i->code_max >= (tre_cint_t)prev_c)
+	      if (trans_i->code_min <= (tre_cint_t)prev_c[0] &&
+		  trans_i->code_max >= (tre_cint_t)prev_c[0])
 		{
 		  if (trans_i->assertions
 		      && (CHECK_ASSERTIONS(trans_i->assertions)
@@ -457,7 +459,7 @@ tre_tnfa_run_parallel(const tre_tnfa_t *tnfa, const void *string,
 
   *match_end_ofs = match_eo;
   ret = match_eo >= 0 ? REG_OK : REG_NOMATCH;
-error_exit:
+//error_exit:
   xfree(buf);
   return ret;
 }
@@ -496,7 +498,7 @@ typedef struct {
   const char *str_byte;
   tre_tnfa_transition_t *state;
   int state_id;
-  int next_c;
+  tre_char_t next_c[10];
   regoff_t *tags;
 #ifdef TRE_MBSTATE
   mbstate_t mbstate;
@@ -565,7 +567,7 @@ typedef struct tre_backtrack_struct {
       stack->item.str_byte = (_str_byte);				      \
       stack->item.state = (_state);					      \
       stack->item.state_id = (_state_id);				      \
-      stack->item.next_c = (_next_c);					      \
+      memcpy(stack->item.next_c, (_next_c), sizeof(stack->item.next_c));    \
       for (i = 0; i < tnfa->num_tags; i++)				      \
 	stack->item.tags[i] = (_tags)[i];				      \
       BT_STACK_MBSTATE_IN;						      \
@@ -580,7 +582,7 @@ typedef struct tre_backtrack_struct {
       pos = stack->item.pos;						      \
       str_byte = stack->item.str_byte;					      \
       state = stack->item.state;					      \
-      next_c = stack->item.next_c;					      \
+      memcpy(next_c, stack->item.next_c, sizeof(stack->item.next_c));       \
       for (i = 0; i < tnfa->num_tags; i++)				      \
 	tags[i] = stack->item.tags[i];					      \
       BT_STACK_MBSTATE_OUT;						      \
@@ -596,7 +598,7 @@ tre_tnfa_run_backtrack(const tre_tnfa_t *tnfa, const void *string,
 		       regoff_t *match_tags, int eflags, regoff_t *match_end_ofs)
 {
   /* State variables required by GET_NEXT_WCHAR. */
-  tre_char_t prev_c = 0, next_c = 0;
+  tre_char_t prev_c[10] = { 0 }, next_c[10] = { 0 };
   const char *str_byte = string;
   regoff_t pos = 0;
   regoff_t pos_add_next = 1;
@@ -610,7 +612,7 @@ tre_tnfa_run_backtrack(const tre_tnfa_t *tnfa, const void *string,
   /* These are used to remember the necessary values of the above
      variables to return to the position where the current search
      started from. */
-  int next_c_start;
+  tre_char_t next_c_start[10];
   const char *str_byte_start;
   regoff_t pos_start = -1;
 #ifdef TRE_MBSTATE
@@ -696,7 +698,7 @@ tre_tnfa_run_backtrack(const tre_tnfa_t *tnfa, const void *string,
   pos = pos_start;
   GET_NEXT_WCHAR();
   pos_start = pos;
-  next_c_start = next_c;
+  memcpy(next_c_start, next_c, sizeof next_c_start);
   str_byte_start = str_byte;
 #ifdef TRE_MBSTATE
   mbstate_start = mbstate;
@@ -823,8 +825,8 @@ tre_tnfa_run_backtrack(const tre_tnfa_t *tnfa, const void *string,
       next_state = NULL;
       for (trans_i = state; trans_i->state; trans_i++)
 	{
-	  if (trans_i->code_min <= (tre_cint_t)prev_c
-	      && trans_i->code_max >= (tre_cint_t)prev_c)
+	  if (trans_i->code_min <= (tre_cint_t)prev_c[0]
+	      && trans_i->code_max >= (tre_cint_t)prev_c[0])
 	    {
 	      if (trans_i->assertions
 		  && (CHECK_ASSERTIONS(trans_i->assertions)
@@ -891,7 +893,7 @@ tre_tnfa_run_backtrack(const tre_tnfa_t *tnfa, const void *string,
 		    {
 		      break;
 		    }
-	      next_c = next_c_start;
+	      memcpy(next_c, next_c_start, sizeof next_c);
 #ifdef TRE_MBSTATE
 	      mbstate = mbstate_start;
 #endif /* TRE_MBSTATE */
