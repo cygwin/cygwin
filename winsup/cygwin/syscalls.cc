@@ -2122,6 +2122,14 @@ nt_path_has_executable_suffix (PUNICODE_STRING upath)
   return false;
 }
 
+inline int
+set_same_file_return (bool noreplace)
+{
+  if (!noreplace)
+    return 0;
+  set_errno (EEXIST);
+  return -1;
+}
 /* If newpath names an existing file and the RENAME_NOREPLACE flag is
    specified, fail with EEXIST.  Exception: Don't fail if the purpose
    of the rename is just to change the case of oldpath on a
@@ -2300,7 +2308,7 @@ rename2 (const char *oldpath, const char *newpath, unsigned int at2flags)
 				     newpc.get_nt_native_path (),
 				     FALSE))
 	    {
-	      res = 0;
+	      res = set_same_file_return (noreplace);
 	      __leave;
 	    }
 	  newpc.file_attributes (INVALID_FILE_ATTRIBUTES);
@@ -2315,7 +2323,7 @@ rename2 (const char *oldpath, const char *newpath, unsigned int at2flags)
 	      if (newpc.get_nt_native_path ()->Length
 		  == oldpc.get_nt_native_path ()->Length)
 		{
-		  res = 0;
+		  res = set_same_file_return (noreplace);
 		  __leave;
 		}
 	      if (*(PWCHAR) ((PBYTE) newpc.get_nt_native_path ()->Buffer
@@ -2335,7 +2343,7 @@ rename2 (const char *oldpath, const char *newpath, unsigned int at2flags)
 					 newpc.get_nt_native_path (),
 					 oldpc.objcaseinsensitive ()))
 		{
-		  res = 0;
+		  res = set_same_file_return (noreplace);
 		  __leave;
 		}
 	    }
@@ -2364,7 +2372,7 @@ rename2 (const char *oldpath, const char *newpath, unsigned int at2flags)
 					 newpc.get_nt_native_path (),
 					 oldpc.objcaseinsensitive ()))
 		{
-		  res = 0;
+		  res = set_same_file_return (noreplace);
 		  __leave;
 		}
 	    }
@@ -2582,7 +2590,7 @@ skip_pre_W10_checks:
 	    {
 	      debug_printf ("%s and %s are the same file", oldpath, newpath);
 	      NtClose (nfh);
-	      res = 0;
+	      res = set_same_file_return (noreplace);
 	      __leave;
 	    }
 	  NtClose (nfh);
