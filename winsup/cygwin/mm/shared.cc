@@ -148,8 +148,7 @@ open_shared (const WCHAR *name, int n, HANDLE& shared_h, DWORD size,
       if (name)
 	mapname = shared_name (map_buf, name, n);
       if (m == SH_JUSTOPEN)
-	shared_h = OpenFileMappingW (FILE_MAP_READ | FILE_MAP_WRITE, FALSE,
-				     mapname);
+	shared_h = OpenFileMappingW (access, FALSE, mapname);
       else
 	{
 	  created = true;
@@ -175,8 +174,7 @@ open_shared (const WCHAR *name, int n, HANDLE& shared_h, DWORD size,
 	 Note that we don't actually *need* fixed addresses.  The only
 	 advantage is reproducibility to help /proc/<PID>/maps along. */
       addr = (void *) region_address[m];
-      shared = MapViewOfFileEx (shared_h, FILE_MAP_READ | FILE_MAP_WRITE,
-				0, 0, 0, addr);
+      shared = MapViewOfFileEx (shared_h, access, 0, 0, 0, addr);
     }
   /* Also catch the unlikely case that a fixed region can't be mapped at the
      fixed address. */
@@ -190,8 +188,7 @@ open_shared (const WCHAR *name, int n, HANDLE& shared_h, DWORD size,
       do
 	{
 	  addr = (void *) next_address;
-	  shared = MapViewOfFileEx (shared_h, FILE_MAP_READ | FILE_MAP_WRITE,
-				    0, 0, 0, addr);
+	  shared = MapViewOfFileEx (shared_h, access, 0, 0, 0, addr);
 	  next_address += wincap.allocation_granularity ();
 	  if (next_address >= SHARED_REGIONS_ADDRESS_HIGH)
 	    {
