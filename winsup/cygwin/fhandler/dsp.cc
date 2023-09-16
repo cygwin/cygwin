@@ -589,7 +589,8 @@ fhandler_dev_dsp::Audio_out::waitforallsent ()
   while (Qisr2app_->query () != MAX_BLOCKS)
     {
       debug_printf ("%d blocks in Qisr2app", Qisr2app_->query ());
-      Sleep (100);
+      cygwait (1);
+      sendcurrent ();
     }
 }
 
