@@ -4942,10 +4942,9 @@ cwdstuff::set (path_conv *nat_cwd, const char *posix_cwd)
 			peb.ProcessParameters->CurrentDirectoryHandle,
 			GetCurrentProcess (), &h, 0, TRUE, 0))
 	    {
-	      release_write ();
 	      if (peb.ProcessParameters->CurrentDirectoryHandle)
 		debug_printf ("...and DuplicateHandle failed with %E.");
-	      dir = NULL;
+	      h = NULL;
 	    }
 	}
     }
