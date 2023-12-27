@@ -138,6 +138,9 @@ endif
 if CONFIG_RISCV
 include riscv/Makefile.inc
 endif
+if CONFIG_RX
+include rx/Makefile.inc
+endif
 if CONFIG_V850
 include v850/Makefile.inc
 endif
