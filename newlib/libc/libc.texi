@@ -406,6 +406,32 @@ argument list @var{ap} any further.
 The @code{va_end} defined in @file{varargs.h} has the same syntax and
 usage as the ANSI C version from @file{stdarg.h}.
 
+@node Newlib ABI
+@appendix Newlib ABI
+These are the various constants that newlib is built upon.  They might be
+exposed in error messages that people have to manually decode, or they might
+be passed to other layers (e.g. when calling OS support functions via libgloss).
+
+@node Newlib ABI Errno
+@section Errno Values
+Most architectures use the common set of errno values.  Only a minor few deviate
+from them.
+
+@subsection Common Errno Values
+@lowersections
+@include errno/constants.tex
+@raisesections
+
+@subsection CRIS Errno Values
+@lowersections
+@include machine/cris/constants-errno.tex
+@raisesections
+
+@subsection SPU Errno Values
+@lowersections
+@include machine/spu/constants-errno.tex
+@raisesections
+
 @node Document Index
 @unnumbered Document Index
 @printindex cp

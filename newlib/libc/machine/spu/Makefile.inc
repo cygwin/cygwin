@@ -26,3 +26,6 @@ libc_a_SOURCES += \
 	%D%/pread_ea.c %D%/readv_ea.c %D%/write_ea.c %D%/pwrite_ea.c %D%/writev_ea.c %D%/spu-mcount.S \
 	%D%/spu-gmon.c
 endif
+
+## NB: Not using LIBC_CHAPTERS because libc.texi includes this directly.
+libc_libc_TEXINFOS += %D%/constants-errno.tex

@@ -11,3 +11,6 @@ toollib_LIBRARIES += %D%/libic.a
 	%D%/libc_a-memset.o \
 	%D%/libc_a-memmove.o \
 	%D%/libc_a-libcdtor.o
+
+## NB: Not using LIBC_CHAPTERS because libc.texi includes this directly.
+libc_libc_TEXINFOS += %D%/constants-errno.tex
