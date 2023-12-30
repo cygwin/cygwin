@@ -180,6 +180,9 @@ endif
 if CONFIG_WINCE
 include wince/Makefile.inc
 endif
+if CONFIG_XC16X
+include xc16x/Makefile.inc
+endif
 if CONFIG_XSTORMY16
 include xstormy16/Makefile.inc
 endif

@@ -167,9 +167,7 @@ case "${target}" in
 	config_testsuite=false
 	;;
   xc16x-*-*)
-	AC_CONFIG_FILES([xc16x/Makefile])
-	subdirs="$subdirs xc16x"
-	target_makefile_frag=${srcdir}/config/xc16x.mt
+	config_xc16x=true
 	;;
   xstormy16-*-*)
 	config_xstormy16=true
@@ -228,7 +226,7 @@ m4_foreach_w([SUBDIR], [
   libnosys lm32
   m32r mcore microblaze mn10200 mn10300 moxie msp430
   nds32 nios2 or1k riscv rl78 rx sparc sparc_leon tic6x v850 visium wince
-  xstormy16 xtensa
+  xc16x xstormy16 xtensa
 ], [dnl
   AM_CONDITIONAL([CONFIG_]m4_toupper(SUBDIR), [test x$config_]SUBDIR = xtrue)
 ])
