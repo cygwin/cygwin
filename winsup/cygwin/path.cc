@@ -576,7 +576,6 @@ getfileattr (const char *path, bool caseinsensitive) /* path has to be always ab
       status = NtOpenFile (&dir, SYNCHRONIZE | FILE_LIST_DIRECTORY,
 			   &attr, &io, FILE_SHARE_VALID_FLAGS,
 			   FILE_SYNCHRONOUS_IO_NONALERT
-			   | FILE_OPEN_NO_RECALL
 			   | FILE_OPEN_FOR_BACKUP_INTENT
 			   | FILE_DIRECTORY_FILE);
       if (NT_SUCCESS (status))
@@ -3321,7 +3320,6 @@ restart:
 	      status = NtOpenFile (&dir, SYNCHRONIZE | FILE_LIST_DIRECTORY,
 				   &dattr, &io, FILE_SHARE_VALID_FLAGS,
 				   FILE_SYNCHRONOUS_IO_NONALERT
-				   | FILE_OPEN_NO_RECALL
 				   | FILE_OPEN_FOR_BACKUP_INTENT
 				   | FILE_DIRECTORY_FILE);
 	      if (!NT_SUCCESS (status))
