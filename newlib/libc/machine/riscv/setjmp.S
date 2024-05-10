@@ -14,10 +14,11 @@
 /* int setjmp (jmp_buf);  */
   .globl  setjmp
   .type   setjmp, @function
+# ifdef __riscv_landing_pad
+  .align 2
+# endif /* __riscv_landing_pad  */
 setjmp:
-#if __riscv_landing_pad
-  lpad 0
-#endif
+        LPAD
 	REG_S ra,  0*SZREG(a0)
   #if __riscv_xlen == 32 && (__riscv_zilsd) && (__riscv_misaligned_fast)
 	  sd    s0,  1*SZREG(a0)
@@ -72,10 +73,11 @@ setjmp:
 /* volatile void longjmp (jmp_buf, int);  */
   .globl  longjmp
   .type   longjmp, @function
+# ifdef __riscv_landing_pad
+  .align 2
+# endif /* __riscv_landing_pad  */
 longjmp:
-#if __riscv_landing_pad
-  lpad 0
-#endif
+        LPAD
 	REG_L ra,  0*SZREG(a0)
   #if __riscv_xlen == 32 && (__riscv_zilsd) && (__riscv_misaligned_fast)
     ld s0, 1*SZREG(a0)

@@ -15,11 +15,11 @@
 .text
 .globl strcmp
 .type  strcmp, @function
+# ifdef __riscv_landing_pad
+.align 2
+# endif /* __riscv_landing_pad  */
 strcmp:
-#if __riscv_landing_pad
-  lpad 0
-#endif
-
+  LPAD
 #if defined(PREFER_SIZE_OVER_SPEED) || defined(__OPTIMIZE_SIZE__)
 .Lcompare:
   lbu   a2, 0(a0)

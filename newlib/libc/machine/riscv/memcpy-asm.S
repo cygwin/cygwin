@@ -9,15 +9,16 @@
    http://www.opensource.org/licenses.
 */
 
+#include <sys/asm.h>
 #if defined(PREFER_SIZE_OVER_SPEED) || defined(__OPTIMIZE_SIZE__)
 .text
 .global memcpy
 .type	memcpy, @function
+# ifdef __riscv_landing_pad
+.align 2
+# endif /* __riscv_landing_pad  */
 memcpy:
-#if __riscv_landing_pad
-  lpad 0
-#endif
-
+  LPAD
   mv a3, a0
   beqz a2, 2f
 
