@@ -431,10 +431,17 @@ _BEGIN_STD_C
    otherwise in rv32imafd, store/restore FPR may mis-align.  */
 #define _JBTYPE long long
 #ifdef __riscv_32e
-#define _JBLEN ((4*sizeof(long))/sizeof(long))
+#define __JBLEN ((4*sizeof(long))/sizeof(long))
 #else
-#define _JBLEN ((14*sizeof(long) + 12*sizeof(double))/sizeof(long))
+#define __JBLEN ((14*sizeof(long) + 12*sizeof(double))/sizeof(long))
 #endif
+
+#ifdef __riscv_shadow_stack
+#define _JBLEN (__JBLEN + 1)
+#else
+#define _JBLEN (__JBLEN)
+#endif
+
 #endif
 
 #ifdef __CSKYABIV2__
