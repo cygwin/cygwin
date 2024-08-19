@@ -99,7 +99,7 @@ struct dirent {
 
 #define	__dirfd(dp)	((dp)->dd_fd)
 
-#if __BSD_VISIBLE
+#if __BSD_VISIBLE || __POSIX_VISIBLE >= 202405
 
 /*
  * File types
