@@ -54,6 +54,16 @@ fhandler_pipe::set_pipe_non_blocking (bool nonblocking)
   NTSTATUS status;
   IO_STATUS_BLOCK io;
   FILE_PIPE_INFORMATION fpi;
+  bool was_blocking_read_pipe_new = was_blocking_read_pipe;
+
+  if (get_device () == FH_PIPER && nonblocking && !was_blocking_read_pipe)
+    {
+      status = NtQueryInformationFile (get_handle (), &io, &fpi, sizeof fpi,
+				       FilePipeInformation);
+      if (NT_SUCCESS (status))
+	was_blocking_read_pipe_new =
+	  (fpi.CompletionMode == FILE_PIPE_QUEUE_OPERATION);
+    }
 
   fpi.ReadMode = FILE_PIPE_BYTE_STREAM_MODE;
   fpi.CompletionMode = nonblocking ? FILE_PIPE_COMPLETE_OPERATION
@@ -62,6 +72,11 @@ fhandler_pipe::set_pipe_non_blocking (bool nonblocking)
 				 FilePipeInformation);
   if (!NT_SUCCESS (status))
     debug_printf ("NtSetInformationFile(FilePipeInformation): %y", status);
+  else
+    {
+      was_blocking_read_pipe = was_blocking_read_pipe_new;
+      is_blocking_read_pipe = !nonblocking;
+    }
 }
 
 int
@@ -95,6 +110,8 @@ fhandler_pipe::init (HANDLE f, DWORD a, mode_t mode, int64_t uniq_id)
        even with FILE_SYNCHRONOUS_IO_NONALERT. */
     set_pipe_non_blocking (get_device () == FH_PIPER ?
 			   true : is_nonblocking ());
+  was_blocking_read_pipe = false;
+
   return 1;
 }
 
@@ -288,6 +305,9 @@ fhandler_pipe::raw_read (void *ptr, size_t& len)
 
   if (!len)
     return;
+
+  if (is_blocking_read_pipe)
+    set_pipe_non_blocking (true);
 
   DWORD timeout = is_nonblocking () ? 0 : INFINITE;
   DWORD waitret = cygwait (read_mtx, timeout);
@@ -721,6 +741,8 @@ fhandler_pipe::close ()
     CloseHandle (query_hdl);
   if (query_hdl_close_req_evt)
     CloseHandle (query_hdl_close_req_evt);
+  if (was_blocking_read_pipe)
+    set_pipe_non_blocking (false);
   int ret = fhandler_base::close ();
   ReleaseMutex (hdl_cnt_mtx);
   CloseHandle (hdl_cnt_mtx);
@@ -1373,6 +1395,7 @@ fhandler_pipe::spawn_worker (int fileno_stdin, int fileno_stdout,
       {
 	fhandler_pipe *pipe = (fhandler_pipe *)(fhandler_base *) cfd;
 	pipe->set_pipe_non_blocking (false);
+	need_send_noncygchld_sig = true;
       }
 
   /* If multiple writers including non-cygwin app exist, the non-cygwin
@@ -1397,4 +1420,22 @@ fhandler_pipe::spawn_worker (int fileno_stdin, int fileno_stdout,
 	 process group close query_hdl. */
       t->kill_pgrp (__SIGNONCYGCHLD);
     }
+}
+
+void
+fhandler_pipe::sigproc_worker (void)
+{
+  cygheap_fdenum cfd (false);
+  while (cfd.next () >= 0)
+    if (cfd->get_dev () == FH_PIPEW)
+      {
+	fhandler_pipe *pipe = (fhandler_pipe *)(fhandler_base *) cfd;
+	if (pipe->need_close_query_hdl ())
+	  pipe->close_query_handle ();
+      }
+    else if (cfd->get_dev () == FH_PIPER)
+      {
+	fhandler_pipe *pipe = (fhandler_pipe *)(fhandler_base *) cfd;
+	pipe->is_blocking_read_pipe = true;
+      }
 }

@@ -1475,14 +1475,7 @@ wait_sig (VOID *)
 	    }
 	  break;
 	case __SIGNONCYGCHLD:
-	  cygheap_fdenum cfd (false);
-	  while (cfd.next () >= 0)
-	    if (cfd->get_dev () == FH_PIPEW)
-	      {
-		fhandler_pipe *pipe = (fhandler_pipe *)(fhandler_base *) cfd;
-		if (pipe->need_close_query_hdl ())
-		  pipe->close_query_handle ();
-	      }
+	  fhandler_pipe::sigproc_worker ();
 	  break;
 	}
       if (clearwait && !have_execed)

@@ -1197,6 +1197,8 @@ class fhandler_pipe: public fhandler_pipe_fifo
 private:
   HANDLE read_mtx;
   pid_t popen_pid;
+  bool was_blocking_read_pipe;
+  bool is_blocking_read_pipe;
   HANDLE query_hdl;
   HANDLE hdl_cnt_mtx;
   HANDLE query_hdl_proc;
@@ -1287,6 +1289,7 @@ public:
     }
   static void spawn_worker (int fileno_stdin, int fileno_stdout,
 			    int fileno_stderr);
+  static void sigproc_worker (void);
 };
 
 #define CYGWIN_FIFO_PIPE_NAME_LEN     47
