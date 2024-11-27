@@ -1419,7 +1419,7 @@ api_fatal_debug ()
 
 /* Attempt to carefully handle SIGCONT when we are stopped. */
 void
-_cygtls::handle_SIGCONT ()
+_cygtls::handle_SIGCONT (threadlist_t * &tl_entry)
 {
   if (NOTSTATE (myself, PID_STOPPED))
     return;
@@ -1434,7 +1434,11 @@ _cygtls::handle_SIGCONT ()
   while (1)
     if (sig)		/* Assume that it's ok to just test sig outside of a
 			   lock since setup_handler does it this way.  */
-      yield ();		/* Attempt to schedule another thread.  */
+      {
+	cygheap->unlock_tls (tl_entry);
+	yield ();	/* Attempt to schedule another thread.  */
+	tl_entry = cygheap->find_tls (_main_tls);
+      }
     else if (sigsent)
       break;		/* SIGCONT has been recognized by other thread */
     else
@@ -1476,7 +1480,7 @@ sigpacket::process ()
   if (si.si_signo == SIGCONT)
     {
       tl_entry = cygheap->find_tls (_main_tls);
-      _main_tls->handle_SIGCONT ();
+      _main_tls->handle_SIGCONT (tl_entry);
       cygheap->unlock_tls (tl_entry);
     }
 
