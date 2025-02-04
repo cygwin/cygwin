@@ -348,6 +348,27 @@ install:
 	@for script in ${SCRIPTS}; do\
 	  $(INSTALL_DATA) ${srcdir}/$${script}.ld $(DESTDIR)$(tooldir)/lib${MULTISUBDIR}/$${script}.ld; \
 	done
+	mkdir -p $(DESTDIR)$(tooldir)/include/mips
+	@for header in ${srcdir}/include/mips/*.h; do\
+	  $(INSTALL_DATA) $${header} $(DESTDIR)$(tooldir)/include/mips; \
+	done
+	@for file in ${srcdir}/include/mips/*.S; do\
+	  $(INSTALL_DATA) $${file} $(DESTDIR)$(tooldir)/include/mips; \
+	done
+	mkdir -p $(DESTDIR)$(exec_prefix)/share/mips/boot
+	@for file in ${srcdir}/boot/*.[hS] ; do\
+	  $(INSTALL_DATA) $${file} $(DESTDIR)$(exec_prefix)/share/mips/boot/; \
+	done
+	mkdir -p $(DESTDIR)$(exec_prefix)/share/mips/hal
+	@for file in ${srcdir}/hal/*.[hSc]; do\
+	  $(INSTALL_DATA) $${file} $(DESTDIR)$(exec_prefix)/share/mips/hal/; \
+	done
+	mkdir -p $(DESTDIR)$(exec_prefix)/share/mips/uhi
+	@for file in ${srcdir}/uhi/uhi_*.[hSc] ${srcdir}/uhi/yamon_*.[hSc]; do\
+	  $(INSTALL_DATA) $${file} $(DESTDIR)$(exec_prefix)/share/mips/uhi/; \
+	done
+	mkdir -p $(DESTDIR)$(exec_prefix)/share/mips/rules
+	@$(INSTALL_DATA) ${srcdir}/rules/mipshal.mk $(DESTDIR)$(exec_prefix)/share/mips/rules/
 
 info:
 install-info:
