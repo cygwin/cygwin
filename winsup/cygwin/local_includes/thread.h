@@ -31,7 +31,7 @@ class fast_mutex
 {
 public:
   fast_mutex () :
-    lock_counter (0), win32_obj_id (0)
+    tid (0), counter_self (0), lock_counter (0), win32_obj_id (0)
   {
   }
 
@@ -55,17 +55,29 @@ public:
 
   void lock ()
   {
-    if (InterlockedIncrement (&lock_counter) != 1)
+    if (!locked () && InterlockedIncrement (&lock_counter) != 1)
       cygwait (win32_obj_id, cw_infinite, cw_sig | cw_sig_restart);
+    tid = GetCurrentThreadId ();
+    counter_self++;
   }
 
   void unlock ()
   {
+    if (!locked () || --counter_self > 0)
+      return;
+    tid = 0;
     if (InterlockedDecrement (&lock_counter))
       ::SetEvent (win32_obj_id);
   }
 
+  bool locked ()
+  {
+    return tid == GetCurrentThreadId ();
+  }
+
 private:
+  DWORD tid;
+  int counter_self;
   LONG lock_counter;
   HANDLE win32_obj_id;
 };
