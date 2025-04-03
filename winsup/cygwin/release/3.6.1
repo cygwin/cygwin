@@ -31,3 +31,8 @@ Fixes:
 
 - Return EMFILE when opening /dev/ptmx too many times.
   Addresses: https://cygwin.com/pipermail/cygwin/2025-March/257786.html
+
+- Move pthread::atforkchild() at the end of fork::child(). This fixes
+  subprocess failure in cmake (>= 3.29.x).
+  Addresses: https://cygwin.com/pipermail/cygwin/2025-March/257800.html
+  Addresses: https://github.com/msys2/msys2-runtime/issues/272

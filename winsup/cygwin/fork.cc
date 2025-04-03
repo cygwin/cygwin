@@ -187,7 +187,6 @@ frok::child (volatile char * volatile here)
 
   ForceCloseHandle1 (fork_info->forker_finished, forker_finished);
 
-  pthread::atforkchild ();
   cygbench ("fork-child");
   ld_preload ();
   fixup_hooks_after_fork ();
@@ -199,6 +198,7 @@ frok::child (volatile char * volatile here)
   CloseHandle (hParent);
   hParent = NULL;
   cygwin_finished_initializing = true;
+  pthread::atforkchild ();
   return 0;
 }
 
