@@ -1666,27 +1666,49 @@ pthread_rwlock::_fixup_after_fork ()
 /* pthread_key */
 /* static members */
 /* This stores pthread_key information across fork() boundaries */
-List<pthread_key> pthread_key::keys;
+pthread_key::keys_list pthread_key::keys[PTHREAD_KEYS_MAX];
 
 /* non-static members */
 
-pthread_key::pthread_key (void (*aDestructor) (void *)):verifyable_object (PTHREAD_KEY_MAGIC), destructor (aDestructor)
+pthread_key::pthread_key (void (*aDestructor) (void *)) :
+  verifyable_object (PTHREAD_KEY_MAGIC), destructor (aDestructor)
 {
   tls_index = TlsAlloc ();
   if (tls_index == TLS_OUT_OF_INDEXES)
     magic = 0;
   else
-    keys.insert (this);
+    for (size_t cnt = 0; cnt < PTHREAD_KEYS_MAX; cnt++)
+      {
+	LONG64 seq = keys[cnt].seq;
+	if (!keys_list::used (seq)
+	    && InterlockedCompareExchange64 (&keys[cnt].seq,
+					     seq + 1, seq) == seq)
+	  {
+	    keys[cnt].key = this;
+	    keys[cnt].busy_cnt = 0;
+	    key_idx = cnt;
+	    InterlockedIncrement64 (&keys[key_idx].seq);
+	    break;
+	  }
+      }
 }
 
 pthread_key::~pthread_key ()
 {
-  /* We may need to make the list code lock the list during operations
-   */
   if (magic != 0)
     {
-      keys.remove (this);
-      TlsFree (tls_index);
+      LONG64 seq = keys[key_idx].seq;
+      if (keys_list::ready (seq)
+	  && InterlockedCompareExchange64 (&keys[key_idx].seq,
+					   seq + 1, seq) == seq)
+	{
+	  while (InterlockedCompareExchange64 (&keys[key_idx].busy_cnt,
+					       INT64_MIN, 0) > 0)
+	    yield ();
+	  keys[key_idx].key = NULL;
+	  InterlockedIncrement64 (&keys[key_idx].seq);
+	  TlsFree (tls_index);
+	}
     }
 }
 
