@@ -408,7 +408,8 @@ extern "C" int
 dladdr (const void *addr, Dl_info *info)
 {
   HMODULE hModule;
-  BOOL ret = GetModuleHandleEx (GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+  BOOL ret = GetModuleHandleEx (GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT|
+				GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
 				(LPCSTR) addr,
 				&hModule);
   if (!ret)
