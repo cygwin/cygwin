@@ -855,6 +855,11 @@ possible to preset the sparse attribute with <literal>chattr</literal>.
 	---a-S-------- 2/is_sparse
 	---a-S-------- 2/maybe_sparse
 	---a-S-------- 2/not_sparse
+	$ lssparse -H 0/is_sparse # from cygutils-extra package
+	Hole range[1]: offset=0x0,      length=0x100000
+	Data range[2]: offset=0x100000, length=0x4
+	$ lssparse -H 0/not_sparse
+	Data range[1]: offset=0x0,      length=0x100004
 </screen>
 <para>With <literal>sparse</literal> mount option or a SSD, all
 <literal>?/maybe_sparse</literal> files would be sparse.
