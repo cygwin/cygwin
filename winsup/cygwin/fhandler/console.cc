@@ -2215,6 +2215,8 @@ int
 fhandler_console::tcsetattr (int a, struct termios const *t)
 {
   get_ttyp ()->ti = *t;
+  set_input_mode (tty::cygwin, t, &handle_set);
+  set_output_mode (tty::cygwin, t, &handle_set);
   return 0;
 }
 
