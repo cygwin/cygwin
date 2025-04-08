@@ -769,18 +769,17 @@ fhandler_base::open (int flags, mode_t mode)
 	set_created_file_access (fh, pc, mode);
     }
 
-  /* If you O_TRUNC a file on Linux, the data is truncated, but the EAs are
-     preserved.  If you open a file on Windows with FILE_OVERWRITE{_IF} or
-     FILE_SUPERSEDE, all streams are truncated, including the EAs.  So we don't
-     use the FILE_OVERWRITE{_IF} flags, but instead just open the file and set
-     the size of the data stream explicitely to 0.  Apart from being more Linux
-     compatible, this implementation has the pleasant side-effect to be more
-     than 5% faster than using FILE_OVERWRITE{_IF} (tested on W7 32 bit). */
   if ((flags & O_TRUNC)
       && (flags & O_ACCMODE) != O_RDONLY
       && io.Information != FILE_CREATED
       && get_device () == FH_FS)
     {
+      /* If you O_TRUNC a file on Linux, the data is truncated, but the EAs are
+	 preserved.  If you open a file on Windows with FILE_OVERWRITE{_IF} or
+	 FILE_SUPERSEDE, all streams are truncated, including the EAs.  So we
+	 don't use FILE_OVERWRITE{_IF} but just open the file and truncate the
+	 data stream to size 0.  Apart from being more Linux compatible, this
+	 has the pleasant side-effect to be more than 5% faster. */
       FILE_END_OF_FILE_INFORMATION feofi = { EndOfFile:{ QuadPart:0 } };
       status = NtSetInformationFile (fh, &io, &feofi, sizeof feofi,
 				     FileEndOfFileInformation);
