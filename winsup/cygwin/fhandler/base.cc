@@ -526,8 +526,9 @@ fhandler_base::open (int flags, mode_t mode)
   ULONG file_attributes = 0;
   ULONG shared = (get_major () == DEV_TAPE_MAJOR ? 0 : FILE_SHARE_VALID_FLAGS);
   ULONG create_disposition;
+  FILE_BASIC_INFORMATION fbi;
   OBJECT_ATTRIBUTES attr;
-  IO_STATUS_BLOCK io;
+  IO_STATUS_BLOCK io, io_bi;
   NTSTATUS status;
   PFILE_FULL_EA_INFORMATION p = NULL;
   ULONG plen = 0;
@@ -719,16 +720,32 @@ fhandler_base::open (int flags, mode_t mode)
 	goto done;
    }
 
+  /* Fix up file attributes, they are desperately needed later.
+
+     Originally we only did that in the FILE_CREATED case below, but that's
+     insufficient:
+
+     If two threads try to create the same file at the same time, it's
+     possible that path_conv::check returns the file as non-existant, i. e.,
+     pc.file_attributes () returns INVALID_FILE_ATTRIBUTES, 0xffffffff.
+     However, one of the NtCreateFile will beat the other, so only one of
+     them returns with FILE_CREATED.
+
+     The other fhandler_base::open() will instead run into the O_TRUNC
+     conditional (further below), blindly check for the SPARSE attribute
+     and remove that bit.  The result is that the attributes will be
+     0xfffffdff, i.e., everything but SPARSE.  Most annoying is that
+     pc.isdir() will return TRUE.  Hilarity ensues.
+
+     Note that we use a different IO_STATUS_BLOCK, so as not to overwrite
+     io.Information... */
+  if (!NT_SUCCESS (NtQueryInformationFile (fh, &io_bi, &fbi, sizeof fbi,
+					   FileBasicInformation)))
+    fbi.FileAttributes = file_attributes | FILE_ATTRIBUTE_ARCHIVE;
+  pc.file_attributes (fbi.FileAttributes);
+
   if (io.Information == FILE_CREATED)
     {
-      /* Correct file attributes are needed for later use in, e.g. fchmod. */
-      FILE_BASIC_INFORMATION fbi;
-
-      if (!NT_SUCCESS (NtQueryInformationFile (fh, &io, &fbi, sizeof fbi,
-					       FileBasicInformation)))
-	fbi.FileAttributes = file_attributes | FILE_ATTRIBUTE_ARCHIVE;
-      pc.file_attributes (fbi.FileAttributes);
-
       /* Always create files using a NULL SD.  Create correct permission bits
 	 afterwards, maintaining the owner and group information just like
 	 chmod.  This is done for two reasons.
