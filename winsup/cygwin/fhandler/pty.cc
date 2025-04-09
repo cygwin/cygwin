@@ -1304,6 +1304,15 @@ fhandler_pty_slave::read (void *ptr, size_t& len)
 
   push_process_state process_state (PID_TTYIN);
 
+  if (get_ttyp ()->input_stopped && is_nonblocking ())
+    {
+      set_errno (EAGAIN);
+      len = (size_t) -1;
+      return;
+    }
+  while (get_ttyp ()->input_stopped)
+    cygwait (10);
+
   if (ptr) /* Indicating not tcflush(). */
     mask_switch_to_nat_pipe (true, true);
 
@@ -1650,6 +1659,7 @@ fhandler_pty_slave::ioctl (unsigned int cmd, void *arg)
       retval = this->tcsetpgrp ((pid_t) (intptr_t) arg);
       goto out;
     case FIONREAD:
+    case TIOCINQ:
       {
 	DWORD n;
 	if (!bytes_available (n))
@@ -1663,6 +1673,12 @@ fhandler_pty_slave::ioctl (unsigned int cmd, void *arg)
 	    retval = 0;
 	  }
       }
+      goto out;
+    case TCXONC:
+      retval = this->tcflow ((int)(intptr_t) arg);
+      goto out;
+    case TCFLSH:
+      retval = this->tcflush ((int)(intptr_t) arg);
       goto out;
     default:
       return fhandler_base::ioctl (cmd, arg);
@@ -2342,6 +2358,7 @@ fhandler_pty_master::ioctl (unsigned int cmd, void *arg)
     case TIOCSPGRP:
       return this->tcsetpgrp ((pid_t) (intptr_t) arg);
     case FIONREAD:
+    case TIOCINQ:
       {
 	DWORD n;
 	if (!bytes_available (n))
@@ -2352,6 +2369,10 @@ fhandler_pty_master::ioctl (unsigned int cmd, void *arg)
 	*(int *) arg = (int) n;
       }
       break;
+    case TCXONC:
+      return this->tcflow ((int)(intptr_t) arg);
+    case TCFLSH:
+      return this->tcflush ((int)(intptr_t) arg);
     default:
       return fhandler_base::ioctl (cmd, arg);
     }
@@ -4193,4 +4214,13 @@ fhandler_pty_common::resume_from_temporarily_attach (DWORD resume_pid)
       init_console_handler (false);
     }
   release_attach_mutex ();
+}
+
+int
+fhandler_pty_common::tcdrain ()
+{
+  DWORD n;
+  while (bytes_available (n) && n > 0)
+    cygwait (10);
+  return 0;
 }

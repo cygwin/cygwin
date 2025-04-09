@@ -491,16 +491,16 @@ fhandler_termios::process_stop_start (char c, tty *ttyp)
     {
       if (CCEQ (ti.c_cc[VSTOP], c))
 	{
-	  ttyp->output_stopped = true;
+	  ttyp->output_stopped |= BY_VSTOP;
 	  return true;
 	}
       else if (CCEQ (ti.c_cc[VSTART], c))
 	{
 restart_output:
-	  ttyp->output_stopped = false;
+	  ttyp->output_stopped &= ~BY_VSTOP;
 	  return true;
 	}
-      else if ((ti.c_iflag & IXANY) && ttyp->output_stopped)
+      else if ((ti.c_iflag & IXANY) && (ttyp->output_stopped & BY_VSTOP))
 	goto restart_output;
     }
   if ((ti.c_lflag & ICANON) && (ti.c_lflag & IEXTEN)
@@ -540,7 +540,7 @@ fhandler_termios::line_edit (const char *rptr, size_t nread, termios& ti,
 	  fallthrough;
 	case not_signalled_but_done:
 	case done_with_debugger:
-	  get_ttyp ()->output_stopped = false;
+	  get_ttyp ()->output_stopped &= ~BY_VSTOP;
 	  continue;
 	case not_signalled_with_nat_reader:
 	  disable_eof_key = true;
@@ -914,4 +914,27 @@ fhandler_termios::get_console_process_id (DWORD pid, bool match,
 	  }
       }
   return res_pri ?: res;
+}
+
+int
+fhandler_termios::tcflow (int action)
+{
+  switch (action)
+    {
+    case TCOOFF:
+      get_ttyp ()->output_stopped |= BY_TCFLOW;
+      return 0;
+    case TCOON:
+      get_ttyp ()->output_stopped = 0;
+      return 0;
+    case TCIOFF:
+      get_ttyp ()->input_stopped |= BY_TCFLOW;
+      return 0;
+    case TCION:
+      get_ttyp ()->input_stopped = 0;
+      return 0;
+    default:
+      set_errno (EINVAL);
+      return -1;
+    }
 }

@@ -18,6 +18,7 @@ details. */
 #define	TIOCMBIC	0x5417
 #define	TIOCMSET	0x5418
 #define	TIOCINQ		0x541B
+#define TCXONC		0x540A
 #define TIOCSCTTY	0x540E
 
 /* TIOCINQ is utilized instead of FIONREAD which has been

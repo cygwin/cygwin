@@ -509,7 +509,7 @@ fhandler_console::cons_master_thread (handle_set_t *p, tty *ttyp)
 		case not_signalled_but_done:
 		case done_with_debugger:
 		  processed = true;
-		  ttyp->output_stopped = false;
+		  ttyp->output_stopped &= ~BY_VSTOP;
 		  if (ti.c_lflag & NOFLSH)
 		    goto remove_record;
 		  con.num_processed = 0;
@@ -1143,6 +1143,15 @@ fhandler_console::read (void *pv, size_t& buflen)
   termios_printf ("read(%p,%d)", pv, buflen);
 
   push_process_state process_state (PID_TTYIN);
+
+  if (get_ttyp ()->input_stopped && is_nonblocking ())
+    {
+      set_errno (EAGAIN);
+      buflen = (size_t) -1;
+      return;
+    }
+  while (get_ttyp ()->input_stopped)
+    cygwait (10);
 
   size_t copied_chars = 0;
 
@@ -2131,6 +2140,7 @@ fhandler_console::ioctl (unsigned int cmd, void *arg)
 	release_output_mutex ();
 	return -1;
       case FIONREAD:
+      case TIOCINQ:
 	{
 	  DWORD n;
 	  int ret = 0;
@@ -2183,6 +2193,14 @@ fhandler_console::ioctl (unsigned int cmd, void *arg)
 	  return 0;
 	}
 	break;
+      case TCXONC:
+	res = this->tcflow ((int)(intptr_t) arg);
+	release_output_mutex ();
+	return res;
+      case TCFLSH:
+	res = this->tcflush ((int)(intptr_t) arg);
+	release_output_mutex ();
+	return res;
     }
 
   release_output_mutex ();
@@ -4172,8 +4190,8 @@ fhandler_console::write (const void *vsrc, size_t len)
 void
 fhandler_console::doecho (const void *str, DWORD len)
 {
-  bool stopped = get_ttyp ()->output_stopped;
-  get_ttyp ()->output_stopped = false;
+  int stopped = get_ttyp ()->output_stopped;
+  get_ttyp ()->output_stopped = 0;
   write (str, len);
   get_ttyp ()->output_stopped = stopped;
 }
@@ -4710,4 +4728,10 @@ fhandler_console::cons_mode_on_close ()
     return tty::cygwin;
 
   return tty::restore; /* otherwise, restore */
+}
+
+int
+fhandler_console::tcdrain ()
+{
+  return 0;
 }
