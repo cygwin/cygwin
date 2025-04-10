@@ -932,7 +932,7 @@ fhandler_console::cleanup_for_non_cygwin_app (handle_set_t *p)
   /* Cleaning-up console mode for non-cygwin app. */
   /* conmode can be tty::restore when non-cygwin app is
      exec'ed from login shell. */
-  tty::cons_mode conmode = cons_mode_on_close ();
+  tty::cons_mode conmode = cons_mode_on_close (p);
   set_output_mode (conmode, ti, p);
   set_input_mode (conmode, ti, p);
   set_disable_master_thread (con.owner == GetCurrentProcessId ());
@@ -2000,8 +2000,9 @@ fhandler_console::close (int flag)
 
   acquire_output_mutex (mutex_timeout);
 
-  if (shared_console_info[unit] && myself->ppid == 1
-      && (dev_t) myself->ctty == get_device ())
+  if (shared_console_info[unit] && con.curr_input_mode != tty::restore
+      && (dev_t) myself->ctty == get_device ()
+      && cons_mode_on_close (&handle_set) == tty::restore)
     {
       set_output_mode (tty::restore, &get_ttyp ()->ti, &handle_set);
       set_input_mode (tty::restore, &get_ttyp ()->ti, &handle_set);
@@ -4722,9 +4723,24 @@ fhandler_console::fstat (struct stat *st)
 }
 
 tty::cons_mode
-fhandler_console::cons_mode_on_close ()
+fhandler_console::cons_mode_on_close (handle_set_t *p)
 {
+  int unit = p->unit;
   if (myself->ppid != 1) /* Execed from normal cygwin process. */
+    return tty::cygwin;
+
+  if (!process_alive (con.owner)) /* The Master process already died. */
+    return tty::restore;
+  if (con.owner == GetCurrentProcessId ()) /* Master process */
+    return tty::restore;
+
+  PROCESS_BASIC_INFORMATION pbi;
+  NTSTATUS status =
+    NtQueryInformationProcess (GetCurrentProcess (), ProcessBasicInformation,
+			       &pbi, sizeof (pbi), NULL);
+  if (NT_SUCCESS (status)
+      && !process_alive ((DWORD) pbi.InheritedFromUniqueProcessId))
+    /* Execed from normal cygwin process and the parent has been exited. */
     return tty::cygwin;
 
   return tty::restore; /* otherwise, restore */
