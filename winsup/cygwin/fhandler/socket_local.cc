@@ -87,6 +87,8 @@ get_inet_addr_local (const struct sockaddr *in, int inlen,
       addr.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
       *outlen = sizeof addr;
       memcpy (out, &addr, *outlen);
+      if (type)
+	*type = SOCK_DGRAM;
       return 0;
     }
 
