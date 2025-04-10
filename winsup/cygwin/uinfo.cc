@@ -1983,6 +1983,27 @@ pwdgrp::fetch_account_from_windows (fetch_user_arg_t &arg, cyg_ldap *pldap)
       break;
     case SID_arg:
       sid = *arg.sid;
+
+      /* SIDs we want to filter out before hitting LookupAccountSidW.
+	 If the latency of the AD connection is high, LookupAccountSidW
+	 might take a long time before returning with ERROR_NONE_MAPPED. */
+
+      /* Capability SIDs, just drop out, we don't handle them */
+      if (sid_id_auth (sid) == 15 /* SECURITY_APP_PACKAGE_AUTHORITY */
+	  && sid_sub_auth (sid, 0) == SECURITY_CAPABILITY_BASE_RID)
+	return NULL;
+      /* IIS APPPOOL */
+      if (sid_id_auth (sid) == 5 /* SECURITY_NT_AUTHORITY */
+	  && sid_sub_auth (sid, 0) == SECURITY_APPPOOL_ID_BASE_RID)
+	break;
+      /* AzureAD SIDs */
+      if (sid_id_auth (sid) == 12 /* AzureAD ID */
+	  && sid_sub_auth (sid, 0) == 1 /* Azure ID base RID */)
+	break;
+      /* Samba user/group SIDs */
+      if (sid_id_auth (sid) == 22)
+	break;
+
       ret = LookupAccountSidW (NULL, sid, name, &nlen, dom, &dlen, &acc_type);
       if (!ret
 	  && cygheap->dom.member_machine ()
