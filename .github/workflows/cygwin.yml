@@ -201,7 +201,7 @@ jobs:
     - name: Avoid actions/checkout post-run step using Cygwin git
       run: bash -c 'rm /usr/bin/git.exe'
 
-  windows-test:
+  windows-stress-test:
     needs: windows-build
 
     runs-on: windows-latest
@@ -214,11 +214,19 @@ jobs:
     name: Windows tests ${{ matrix.pkgarch }}
 
     steps:
+    - run: git config --global core.autocrlf input
+    - uses: actions/checkout@v3
+
     # install cygwin
     - name: Install Cygwin
       uses: cygwin/cygwin-install-action@master
       with:
         platform: ${{ matrix.pkgarch }}
+        packages: |
+          procps-ng
+          stress-ng
+          unzip
+          wget
 
     # fetch the just-built cygwin installation artifact
     - name: Unpack just-built Cygwin artifact
@@ -234,8 +242,10 @@ jobs:
     # package of the just-built cygwin version and install it here, but tools
     # don't exist (yet) to let us do that...
 
-    # run tests
+    # run stress-test
     - name: Run tests
       run: |
+        export PATH=/usr/bin:$(cygpath ${SYSTEMROOT})/system32
         uname -a
+        winsup/testsuite/stress/cygstress CI
       shell: bash --noprofile --norc -o igncr -eo pipefail '{0}'
