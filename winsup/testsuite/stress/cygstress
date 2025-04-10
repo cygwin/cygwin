@@ -477,6 +477,9 @@ command -V taskkill >/dev/null || exit 1
 
 stress_ng_name=${stress_ng##*/}
 tempdir=${TMP:-/tmp}
+logdir=${LOGDIR:-/tmp/logdir}
+
+mkdir -p ${logdir}
 
 find_stress()
 {
@@ -501,12 +504,15 @@ stress()
   shift || return 1
 
   local td="$tempdir/stress-ng.$$.$total.d"
+  local logfile="$logdir/$name"
   local cmd=("$stress_ng" -v -M --oomable --timestamp --verify --temp-path "$td" -t "$timeout")
   test -z "$taskset" || cmd+=(--taskset "$taskset")
   cmd+=(--"$name" "$workers" "$@")
 
-  echo '$' "${cmd[@]}"
-  ! $dryrun || return 0
+  if $dryrun; then
+    echo '$' "${cmd[@]}"
+    return 0
+  fi
 
   (
     t=$(date +%s); : $((t += timeout + 30)); sleep 1
@@ -519,7 +525,7 @@ stress()
 
   mkdir "$td"
   local rc=0
-  "${cmd[@]}" || rc=$?
+  "${cmd[@]}" >$logfile 2>&1 || rc=$?
 
   kill $watchdog 2>/dev/null ||:
   trap - SIGINT SIGTERM
@@ -546,14 +552,14 @@ stress()
   fi
 
   if ! $ok; then
-    echo
     return 1
   fi
   if [ $rc != 0 ]; then
+    cat ${logfile}
     echo ">>> FAILURE: $name" "$@" "(exit status $rc)"; echo
     return 1
   fi
-  echo ">>> SUCCESS: $name" "$@" ""; echo
+  echo ">>> SUCCESS: $name" "$@" ""
 }
 
 if p=$(find_stress); then

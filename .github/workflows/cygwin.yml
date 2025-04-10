@@ -247,5 +247,15 @@ jobs:
       run: |
         export PATH=/usr/bin:$(cygpath ${SYSTEMROOT})/system32
         uname -a
+        export LOGDIR=$(cygpath -a logs)
         winsup/testsuite/stress/cygstress CI
       shell: bash --noprofile --norc -o igncr -eo pipefail '{0}'
+
+    # upload logs artifact
+    - name: Capture logs artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: stress-logs-${{ matrix.pkgarch }}
+        path: |
+          logs
+      if: ${{ !cancelled() }}
