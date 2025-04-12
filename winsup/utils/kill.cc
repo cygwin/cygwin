@@ -372,7 +372,9 @@ main (int argc, char **argv)
 	case '?':
 	  if (gotasig) /* this is a negative pid, go ahead */
 	    {
-	      --optind;
+	      /* Reset optind because it points to the next argument if and
+		 only if the pid has one digit. */
+	      optind = av - argv;
 	      goto out;
 	    }
 	  optreset = 1;
