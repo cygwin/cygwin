@@ -29,7 +29,7 @@ jobs:
     # install build tools
     - name: Install build tools
       run: |
-        dnf install -y autoconf automake make patch perl mingw${{ matrix.pkgarch }}-gcc-c++ mingw${{ matrix.pkgarch }}-winpthreads-static mingw${{ matrix.pkgarch }}-zlib-static
+        dnf install -y autoconf automake gawk make patch perl mingw${{ matrix.pkgarch }}-gcc-c++ mingw${{ matrix.pkgarch }}-winpthreads-static mingw${{ matrix.pkgarch }}-zlib-static
 
     # enable 'dnf copr'
     - name: Enable 'dnf copr'
