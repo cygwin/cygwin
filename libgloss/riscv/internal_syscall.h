@@ -24,7 +24,7 @@ __syscall_error(long a0)
 static inline long
 __internal_syscall(long n, int argc, long _a0, long _a1, long _a2, long _a3, long _a4, long _a5)
 {
-#ifdef __riscv_32e
+#ifdef __riscv_abi_rve
   register long syscall_id asm("t0") = n;
 #else
   register long syscall_id asm("a7") = n;
