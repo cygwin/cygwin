@@ -12,6 +12,9 @@
  * the new terms are clearly indicated on the first page of each file where
  * they apply.
  */
+extern void __pcrlf(void);
+extern void __outln(char *, char *);
+extern void __outstr(char *, char *);
 
 /*
  * write -- write some bytes to the output device.
