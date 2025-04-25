@@ -47,16 +47,16 @@ size_t strlen(const char *str)
     return ret + (psval >> 3) - sp;
   #else
     char c0 = str[0 - sp], c1 = str[1 - sp], c2 = str[2 - sp], c3 = str[3 - sp];
-    if (c0 == 0)    return ret + 0 - sp;
-    if (c1 == 0)    return ret + 1 - sp;
-    if (c2 == 0)    return ret + 2 - sp;
-    if (c3 == 0)    return ret + 3 - sp;
+    if (c0 == 0)                        return ret + 0 - sp;
+    if (c1 == 0)                        return ret + 1 - sp;
+    if (c2 == 0)                        return ret + 2 - sp;
+    if (__riscv_xlen == 32 || c3 == 0)  return ret + 3 - sp;
 
     #if __riscv_xlen == 64
       c0 = str[4 - sp], c1 = str[5 - sp], c2 = str[6 - sp];
-      if (c0 == 0)  return ret + 4 - sp;
-      if (c1 == 0)  return ret + 5 - sp;
-      if (c2 == 0)  return ret + 6 - sp;
+      if (c0 == 0)                      return ret + 4 - sp;
+      if (c1 == 0)                      return ret + 5 - sp;
+      if (c2 == 0)                      return ret + 6 - sp;
     #endif
 
     return ret + 7 - sp;
