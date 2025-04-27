@@ -204,14 +204,18 @@ jobs:
   windows-stress-test:
     needs: windows-build
 
-    runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-        - target: x86_64-pc-cygwin
-          pkgarch: x86_64
-    name: Windows tests ${{ matrix.pkgarch }}
+        - pkgarch: x86_64
+          runarch: x86_64
+          runner: windows-latest
+        - pkgarch: x86_64
+          runarch: arm64
+          runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    name: Windows tests ${{ matrix.pkgarch }} on ${{ matrix.runarch }}
 
     steps:
     - run: git config --global core.autocrlf input
@@ -219,6 +223,7 @@ jobs:
 
     # install cygwin
     - name: Install Cygwin
+      id: cygwin-install
       uses: cygwin/cygwin-install-action@master
       with:
         platform: ${{ matrix.pkgarch }}
@@ -233,9 +238,9 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: cygwin-install-${{ matrix.pkgarch }}
-        # the path specified here should match the install-dir of
-        # cygwin-install-action above, so we unpack the artifact over it
-        path: 'D:\cygwin'
+        # use the install-dir of cygwin-install-action above, so we unpack the
+        # artifact over it
+        path: ${{ steps.cygwin-install.outputs.root }}
 
     # This isn't quite right, as it just overwrites existing files, it doesn't
     # remove anything which is no longer provided. Ideally, we'd make a cygwin
@@ -255,7 +260,7 @@ jobs:
     - name: Capture logs artifact
       uses: actions/upload-artifact@v4
       with:
-        name: stress-logs-${{ matrix.pkgarch }}
+        name: stress-logs-${{ matrix.pkgarch }}-on-${{ matrix.runarch }}
         path: |
           logs
       if: ${{ !cancelled() }}
