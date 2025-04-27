@@ -16,7 +16,6 @@
 
 #include "../../string/local.h"
 #include "xlenint.h"
-#include <stdint.h>
 #include <string.h>
 #include <sys/asm.h>
 
@@ -31,6 +30,30 @@ __libc_memcpy_bytewise (unsigned char *dst, const unsigned char *src,
     *dst++ = *src++;
 }
 
+#if defined(__riscv_misaligned_slow) || defined(__riscv_misaligned_avoid)
+static uintxlen_t
+__libc_load_xlen (const void *src)
+{
+  const unsigned char *p = (const unsigned char *)src;
+  uintxlen_t ret = 0;
+  unsigned char b0 = *p++;
+  unsigned char b1 = *p++;
+  unsigned char b2 = *p++;
+  unsigned char b3 = *p++;
+  ret = (uintxlen_t)b0 | ((uintxlen_t)b1 << 8) | ((uintxlen_t)b2 << 16)
+        | ((uintxlen_t)b3 << 24);
+#if __riscv_xlen == 64
+  unsigned char b4 = *p++;
+  unsigned char b5 = *p++;
+  unsigned char b6 = *p++;
+  unsigned char b7 = *p++;
+  ret |= ((uintxlen_t)b4 << 32) | ((uintxlen_t)b5 << 40)
+         | ((uintxlen_t)b6 << 48) | ((uintxlen_t)b7 << 56);
+#endif
+  return ret;
+}
+#endif
+
 void *
 __inhibit_loop_to_libcall
 memcpy (void *__restrict aa, const void *__restrict bb, size_t n)
@@ -39,23 +62,51 @@ memcpy (void *__restrict aa, const void *__restrict bb, size_t n)
   const unsigned char *b = (const unsigned char *)bb;
   unsigned char *end = a + n;
   uintptr_t msk = SZREG - 1;
-#if __riscv_misaligned_slow || __riscv_misaligned_fast
   if (n < SZREG)
-#else
-  if (unlikely ((((uintptr_t)a & msk) != ((uintptr_t)b & msk)) || n < SZREG))
-#endif
     {
       if (__builtin_expect (a < end, 1))
         __libc_memcpy_bytewise (a, b, n);
       return aa;
     }
 
+/*
+ * If misaligned access is slow or prohibited, and the alignments of the source
+ * and destination are different, we align the destination to do XLEN stores.
+ * This uses only one aligned store for every four (or eight for XLEN == 64)
+ * bytes of data.
+ */
+#if defined(__riscv_misaligned_slow) || defined(__riscv_misaligned_avoid)
+  if (unlikely ((((uintptr_t)a & msk) != ((uintptr_t)b & msk))))
+    {
+      size_t dst_pad = (uintptr_t)a & msk;
+      dst_pad = (SZREG - dst_pad) & msk;
+      __libc_memcpy_bytewise (a, b, dst_pad);
+      a += dst_pad;
+      b += dst_pad;
+
+      uintxlen_t *la = (uintxlen_t *)a;
+      const unsigned char *cb = (const unsigned char *)b;
+      uintxlen_t *lend = (uintxlen_t *)((uintptr_t)end & ~msk);
+
+      while (la < lend)
+        {
+          *la++ = __libc_load_xlen (cb);
+          cb += SZREG;
+        }
+      a = (unsigned char *)la;
+      b = (const unsigned char *)cb;
+      if (unlikely (a < end))
+        __libc_memcpy_bytewise (a, b, end - a);
+      return aa;
+    }
+#endif
+
   if (unlikely (((uintptr_t)a & msk) != 0))
     {
-      size_t rem = SZREG - ((uintptr_t)a & msk);
-      __libc_memcpy_bytewise (a, b, rem);
-      a += rem;
-      b += rem;
+      size_t pad = SZREG - ((uintptr_t)a & msk);
+      __libc_memcpy_bytewise (a, b, pad);
+      a += pad;
+      b += pad;
     }
 
   uintxlen_t *la = (uintxlen_t *)a;
@@ -86,9 +137,6 @@ memcpy (void *__restrict aa, const void *__restrict bb, size_t n)
           *la++ = b8;
         }
     }
-
-  while (la < lend)
-      *la++ = *lb++;
 
   a = (unsigned char *)la;
   b = (const unsigned char *)lb;
