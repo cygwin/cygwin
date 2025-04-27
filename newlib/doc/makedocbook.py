@@ -198,7 +198,7 @@ def function(c, l):
     descr = line_markup_convert(', '.join(descrlist))
 
     # fpclassify includes an 'and' we need to discard
-    namelist = map(lambda v: re.sub(r'^and ', r'', v.strip(), 1), namelist)
+    namelist = map(lambda v: re.sub(r'^and ', r'', v.strip(), count=1), namelist)
     # strip off << >> surrounding name
     namelist = map(lambda v: v.strip().lstrip('<').rstrip('>'), namelist)
     # instantiate list to make it subscriptable
@@ -563,7 +563,7 @@ def t_TABLEEND(t):
 
 def t_ITEM(t):
     r'o\s.*\n'
-    t.value = re.sub(r'o\s', r'', lexer.lexmatch.group(0), 1)
+    t.value = re.sub(r'o\s', r'', lexer.lexmatch.group(0), count=1)
     t.value = line_markup_convert(t.value)
     return t
 
