@@ -490,7 +490,8 @@ clock_settime (clockid_t clk_id, const struct timespec *tp)
       return -1;
     }
 
-  if (clk_id != CLOCK_REALTIME_COARSE && clk_id != CLOCK_REALTIME)
+  if ((clk_id != CLOCK_REALTIME_COARSE && clk_id != CLOCK_REALTIME)
+      || tp->tv_nsec < 0) /* Otherwise -999...-1 would be accepted */
     {
       set_errno (EINVAL);
       return -1;
