@@ -7,7 +7,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
-set -e -o pipefail
+set -e -o pipefail # pipefail is required
 
 usage()
 {
@@ -19,6 +19,7 @@ Usage: ${0##*/} [OPTION...] {CI|WORK|FAIL|test...}
   -c LIST   set CPU affinity to LIST
   -s PATH   stress-ng executable [default: stress-ng]
   -t N      run each test for at least N seconds [default: 5]
+  -v        print stress-ng output always [default: on error only]
   -w N      start N workers for each test [default: 2]
 
   CI        run all tests tagged CI
@@ -445,7 +446,7 @@ stress_tests='
 
 stress_ng="stress-ng"
 timeout=5; workers=2
-dryrun=false; force=false
+dryrun=false; force=false; verbose=false
 taskset=
 
 while :; do case $1 in
@@ -454,6 +455,7 @@ while :; do case $1 in
   -n) dryrun=true ;;
   -s) shift; stress_ng=$1 ;;
   -t) shift; timeout=$1 ;;
+  -v) verbose=true ;;
   -w) shift; workers=$1 ;;
   -*) usage ;;
   *) break ;;
@@ -479,7 +481,7 @@ stress_ng_name=${stress_ng##*/}
 tempdir=${TMP:-/tmp}
 logdir=${LOGDIR:-/tmp/logdir}
 
-mkdir -p ${logdir}
+mkdir -p "$logdir"
 
 find_stress()
 {
@@ -509,15 +511,16 @@ stress()
   test -z "$taskset" || cmd+=(--taskset "$taskset")
   cmd+=(--"$name" "$workers" "$@")
 
-  if $dryrun; then
+  if $dryrun || $verbose; then
     echo '$' "${cmd[@]}"
-    return 0
+    ! $dryrun || return 0
   fi
 
   (
     t=$(date +%s); : $((t += timeout + 30)); sleep 1
     while [ "$(date +%s)" -lt "$t" ]; do sleep 1; done
-    stop_stress & # TODO: without '&', 'exit 0' below is not reached (Hmm...)
+    # Another delay to let 'exit 0' occur before 'kill $watchdog'
+    ( sleep 1; stop_stress ) &
     exit 0
   ) &
   local watchdog=$!
@@ -525,41 +528,43 @@ stress()
 
   mkdir "$td"
   local rc=0
-  "${cmd[@]}" >$logfile 2>&1 || rc=$?
+  if $verbose; then
+    # This requires '-o pipefail'
+    "${cmd[@]}" 2>&1 | tee "$logfile" || rc=$?
+  else
+    "${cmd[@]}" >"$logfile" 2>&1 || rc=$?
+  fi
 
   kill $watchdog 2>/dev/null ||:
   trap - SIGINT SIGTERM
 
-  local ok=true
+  local errs=
   if wait $watchdog; then
     sleep 2
-    echo ">>> FAILURE: $name" "$@" "(command hangs)"
-    ok=false
+    errs=", command hangs"
   fi
 
   local p
   if p=$(find_stress); then
-    echo ">>> FAILURE: $name" "$@" "(processes left, exit status $rc):"
-    echo "$p"
+    errs+=", processes left"
     stop_stress
     sleep 2
-    ok=false
   fi
 
-  if ! rmdir "$td" 2>/dev/null; then
-    echo ">>> FAILURE: $name" "$@" "(files left in '$td', exit status $rc)"
-    ok=false
-  fi
+  rmdir "$td" 2>/dev/null || errs+=", files left in '$td'"
 
-  if ! $ok; then
+  ! grep -Eqv '^(stress-ng|info):' "$logfile" || errs+=", unexpected output"
+
+  if [ "${rc}${errs:+t}" != "0" ]; then
+    $verbose || cat "$logfile"
+    echo ">>> FAILURE: $name" "$@" "(exit status ${rc}${errs})"
+    ! [ ${p:+t} ] || echo "$p"
+    echo
     return 1
   fi
-  if [ $rc != 0 ]; then
-    cat ${logfile}
-    echo ">>> FAILURE: $name" "$@" "(exit status $rc)"; echo
-    return 1
-  fi
-  echo ">>> SUCCESS: $name" "$@" ""
+  echo ">>> SUCCESS: $name" "$@"
+  ! $verbose || echo
+  return 0
 }
 
 if p=$(find_stress); then
