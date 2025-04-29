@@ -3911,6 +3911,7 @@ cygwin_conv_path (cygwin_conv_path_t what, const void *from, void *to,
   int how = what & CCP_CONVFLAGS_MASK;
   what &= CCP_CONVTYPE_MASK;
   int ret = -1;
+  bool prependglobalroot = false;
 
   __try
     {
@@ -4019,7 +4020,7 @@ cygwin_conv_path (cygwin_conv_path_t what, const void *from, void *to,
 	    {
 	      /* Device name points to somewhere else in the NT namespace.
 		 Use GLOBALROOT prefix to convert to Win32 path. */
-	      to = (void *) wcpcpy ((wchar_t *) to, ro_u_globalroot.Buffer);
+	      prependglobalroot = true;
 	      lsiz += ro_u_globalroot.Length / sizeof (WCHAR);
 	    }
 	  /* TODO: Same ".\\" band-aid as in CCP_POSIX_TO_WIN_A case. */
@@ -4075,6 +4076,8 @@ cygwin_conv_path (cygwin_conv_path_t what, const void *from, void *to,
 	  stpcpy ((char *) to, buf);
 	  break;
 	case CCP_POSIX_TO_WIN_W:
+	  if (prependglobalroot)
+	    to = (void *) wcpcpy ((PWCHAR) to, ro_u_globalroot.Buffer);
 	  wcpcpy ((PWCHAR) to, path);
 	  break;
 	}
