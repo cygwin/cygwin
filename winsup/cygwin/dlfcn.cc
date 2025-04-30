@@ -421,14 +421,16 @@ dladdr (const void *addr, Dl_info *info)
   /* Get the module filename.  This pathname may be in short-, long- or //?/
      format, depending on how it was specified when loaded, but we assume this
      is always an absolute pathname. */
-  WCHAR fname[MAX_PATH];
-  DWORD length = GetModuleFileNameW (hModule, fname, MAX_PATH);
-  if ((length == 0) || (length == MAX_PATH))
+  tmp_pathbuf tp;
+  PWCHAR fname = tp.w_get ();
+  DWORD length = GetModuleFileNameW (hModule, fname, NT_MAX_PATH);
+  if ((length == 0) || (length == NT_MAX_PATH))
     return 0;
 
   /* Convert to a cygwin pathname */
+  static_assert (sizeof (info->dli_fname) == PATH_MAX);
   ssize_t conv = cygwin_conv_path (CCP_WIN_W_TO_POSIX | CCP_ABSOLUTE, fname,
-				   info->dli_fname, MAX_PATH);
+				   info->dli_fname, PATH_MAX);
   if (conv)
     return 0;
 
