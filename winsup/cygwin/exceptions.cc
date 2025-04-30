@@ -1756,7 +1756,6 @@ _cygtls::call_signal_handler ()
 
       int this_errno = saved_errno;
       reset_signal_arrived ();
-      incyg = false;
       current_sig = 0;	/* Flag that we can accept another signal */
 
       /* We have to fetch the original return address from the signal stack
@@ -1868,8 +1867,6 @@ _cygtls::call_signal_handler ()
 	  api_fatal ("Signal stack corrupted (%D)?", stackptr - orig_stackptr);
 	}
       unlock ();
-
-      incyg = true;
 
       set_signal_mask (_my_tls.sigmask, (this_sa_flags & SA_SIGINFO)
 					? context1.uc_sigmask : this_oldmask);

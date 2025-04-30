@@ -611,7 +611,7 @@ sig_send (_pinfo *p, siginfo_t& si, _cygtls *tls)
   bool communing = si.si_signo == __SIGCOMMUNE;
 
   pack.wakeup = NULL;
-  bool wait_for_completion;
+  bool wait_for_completion = false;
   if (!(its_me = p == NULL || p == myself || p == myself_nowait))
     {
       /* It is possible that the process is not yet ready to receive messages
@@ -762,13 +762,10 @@ sig_send (_pinfo *p, siginfo_t& si, _cygtls *tls)
       memcpy (p, si._si_commune._si_str, n); p += n;
     }
 
-  unsigned cw_mask;
-  cw_mask = pack.si.si_signo == __SIGFLUSHFAST ? 0 : cw_sig_restart;
-
   char mtx_name[MAX_PATH];
   shared_name (mtx_name, "sig_send", p->pid);
   mtx = CreateMutex (&sec_none_nih, FALSE, mtx_name);
-  cygwait (mtx, INFINITE, cw_mask);
+  WaitForSingleObject (mtx, INFINITE);
 
   if (its_me && (si.si_signo == __SIGFLUSHFAST || si.si_signo == __SIGFLUSH))
     {
@@ -791,7 +788,7 @@ sig_send (_pinfo *p, siginfo_t& si, _cygtls *tls)
 	  CloseHandle (mtx);
 	  ResetEvent (sigflush_done_evt);
 	  SetEvent (sigflush_evt);
-	  cygwait (sigflush_done_evt, INFINITE, cw_mask);
+	  WaitForSingleObject (sigflush_done_evt, INFINITE);
 	  rc = 0;
 	  goto out;
 	}
@@ -807,8 +804,8 @@ sig_send (_pinfo *p, siginfo_t& si, _cygtls *tls)
       if (!res || packsize == nb)
 	break;
       ReleaseMutex (mtx);
-      cygwait (NULL, 10, cw_mask);
-      cygwait (mtx, INFINITE, cw_mask);
+      Sleep (10);
+      WaitForSingleObject (mtx, INFINITE);
       res = 0;
     }
   ReleaseMutex (mtx);
@@ -843,7 +840,7 @@ sig_send (_pinfo *p, siginfo_t& si, _cygtls *tls)
   if (wait_for_completion)
     {
       sigproc_printf ("Waiting for pack.wakeup %p", pack.wakeup);
-      rc = cygwait (pack.wakeup, WSSC, cw_mask);
+      rc = WaitForSingleObject (pack.wakeup, WSSC);
       ForceCloseHandle (pack.wakeup);
     }
   else
@@ -874,6 +871,11 @@ out:
     }
   if (pack.wakeup)
     ForceCloseHandle (pack.wakeup);
+
+  /* Handle signals here if it was not handled yet */
+  if (wait_for_completion && pack.si.si_signo != __SIGFLUSHFAST)
+    _my_tls.call_signal_handler ();
+
   if (si.si_signo != __SIGPENDING && si.si_signo != __SIGPENDINGALL)
     /* nothing */;
   else if (!rc)
