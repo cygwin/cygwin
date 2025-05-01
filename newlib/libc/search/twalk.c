@@ -50,8 +50,8 @@ trecurse(
 
 /* Walk the nodes of a tree */
 void
-twalk (const void *vroot,	/* Root of the tree to be walked */
-	void (*action)(const void *, VISIT, int))
+twalk (const posix_tnode *vroot,/* Root of the tree to be walked */
+	void (*action)(const posix_tnode *, VISIT, int))
 {
 	if (vroot != NULL && action != NULL)
 		trecurse(vroot, action, 0);
