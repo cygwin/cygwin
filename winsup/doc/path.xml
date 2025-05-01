@@ -33,12 +33,12 @@
 
   <refsect1 id="func-cygwin-conv-path-desc">
     <title>Description</title>
-<para>Use this function to convert POSIX paths in
-<parameter>from</parameter> to Win32 paths in <parameter>to</parameter>
-or, vice versa, Win32 paths in <parameter>from</parameter> to POSIX paths
-in <parameter>to</parameter>.  <parameter>what</parameter>
-defines the direction of this conversion and can be any of the below
-values.</para>
+<para>Use this function to convert NUL-terminated POSIX paths in
+<parameter>from</parameter> to NUL-terminated Win32 paths in
+<parameter>to</parameter> or, vice versa, NUL-terminated Win32 paths in
+<parameter>from</parameter> to NUL-terminated POSIX paths in
+<parameter>to</parameter>.  <parameter>what</parameter> defines the
+direction of this conversion and can be any of the below values.</para>
 
 <programlisting>
   CCP_POSIX_TO_WIN_A      /* from is char *posix, to is char *win32       */
@@ -62,7 +62,8 @@ default.</para>
 
 <para><parameter>size</parameter> is the size of the buffer pointed to
 by <parameter>to</parameter> in bytes.  If <parameter>size</parameter>
-is 0, <function>cygwin_conv_path</function> just returns the required
+is 0, <parameter>to</parameter> may be NULL and
+<function>cygwin_conv_path</function> just returns the required
 buffer size in bytes.  Otherwise, it returns 0 on success, or -1 on
 error and errno is set to one of the below values.</para>
 
@@ -73,6 +74,12 @@ error and errno is set to one of the below values.</para>
                   of what == CCP_POSIX_TO_WIN_A, longer than MAX_PATH.
     ENOSPC        size is less than required for the conversion.
 </programlisting>
+
+<para>In the event of an error, the memory at <parameter>to</parameter> is
+not modified unless the error is <constant>EFAULT</constant> writing to
+the memory at <parameter>to</parameter>, which may happen if
+<parameter>size</parameter> is incorrectly specified.
+
   </refsect1>
 
   <refsect1 id="func-cygwin-conv-path-example">
