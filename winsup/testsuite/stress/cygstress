@@ -73,7 +73,7 @@ stress_tests='
   chmod         # WORKS,CI
   chown         # FAILS     # TODO undecided: "fchown failed, errno=22 (Invalid argument)"
   chroot        # admin
-  clock         # WORKS     # clock_settime was able to set an invalid negative time for timer 'CLOCK_REALTIME'
+  clock         # WORKS,CI  # (fixed in stress-ng 0.18.12: "timer_create failed for timer ...
                             #  ... ''CLOCK_THREAD_CPUTIME_ID'', errno=134")
   clone         # -----
   close         # FAILS     # TODO Cygwin: close(2) is not thread-safe
