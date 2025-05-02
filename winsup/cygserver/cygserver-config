@@ -89,7 +89,7 @@ _sys="`uname`"
 _nt=`expr "${_sys}" : "CYGWIN_NT"`
 
 # Check for running cygserver processes first.
-if ps -ef | grep -v grep | grep -q ${service_name}
+if ps -e | grep -v grep | grep -q ${service_name}
 then
   echo
   echo "There is a cygserver (${service_name}) already running. Nothing to do, apparently."
