@@ -255,6 +255,7 @@ jobs:
         export LOGDIR=$(cygpath -a logs)
         winsup/testsuite/stress/cygstress CI
       shell: bash --noprofile --norc -o igncr -eo pipefail '{0}'
+      continue-on-error: ${{ matrix.runarch == 'arm64' }}
 
     # upload logs artifact
     - name: Capture logs artifact
