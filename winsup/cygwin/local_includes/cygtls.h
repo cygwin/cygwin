@@ -229,7 +229,7 @@ public: /* Do NOT remove this public: line, it's a marker for gentls_offsets. */
   bool interrupt_now (CONTEXT *, siginfo_t&, void *, struct sigaction&);
   void interrupt_setup (siginfo_t&, void *, struct sigaction&);
 
-  bool inside_kernel (CONTEXT *);
+  bool inside_kernel (CONTEXT *, bool inside_cygwin = false);
   void signal_debugger (siginfo_t&);
 
 #ifdef CYGTLS_HANDLE

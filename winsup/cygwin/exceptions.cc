@@ -440,7 +440,7 @@ cygwin_exception::dumpstack ()
 }
 
 bool
-_cygtls::inside_kernel (CONTEXT *cx)
+_cygtls::inside_kernel (CONTEXT *cx, bool inside_cygwin)
 {
   int res;
   MEMORY_BASIC_INFORMATION m;
@@ -462,6 +462,8 @@ _cygtls::inside_kernel (CONTEXT *cx)
   else if (h == hntdll)
     res = true;				/* Calling GetModuleFilename on ntdll.dll
 					   can hang */
+  else if (h == cygwin_hmodule && inside_cygwin)
+    res = true;
   else if (h == user_data->hmodule)
     res = false;
   else if (!GetModuleFileNameW (h, checkdir,
@@ -921,7 +923,7 @@ _cygtls::interrupt_now (CONTEXT *cx, siginfo_t& si, void *handler,
   /* Delay the interrupt if we are
      1) somehow inside the DLL
      2) in a Windows DLL.  */
-  if (incyg || inside_kernel (cx))
+  if (incyg || inside_kernel (cx, true))
     interrupted = false;
   else
     {
@@ -1756,6 +1758,7 @@ _cygtls::call_signal_handler ()
 
       int this_errno = saved_errno;
       reset_signal_arrived ();
+      incyg = false;
       current_sig = 0;	/* Flag that we can accept another signal */
 
       /* We have to fetch the original return address from the signal stack
@@ -1867,6 +1870,8 @@ _cygtls::call_signal_handler ()
 	  api_fatal ("Signal stack corrupted (%D)?", stackptr - orig_stackptr);
 	}
       unlock ();
+
+      incyg = true;
 
       set_signal_mask (_my_tls.sigmask, (this_sa_flags & SA_SIGINFO)
 					? context1.uc_sigmask : this_oldmask);
