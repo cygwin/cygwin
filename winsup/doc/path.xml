@@ -78,7 +78,7 @@ error and errno is set to one of the below values.</para>
 <para>In the event of an error, the memory at <parameter>to</parameter> is
 not modified unless the error is <constant>EFAULT</constant> writing to
 the memory at <parameter>to</parameter>, which may happen if
-<parameter>size</parameter> is incorrectly specified.
+<parameter>size</parameter> is incorrectly specified.</para>
 
   </refsect1>
 
