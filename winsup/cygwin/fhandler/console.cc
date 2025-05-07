@@ -771,6 +771,8 @@ fhandler_console::setup ()
       con.disable_master_thread = true;
       con.master_thread_suspended = false;
       con.num_processed = 0;
+      con.curr_input_mode = tty::restore;
+      con.curr_output_mode = tty::restore;
     }
 }
 
@@ -849,11 +851,6 @@ fhandler_console::set_input_mode (tty::cons_mode m, const termios *t,
 	flags |= ENABLE_PROCESSED_INPUT;
       break;
     }
-  if (con.curr_input_mode != tty::cygwin && m == tty::cygwin)
-    {
-      prev_input_mode_backup = con.prev_input_mode;
-      con.prev_input_mode = oflags;
-    }
   con.curr_input_mode = m;
   SetConsoleMode (p->input_handle, flags);
   if (!(oflags & ENABLE_VIRTUAL_TERMINAL_INPUT)
@@ -892,11 +889,6 @@ fhandler_console::set_output_mode (tty::cons_mode m, const termios *t,
 	  && (!(t->c_oflag & OPOST) || !(t->c_oflag & ONLCR)))
 	flags |= DISABLE_NEWLINE_AUTO_RETURN;
       break;
-    }
-  if (con.curr_output_mode != tty::cygwin && m == tty::cygwin)
-    {
-      prev_output_mode_backup = con.prev_output_mode;
-      GetConsoleMode (p->output_handle, &con.prev_output_mode);
     }
   con.curr_output_mode = m;
   acquire_attach_mutex (mutex_timeout);
@@ -1845,6 +1837,12 @@ fhandler_console::open (int flags, mode_t)
   handle_set.output_handle = h;
   release_output_mutex ();
 
+  if (con.owner == GetCurrentProcessId ())
+    {
+      GetConsoleMode (get_handle (), &con.prev_input_mode);
+      GetConsoleMode (get_output_handle (), &con.prev_output_mode);
+    }
+
   wpbuf.init ();
 
   handle_set.input_mutex = input_mutex;
@@ -1888,6 +1886,19 @@ fhandler_console::open (int flags, mode_t)
       extern int sawTERM;
       if (con_is_legacy && !sawTERM)
 	setenv ("TERM", "cygwin", 1);
+    }
+
+  if (con.curr_input_mode != tty::cygwin)
+    {
+      prev_input_mode_backup = con.prev_input_mode;
+      GetConsoleMode (get_handle (), &con.prev_input_mode);
+      set_input_mode (tty::cygwin, &get_ttyp ()->ti, &handle_set);
+    }
+  if (con.curr_output_mode != tty::cygwin)
+    {
+      prev_output_mode_backup = con.prev_output_mode;
+      GetConsoleMode (get_output_handle (), &con.prev_output_mode);
+      set_output_mode (tty::cygwin, &get_ttyp ()->ti, &handle_set);
     }
 
   debug_printf ("opened conin$ %p, conout$ %p", get_handle (),
@@ -4738,7 +4749,7 @@ fhandler_console::cons_mode_on_close (handle_set_t *p)
   NTSTATUS status =
     NtQueryInformationProcess (GetCurrentProcess (), ProcessBasicInformation,
 			       &pbi, sizeof (pbi), NULL);
-  if (NT_SUCCESS (status)
+  if (NT_SUCCESS (status) && cygwin_pid (con.owner)
       && !process_alive ((DWORD) pbi.InheritedFromUniqueProcessId))
     /* Execed from normal cygwin process and the parent has been exited. */
     return tty::cygwin;
