@@ -905,13 +905,14 @@ fhandler_console::setup_for_non_cygwin_app ()
   /* Setting-up console mode for non-cygwin app. */
   /* If conmode is set to tty::native for non-cygwin apps
      in background, tty settings of the shell is reflected
-     to the console mode of the app. So, use tty::restore
-     for background process instead. */
-  tty::cons_mode conmode =
-    (get_ttyp ()->getpgid ()== myself->pgid) ? tty::native : tty::restore;
-  set_input_mode (conmode, &tc ()->ti, get_handle_set ());
-  set_output_mode (conmode, &tc ()->ti, get_handle_set ());
-  set_disable_master_thread (true, this);
+     to the console mode of the app. So, do not change the
+     console mode. */
+  if (get_ttyp ()->getpgid () == myself->pgid)
+    {
+      set_input_mode (tty::native, &tc ()->ti, get_handle_set ());
+      set_output_mode (tty::native, &tc ()->ti, get_handle_set ());
+      set_disable_master_thread (true, this);
+    }
 }
 
 void
