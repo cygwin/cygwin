@@ -29,10 +29,17 @@ QUICKREF
 	memchr ansi pure
 */
 
-#include <_ansi.h>
-#include <string.h>
-#include <limits.h>
-#include "../../string/local.h"
+#include <sys/asm.h>
+#include <stddef.h>
+#include "rv_string.h"
+
+// Move size
+#if __riscv_zilsd
+#define MV_SZ           8
+#else
+#define MV_SZ           SZREG
+#endif
+
 
 void *
 memchr (const void *src_void,
@@ -43,47 +50,93 @@ memchr (const void *src_void,
   unsigned char d = c;
 
 #if !defined(PREFER_SIZE_OVER_SPEED) && !defined(__OPTIMIZE_SIZE__)
-  unsigned long *asrc;
-  unsigned long  mask;
-  unsigned int i;
+  size_t align = (uintptr_t) src & (MV_SZ - 1);
 
-  while (UNALIGNED_X(src))
+  if (align)
     {
-      if (!length--)
-        return NULL;
-      if (*src == d)
-        return (void *) src;
-      src++;
-    }
+      align = MV_SZ - align;
 
-  if (!TOO_SMALL_LITTLE_BLOCK(length))
-    {
-      /* If we get this far, we know that length is large and src is
-         word-aligned. */
-      /* The fast code reads the source one word at a time and only
-         performs the bytewise search on word-sized segments if they
-         contain the search character, which is detected by XORing
-         the word-sized segment with a word-sized block of the search
-         character and then detecting for the presence of NUL in the
-         result.  */
-      asrc = (unsigned long *) src;
-      mask = d << 8 | d;
-      mask = mask << 16 | mask;
-      for (i = 32; i < sizeof(mask) * 8; i <<= 1)
-        mask = (mask << i) | mask;
+      if (length < align) align = length;
 
-      while (!TOO_SMALL_LITTLE_BLOCK(length))
+      switch (align)
         {
-          if (DETECT_CHAR(*asrc, mask))
-            break;
-          length -= LITTLE_BLOCK_SIZE;
-          asrc++;
+#if MV_SZ == 8
+          case 7:
+            if (*src++ == d) return (void *) (src - 1);
+          case 6:
+            if (*src++ == d) return (void *) (src - 1);
+          case 5:
+            if (*src++ == d) return (void *) (src - 1);
+          case 4:
+            if (*src++ == d) return (void *) (src - 1);
+#endif /* MV_SZ == 8 */
+          case 3:
+            if (*src++ == d) return (void *) (src - 1);
+          case 2:
+            if (*src++ == d) return (void *) (src - 1);
+          case 1:
+            if (*src++ == d) return (void *) (src - 1);
         }
 
-      /* If there are fewer than LITTLE_BLOCK_SIZE characters left,
-         then we resort to the bytewise loop.  */
+      length -= align;
+    }
 
-      src = (unsigned char *) asrc;
+  const unsigned char *end_addr = src + (length & ~(MV_SZ - 1));
+
+  if (src < end_addr)
+    {
+      uintxlen_t mask = __libc_splat_byte(d);
+
+      do
+        {
+          uintlslen_t val = *(uintlslen_t*) src;
+          uintxlen_t word1 = val ^ mask;
+
+          if (__libc_detect_null(word1))
+            {
+#if __riscv_zbb
+              word1 = ~__LIBC_RISCV_ZBB_ORC_B(word1);
+              word1 = __LIBC_RISCV_ZBB_CNT_Z(word1);
+
+              return (void *) (src + (word1 >> 3));
+#else /* not __riscv_zbb */
+              if (*src++ == d) return (void *) (src - 1);
+              if (*src++ == d) return (void *) (src - 1);
+              if (*src++ == d) return (void *) (src - 1);
+#if __riscv_xlen == 64
+              if (*src++ == d) return (void *) (src - 1);
+              if (*src++ == d) return (void *) (src - 1);
+              if (*src++ == d) return (void *) (src - 1);
+              if (*src++ == d) return (void *) (src - 1);
+#endif /* __riscv_xlen == 64 */
+              return (void *) src;
+#endif /* __riscv_zbb */
+            }
+#if __riscv_zilsd
+          uintxlen_t word2 = (val >> 32);
+          word2 ^= mask;
+
+          if (__libc_detect_null(word2))
+            {
+              src += MV_SZ / 2;
+#if __riscv_zbb
+              word2 = ~__LIBC_RISCV_ZBB_ORC_B(word2);
+              word2 = __LIBC_RISCV_ZBB_CNT_Z(word2);
+
+              return (void *) (src + (word2 >> 3));
+#else /* not __riscv_zbb */
+              if (*src++ == d) return (void *) (src - 1);
+              if (*src++ == d) return (void *) (src - 1);
+              if (*src++ == d) return (void *) (src - 1);
+              return (void *) src;
+#endif /* __riscv_zbb */
+            }
+#endif /* __riscv_zilsd */
+
+          src += MV_SZ;
+        } while (src < end_addr);
+
+      length &= MV_SZ - 1;
     }
 
 #endif /* not PREFER_SIZE_OVER_SPEED */

@@ -20,20 +20,24 @@
 
   // Determine which intrinsics to use based on XLEN and endianness
   #if __riscv_xlen == 64
-    #define __LIBC_RISCV_ZBB_ORC_B(x)       __riscv_orc_b_64(x)
+    #define __LIBC_RISCV_ZBB_ORC_B(x)         __riscv_orc_b_64(x)
 
     #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-      #define __LIBC_RISCV_ZBB_CNT_Z(x)     __riscv_ctz_64(x)
+      #define __LIBC_RISCV_ZBB_CNT_Z(x)       __riscv_ctz_64(x)
+      #define __LIBC_RISCV_ZBB_CNT_Z_REV(x)   __riscv_clz_64(x)
     #else
-      #define __LIBC_RISCV_ZBB_CNT_Z(x)     __riscv_clz_64(x)
+      #define __LIBC_RISCV_ZBB_CNT_Z(x)       __riscv_clz_64(x)
+      #define __LIBC_RISCV_ZBB_CNT_Z_REV(x)   __riscv_ctz_64(x)
     #endif
   #else
-    #define __LIBC_RISCV_ZBB_ORC_B(x)       __riscv_orc_b_32(x)
+    #define __LIBC_RISCV_ZBB_ORC_B(x)         __riscv_orc_b_32(x)
 
     #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-      #define __LIBC_RISCV_ZBB_CNT_Z(x)     __riscv_ctz_32(x)
+      #define __LIBC_RISCV_ZBB_CNT_Z(x)       __riscv_ctz_32(x)
+      #define __LIBC_RISCV_ZBB_CNT_Z_REV(x)   __riscv_clz_32(x)
     #else
-      #define __LIBC_RISCV_ZBB_CNT_Z(x)     __riscv_clz_32(x)
+      #define __LIBC_RISCV_ZBB_CNT_Z(x)       __riscv_clz_32(x)
+      #define __LIBC_RISCV_ZBB_CNT_Z_REV(x)   __riscv_ctz_32(x)
     #endif
   #endif
 #endif
@@ -118,6 +122,35 @@ static __inline char *__libc_strcpy(char *dst, const char *src, bool ret_start)
     } while (ch);
 
   return ret_start ? dst0 : dst - 1;
+}
+
+
+static __inline uintxlen_t __libc_splat_byte(unsigned char c)
+{
+  uintxlen_t val;
+
+#if __riscv_zbkb
+  asm volatile ("packh %0, %1, %1"
+                : "=r" (val)
+                : "r" (c)
+      );
+#if __riscv_xlen == 64
+  asm volatile ("packw %0, %0, %0"
+                : "+r" (val)
+  );
+#endif /* __riscv_xlen == 64 */
+  asm volatile ("pack %0, %0, %0"
+                : "+r" (val)
+  );
+#else /* not __riscv_zbkb */
+  val = (c << 8) | c;
+  val = (val << 16) | val;
+#if __riscv_xlen == 64
+  val = (val << 32) | val;
+#endif /* __riscv_xlen == 64 */
+#endif /* __riscv_zbkb */
+
+  return val;
 }
 
 

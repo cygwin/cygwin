@@ -11,4 +11,11 @@ typedef uint32_t uintxlen_t;
 # error __riscv_xlen must equal 32 or 64
 #endif
 
+/* Load/Store length */
+#if __riscv_zilsd
+typedef uint64_t uintlslen_t;
+#else
+typedef uintxlen_t uintlslen_t;
+#endif
+
 #endif /* _XLENINT_H */
