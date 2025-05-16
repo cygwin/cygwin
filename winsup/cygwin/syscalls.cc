@@ -1472,11 +1472,6 @@ open (const char *unix_path, int flags, ...)
       mode = va_arg (ap, mode_t);
       va_end (ap);
 
-      cygheap_fdnew fd;
-
-      if (fd < 0)
-	__leave;		/* errno already set */
-
       /* When O_PATH is specified in flags, flag bits other than O_CLOEXEC,
 	 O_DIRECTORY, and O_NOFOLLOW are ignored. */
       if (flags & O_PATH)
@@ -1577,6 +1572,12 @@ open (const char *unix_path, int flags, ...)
       if ((flags & O_TMPFILE) && !fh->pc.isremote ())
 	try_to_bin (fh->pc, fh->get_handle (), DELETE,
 		    FILE_OPEN_FOR_BACKUP_INTENT);
+
+      cygheap_fdnew fd;
+
+      if (fd < 0)
+	__leave;		/* errno already set */
+
       fd = fh;
       if (fd <= 2)
 	set_std_handle (fd);
