@@ -597,7 +597,7 @@ try_to_debug ()
     {
       extern void break_here ();
       break_here ();
-      return 1;
+      return 0;
     }
 
   /* Otherwise, invoke the JIT debugger, if set */
@@ -812,6 +812,8 @@ exception::handle (EXCEPTION_RECORD *e, exception_list *frame, CONTEXT *in,
   else if (try_to_debug ())
     {
       debugging = 1;
+      /* If a JIT debugger just attached, replay the exception for the benefit
+	 of that */
       return ExceptionContinueExecution;
     }
 
