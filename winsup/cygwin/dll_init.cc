@@ -633,7 +633,7 @@ dll_list::track_self ()
 static PVOID
 reserve_at (PCWCHAR name, PVOID here, PVOID dll_base, DWORD dll_size)
 {
-  DWORD size;
+  SIZE_T size;
   MEMORY_BASIC_INFORMATION mb;
 
   if (!VirtualQuery (here, &mb, sizeof (mb)))
