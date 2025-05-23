@@ -51,14 +51,14 @@
 
 memset:
 #if defined(PREFER_SIZE_OVER_SPEED) || defined(__OPTIMIZE_SIZE__)
-  mv a3, a0
-  beqz a2, .Ldone
+  mv     a3, a0
+  beqz   a2, .Ldone
 
 .Lset:
-  sb a1, 0(a3)
+  sb     a1, 0(a3)
   addi   a2, a2, -1
   addi   a3, a3, 1
-  bnez a2, .Lset
+  bnez   a2, .Lset
 
 .Ldone:
   ret
