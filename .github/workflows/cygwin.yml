@@ -155,7 +155,8 @@ jobs:
         ../configure --prefix=/usr -v &&
         export MAKEFLAGS=-j$(nproc) &&
         make &&
-        make install tooldir=/usr gcc_tooldir=/usr DESTDIR=${DESTDIR} &&
+        export CYGWIN=winsymlinks:sys &&
+        make install -j1 tooldir=/usr gcc_tooldir=/usr DESTDIR=${DESTDIR} &&
         (cd */newlib; make info man) &&
         (cd */newlib; make install-info install-man tooldir=/usr gcc_tooldir=/usr DESTDIR=${DESTDIR})
       shell: bash --noprofile --norc -eo pipefail '{0}'
@@ -215,7 +216,7 @@ jobs:
           runarch: arm64
           runner: windows-11-arm
     runs-on: ${{ matrix.runner }}
-    name: Windows tests ${{ matrix.pkgarch }} on ${{ matrix.runarch }}
+    name: stress tests ${{ matrix.pkgarch }} on ${{ matrix.runarch }} Windows
 
     steps:
     - run: git config --global core.autocrlf input
@@ -230,8 +231,6 @@ jobs:
         packages: |
           procps-ng
           stress-ng
-          unzip
-          wget
 
     # fetch the just-built cygwin installation artifact
     - name: Unpack just-built Cygwin artifact
@@ -248,7 +247,7 @@ jobs:
     # don't exist (yet) to let us do that...
 
     # run stress-test
-    - name: Run tests
+    - name: Run stress tests
       run: |
         export PATH=/usr/bin:$(cygpath ${SYSTEMROOT})/system32
         uname -a
@@ -264,4 +263,81 @@ jobs:
         name: stress-logs-${{ matrix.pkgarch }}-on-${{ matrix.runarch }}
         path: |
           logs
+      if: ${{ !cancelled() }}
+
+  windows-stc-regression-test:
+    needs: windows-build
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - pkgarch: x86_64
+          runarch: x86_64
+          runner: windows-latest
+        - pkgarch: x86_64
+          runarch: arm64
+          runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    name: stc tests ${{ matrix.pkgarch }} on ${{ matrix.runarch }} Windows
+
+    steps:
+    # install cygwin
+    - name: Install Cygwin
+      id: cygwin-install
+      uses: cygwin/cygwin-install-action@master
+      with:
+        platform: ${{ matrix.pkgarch }}
+        packages: |
+          gcc-core
+          git
+          meson
+          ninja
+
+    # The download-artifact action currently seems to fail with EPERM when it
+    # tries to unpack over a symlink. Remove the only such instance.
+    - name: Workaround download-artifact issue
+      run: |
+        cd /d ${{ steps.cygwin-install.outputs.root }}\lib
+        bash -c 'rm libg.a'
+      shell: cmd
+
+    # fetch the just-built cygwin installation artifact
+    - name: Unpack just-built Cygwin artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: cygwin-install-${{ matrix.pkgarch }}
+        # use the install-dir of cygwin-install-action above, so we unpack the
+        # artifact over it
+        path: ${{ steps.cygwin-install.outputs.root }}
+
+    # This isn't quite right, as it just overwrites existing files, it doesn't
+    # remove anything which is no longer provided. Ideally, we'd make a cygwin
+    # package of the just-built cygwin version and install it here, but tools
+    # don't exist (yet) to let us do that...
+
+    # fetch and build stc test
+    - name: Fetch and build stc tests
+      run: |
+        export PATH=/usr/bin:$(cygpath ${SYSTEMROOT})/system32
+        uname -a
+        git clone https://cygwin.com/git/cygwin-apps/stc.git --depth 1
+        meson setup _build stc
+        ninja -C _build
+      shell: bash --noprofile --norc -o igncr -eo pipefail '{0}'
+
+    # run stc test
+    - name: Run stc tests
+      run: |
+        export PATH=/usr/bin:$(cygpath ${SYSTEMROOT})/system32
+        meson test -C _build
+      shell: bash --noprofile --norc -o igncr -eo pipefail '{0}'
+
+    # upload logs artifact
+    - name: Capture logs artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: stc-logs-${{ matrix.pkgarch }}-on-${{ matrix.runarch }}
+        path: |
+          _build/meson-logs
       if: ${{ !cancelled() }}
