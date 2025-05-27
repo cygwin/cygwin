@@ -48,7 +48,7 @@ clean-local:
 	rm -f *.5
 	rm -f *.info* charmap
 
-install-html-local: cygwin-ug-net/cygwin-ug-net.html cygwin-api/cygwin-api.html
+install-html-local: cygwin-ug-net/cygwin-ug-net.html cygwin-api/cygwin-api.html faq/faq.html
 	@$(MKDIR_P) $(DESTDIR)$(htmldir)/cygwin-ug-net
 	$(INSTALL_DATA) cygwin-ug-net/*.html $(DESTDIR)$(htmldir)/cygwin-ug-net
 	(cd $(DESTDIR)$(htmldir)/cygwin-ug-net && ln -f cygwin-ug-net.html index.html)
@@ -57,6 +57,10 @@ install-html-local: cygwin-ug-net/cygwin-ug-net.html cygwin-api/cygwin-api.html
 	$(INSTALL_DATA) cygwin-api/*.html $(DESTDIR)$(htmldir)/cygwin-api
 	(cd $(DESTDIR)$(htmldir)/cygwin-api && ln -f cygwin-api.html index.html)
 	$(INSTALL_DATA) $(srcdir)/docbook.css $(DESTDIR)$(htmldir)/cygwin-api
+	@$(MKDIR_P) $(DESTDIR)$(htmldir)/faq
+	$(INSTALL_DATA) faq/faq.html $(DESTDIR)$(htmldir)/faq
+	(cd $(DESTDIR)$(htmldir)/faq && ln -f faq.html index.html)
+	$(INSTALL_DATA) $(srcdir)/docbook.css $(DESTDIR)$(htmldir)/faq
 
 install-extra-man: api2man.stamp intro2man.stamp utils2man.stamp
 	@$(MKDIR_P) $(DESTDIR)$(man1dir)
@@ -100,6 +104,9 @@ uninstall-html:
 	done ;
 	rm -f $(DESTDIR)$(htmldir)/cygwin-api/index.html
 	rm -f $(DESTDIR)$(htmldir)/cygwin-api/docbook.css
+	rm -f $(DESTDIR)$(htmldir)/faq/faq.html
+	rm -f $(DESTDIR)$(htmldir)/faq/index.html
+	rm -f $(DESTDIR)$(htmldir)/faq/docbook.css
 
 uninstall-info:
 	for i in *.info* ; do \
