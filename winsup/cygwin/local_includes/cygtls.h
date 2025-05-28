@@ -198,7 +198,7 @@ public: /* Do NOT remove this public: line, it's a marker for gentls_offsets. */
   class san *andreas;
   waitq wq;
   volatile int current_sig;
-  unsigned incyg;
+  volatile unsigned incyg;
   volatile unsigned stacklock;
   __tlsstack_t *stackptr;
   __tlsstack_t stack[TLS_STACK_SIZE];

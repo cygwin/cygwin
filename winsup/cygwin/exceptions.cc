@@ -932,7 +932,7 @@ _cygtls::interrupt_now (CONTEXT *cx, siginfo_t& si, void *handler,
   /* Delay the interrupt if we are
      1) somehow inside the DLL
      2) in a Windows DLL.  */
-  if (incyg || inside_kernel (cx, true))
+  if (incyg || inside_kernel (cx))
     interrupted = false;
   else
     {
@@ -1797,7 +1797,7 @@ _cygtls::call_signal_handler ()
 
       int this_errno = saved_errno;
       reset_signal_arrived ();
-      incyg = false;
+      incyg = 0;
       current_sig = 0;	/* Flag that we can accept another signal */
 
       /* We have to fetch the original return address from the signal stack
@@ -1910,7 +1910,7 @@ _cygtls::call_signal_handler ()
 	}
       unlock ();
 
-      incyg = true;
+      incyg = 1;
 
       set_signal_mask (_my_tls.sigmask, (this_sa_flags & SA_SIGINFO)
 					? context1.uc_sigmask : this_oldmask);
