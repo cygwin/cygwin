@@ -653,6 +653,13 @@ exception::handle (EXCEPTION_RECORD *e, exception_list *frame, CONTEXT *in,
   static int NO_COPY debugging = 0;
   _cygtls& me = _my_tls;
 
+  if (me.suspend_on_exception)
+    {
+      SuspendThread (GetCurrentThread ());
+      if (e->ExceptionCode == (DWORD) STATUS_SINGLE_STEP)
+	return ExceptionContinueExecution;
+    }
+
   if (debugging && ++debugging < 500000)
     {
       SetThreadPriority (hMainThread, THREAD_PRIORITY_NORMAL);
@@ -929,6 +936,36 @@ _cygtls::interrupt_now (CONTEXT *cx, siginfo_t& si, void *handler,
     interrupted = false;
   else
     {
+#ifdef __x86_64__
+      /* When the Rip points to an instruction that causes an exception,
+	 modifying Rip and calling ResumeThread() may sometimes result in
+	 a crash. To prevent this, advance execution by a single instruction
+	 by setting the trap flag (TF) before calling ResumeThread(). This
+	 will trigger either STATUS_SINGLE_STEP or the exception caused by
+	 the instruction that Rip originally pointed to.  By suspending the
+	 targeted thread within exception::handle(), Rip no longer points
+	 to the problematic instruction, allowing safe handling of the
+	 interrupt. As a result, Rip can be adjusted appropriately, and the
+	 thread can resume execution without unexpected crashes.  */
+      if (!inside_kernel (cx, true))
+	{
+	  cx->EFlags |= 0x100; /* Set TF (setup single step execution) */
+	  SetThreadContext (*this, cx);
+	  suspend_on_exception = true;
+	  ResumeThread (*this);
+	  ULONG cnt = 0;
+	  NTSTATUS status;
+	  do
+	    {
+	      yield ();
+	      status = NtQueryInformationThread (*this, ThreadSuspendCount,
+						 &cnt, sizeof (cnt), NULL);
+	    }
+	  while (NT_SUCCESS (status) && cnt == 0);
+	  GetThreadContext (*this, cx);
+	  suspend_on_exception = false;
+	}
+#endif
       DWORD64 &ip = cx->_CX_instPtr;
       push (ip);
       interrupt_setup (si, handler, siga);

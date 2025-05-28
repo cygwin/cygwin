@@ -1366,7 +1366,8 @@ typedef enum _THREADINFOCLASS
   ThreadBasicInformation = 0,
   ThreadTimes = 1,
   ThreadImpersonationToken = 5,
-  ThreadQuerySetWin32StartAddress = 9
+  ThreadQuerySetWin32StartAddress = 9,
+  ThreadSuspendCount = 35
 } THREADINFOCLASS, *PTHREADINFOCLASS;
 
 typedef struct _THREAD_BASIC_INFORMATION
