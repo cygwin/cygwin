@@ -279,9 +279,8 @@ extern "C" void __posix_spawn_sem_release (void *sem, int error);
 extern DWORD mutex_timeout; /* defined in fhandler_termios.cc */
 
 int
-child_info_spawn::worker (const char *prog_arg, const char *const *argv,
-			  const char *const envp[], int mode,
-			  int in__stdin, int in__stdout)
+child_info_spawn::worker (int mode, const char *prog_arg,
+			  const spawn_worker_args &args)
 {
   bool rc;
   int res = -1;
@@ -307,7 +306,7 @@ child_info_spawn::worker (const char *prog_arg, const char *const *argv,
   syscall_printf ("mode = %d, prog_arg = %.9500s", mode, prog_arg);
 
   /* FIXME: This is no error condition on Linux. */
-  if (argv == NULL)
+  if (args.argv == NULL)
     {
       syscall_printf ("argv is NULL");
       set_errno (EINVAL);
@@ -345,7 +344,7 @@ child_info_spawn::worker (const char *prog_arg, const char *const *argv,
 	 We need to quote any argument that has whitespace or embedded "'s.  */
 
       int ac;
-      for (ac = 0; argv[ac]; ac++)
+      for (ac = 0; args.argv[ac]; ac++)
 	;
 
       int err;
@@ -357,7 +356,7 @@ child_info_spawn::worker (const char *prog_arg, const char *const *argv,
 	  __leave;
 	}
 
-      res = newargv.setup (prog_arg, real_path, ext, ac, argv, p_type_exec);
+      res = newargv.setup (prog_arg, real_path, ext, ac, args.argv, p_type_exec);
 
       if (res)
 	__leave;
@@ -504,7 +503,7 @@ child_info_spawn::worker (const char *prog_arg, const char *const *argv,
       bool switch_user = ::cygheap->user.issetuid ()
 			 && (::cygheap->user.saved_uid
 			     != ::cygheap->user.real_uid);
-      moreinfo->envp = build_env (envp, envblock, moreinfo->envc,
+      moreinfo->envp = build_env (args.envp, envblock, moreinfo->envc,
 				  real_path.iscygexec (),
 				  switch_user ? ::cygheap->user.primary_token ()
 					      : NULL);
@@ -515,8 +514,9 @@ child_info_spawn::worker (const char *prog_arg, const char *const *argv,
 	  __leave;
 	}
       set (chtype, real_path.iscygexec ());
-      __stdin = in__stdin;
-      __stdout = in__stdout;
+      __stdin = args.stdfds[0];
+      __stdout = args.stdfds[1];
+      __stderr = args.stdfds[2];
       record_children ();
 
       si.lpReserved2 = (LPBYTE) this;
@@ -573,9 +573,9 @@ child_info_spawn::worker (const char *prog_arg, const char *const *argv,
 			 PROCESS_QUERY_LIMITED_INFORMATION))
 	sa = &sec_none_nih;
 
-      int fileno_stdin = in__stdin < 0 ? 0 : in__stdin;
-      int fileno_stdout = in__stdout < 0 ? 1 : in__stdout;
-      int fileno_stderr = 2;
+      int fileno_stdin = args.stdfds[0] < 0 ? 0 : args.stdfds[0];
+      int fileno_stdout = args.stdfds[1] < 0 ? 1 : args.stdfds[1];
+      int fileno_stderr = args.stdfds[2] < 0 ? 2 : args.stdfds[2];
 
       bool no_pcon = mode != _P_OVERLAY && mode != _P_WAIT;
       term_spawn_worker.setup (iscygwin (), handle (fileno_stdin, false),
@@ -954,7 +954,7 @@ spawnve (int mode, const char *path, const char *const *argv,
   switch (_P_MODE (mode))
     {
     case _P_OVERLAY:
-      ch_spawn.worker (path, argv, envp, mode);
+      ch_spawn.worker (mode, path, spawn_worker_args (argv, envp));
       /* Errno should be set by worker.  */
       ret = -1;
       break;
@@ -964,7 +964,7 @@ spawnve (int mode, const char *path, const char *const *argv,
     case _P_WAIT:
     case _P_DETACH:
     case _P_SYSTEM:
-      ret = ch_spawn_local.worker (path, argv, envp, mode);
+      ret = ch_spawn_local.worker (mode, path, spawn_worker_args (argv, envp));
       break;
     default:
       set_errno (EINVAL);
@@ -1377,9 +1377,9 @@ __posix_spawn_execvpe (const char *path, char * const *argv, char *const *envp,
   if (!envp)
     envp = empty_env;
   ch_spawn.set_sem (sem);
-  ch_spawn.worker (use_env_path ? (find_exec (path, buf, "PATH", FE_NNF) ?: "")
-				: path,
-		   argv, envp, _P_OVERLAY);
+  ch_spawn.worker (_P_OVERLAY,
+       use_env_path ? (find_exec (path, buf, "PATH", FE_NNF) ?: "") : path,
+		   spawn_worker_args (argv, envp));
   __posix_spawn_sem_release (sem, errno);
   return -1;
 }
