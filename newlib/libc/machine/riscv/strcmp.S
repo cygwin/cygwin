@@ -48,10 +48,14 @@ strcmp:
     REG_L a2, \i*SZREG(a0)
     REG_L a3, \i*SZREG(a1)
 
-    and   a4, a2, a5
-    or    t1, a2, a5
-    add   a4, a4, a5
-    or    a4, a4, t1
+    #if __riscv_zbb
+      orc.b a4, a2
+    #else
+      and   a4, a2, a5
+      or    t1, a2, a5
+      add   a4, a4, a5
+      or    a4, a4, t1
+    #endif
 
     bne   a4, t2, .Lnull\i
     .if \i+1-\n
