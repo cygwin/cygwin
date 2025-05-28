@@ -1463,6 +1463,202 @@ do_posix_spawn (pid_t *pid, const char *path,
 {
   syscall_printf ("posix_spawn%s (%p, %s, %p, %p, %p, %p)",
       use_env_path ? "p" : "", pid, path, fa, sa, argv, envp);
+
+  /* TODO: possibly implement spawnattr flags:
+     POSIX_SPAWN_RESETIDS
+     POSIX_SPAWN_SETPGROUP
+     POSIX_SPAWN_SETSCHEDPARAM
+     POSIX_SPAWN_SETSCHEDULER
+     POSIX_SPAWN_SETSIGDEF
+     POSIX_SPAWN_SETSIGMASK */
+  if (sa && (*sa)->sa_flags)
+    goto fallback;
+
+  {
+    path_conv buf;
+    spawn_worker_args args (argv, envp ?: environ);
+    /* lock the process to temporarily manipulate file descriptors for the
+       spawn operation */
+    lock_process now;
+    posix_spawn_file_actions_entry_t *fae;
+    /* make sure there is enough room in oldflags for the standard descriptors
+       at least */
+    size_t oldflagslen = cygheap->fdtab.size > 3 ? cygheap->fdtab.size : 3;
+    pid_t chpid;
+    int oldflags[oldflagslen];
+    int ret = -1;
+    memset (oldflags, -1, oldflagslen * sizeof (int));
+
+    if (fa)
+      {
+	STAILQ_FOREACH(fae, &(*fa)->fa_list, fae_list)
+	  {
+	    switch (fae->fae_action)
+	      {
+	      case __posix_spawn_file_actions_entry::FAE_DUP2:
+		/* only support new file descriptors 0 through 2 for now as
+		   least-common-denominator for all proceses, and also the
+		   most common operation */
+		if (fae->fae_newfildes < 0 || fae->fae_newfildes > 2)
+		  goto closes;
+
+		if (args.stdfds[fae->fae_newfildes] != -1)
+		  close (args.stdfds[fae->fae_newfildes]);
+
+		if (fae->fae_fildes >= 0 && fae->fae_fildes <= 2 &&
+		    args.stdfds[fae->fae_fildes] != -1)
+		  args.stdfds[fae->fae_newfildes] =
+					    dup (args.stdfds[fae->fae_fildes]);
+		else
+		  args.stdfds[fae->fae_newfildes] = dup (fae->fae_fildes);
+
+		if (args.stdfds[fae->fae_newfildes] < 0)
+		  {
+		    args.stdfds[fae->fae_newfildes] = -1;
+		    ret = get_errno ();
+		    goto closes;
+		  }
+
+		if (oldflags[fae->fae_newfildes] == -1)
+		  oldflags[fae->fae_newfildes] = fcntl (fae->fae_newfildes,
+							F_GETFD, 0);
+		fcntl (fae->fae_newfildes, F_SETFD, FD_CLOEXEC);
+		break;
+
+	      case __posix_spawn_file_actions_entry::FAE_OPEN:
+		/* only support new file descriptors 0 through 2 for now as
+		   least-common-denominator for all proceses, and also the
+		   most common operation */
+		if (fae->fae_fildes < 0 || fae->fae_fildes > 2)
+		  goto closes;
+		if (args.stdfds[fae->fae_fildes] != -1)
+		  close (args.stdfds[fae->fae_fildes]);
+		args.stdfds[fae->fae_fildes] = openat (args.cwdfd,
+						       fae->fae_path,
+						       fae->fae_oflag,
+						       fae->fae_mode);
+		if (args.stdfds[fae->fae_fildes] < 0)
+		  {
+		    args.stdfds[fae->fae_fildes] = -1;
+		    ret = get_errno ();
+		    goto closes;
+		  }
+		if (oldflags[fae->fae_fildes] == -1)
+		  oldflags[fae->fae_fildes] = fcntl (fae->fae_fildes, F_GETFD,
+						     0);
+		fcntl (fae->fae_fildes, F_SETFD, FD_CLOEXEC);
+		break;
+	      case __posix_spawn_file_actions_entry::FAE_CLOSE:
+		/* If we're asked to close one of the standard handles, and
+		   we've already opened or duped that handle, mark it as CLOEXEC
+		   rather than actually closing it to make sure the child gets a
+		   closed handle.  If that same handle then gets opened or duped
+		   again later, the existing handle will be closed then */
+		if (fae->fae_fildes >= 0 && fae->fae_fildes <= 2 &&
+		    args.stdfds[fae->fae_fildes] != -1)
+		  {
+		    fcntl (args.stdfds[fae->fae_fildes], F_SETFD, FD_CLOEXEC);
+		  }
+		else if (fae->fae_fildes >= 0 &&
+			 (unsigned) fae->fae_fildes < oldflagslen)
+		  {
+		    if (oldflags[fae->fae_fildes] == -1)
+		      oldflags[fae->fae_fildes] = fcntl (fae->fae_fildes,
+							 F_GETFD, 0);
+		    fcntl (fae->fae_fildes, F_SETFD, FD_CLOEXEC);
+		  }
+		else
+		  {
+		    ret = EBADF;
+		    goto closes;
+		  }
+		break;
+	      case __posix_spawn_file_actions_entry::FAE_FCHDIR:
+		if (args.cwdfd >= 0)
+		  close (args.cwdfd);
+		args.cwdfd = dup (fae->fae_dirfd);
+		if (args.cwdfd < 0)
+		  {
+		    ret = get_errno ();
+		    goto closes;
+		  }
+		/* the cloexec flag will be set or cleared in ch_spawn.worker
+		   as necessary */
+		fcntl (args.cwdfd, F_SETFD, FD_CLOEXEC);
+		break;
+	      case __posix_spawn_file_actions_entry::FAE_CHDIR:
+		{
+		  int newfd = openat (args.cwdfd, fae->fae_dir,
+				      O_SEARCH|O_DIRECTORY|O_CLOEXEC, 0755);
+		  if (newfd < 0)
+		  {
+		    ret = get_errno ();
+		    goto closes;
+		  }
+		  if (args.cwdfd >= 0)
+		    close (args.cwdfd);
+		  args.cwdfd = newfd;
+		  break;
+		}
+	      default:
+		goto closes;
+	      }
+	  }
+
+	/* From popen: If fds are in the range of stdin/stdout/stderr, move
+	   them out of the way.  Otherwise, spawn_guts will be confused.
+	   We do this here rather than adding logic to spawn_guts because
+	   spawn_guts is likely to be a more frequently used routine and
+	   having stdin/stdout/stderr closed and reassigned to pipe handles
+	   is an unlikely event. */
+	for (int i = 0; i < 3; i++)
+	  if (args.stdfds[i] >= 0 && args.stdfds[i] <= 2)
+	    {
+	      cygheap_fdnew newfd (3);
+	      cygheap->fdtab.move_fd (args.stdfds[i], newfd);
+	      args.stdfds[i] = newfd;
+	    }
+
+	if (args.cwdfd >= 0 && args.cwdfd <= 2)
+	  {
+	    cygheap_fdnew newfd (3);
+	    cygheap->fdtab.move_fd (args.cwdfd, newfd);
+	    args.cwdfd = newfd;
+	  }
+      }
+
+    chpid = child_info_spawn (_CH_NADA).worker (_P_NOWAIT,
+	use_env_path ?
+		(find_exec (path, buf, "PATH", FE_NNF, NULL, args.cwdfd) ?: "")
+		     : path,
+	args);
+
+    if (chpid < 0)
+      {
+	ret = get_errno ();
+      }
+    else
+      {
+	*pid = chpid;
+	ret = 0;
+      }
+
+closes:
+    int save_errno = get_errno ();
+    if (args.cwdfd >= 0)
+      close (args.cwdfd);
+    for (size_t i = 0; i < 3; i++)
+      if (args.stdfds[i] != -1)
+	close (args.stdfds[i]);
+    for (size_t i = 0; i < oldflagslen; i++)
+      if (oldflags[i] != -1)
+	fcntl (i, F_SETFD, oldflags[i]);
+    set_errno (save_errno);
+    if (ret != -1 && ret != EMFILE && ret != ENFILE)
+      return ret;
+  }
+
+fallback:
   if (use_env_path)
     return posix_spawnp (pid, path, fa, sa, argv, envp);
   else
