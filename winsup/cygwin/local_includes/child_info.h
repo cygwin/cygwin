@@ -33,7 +33,7 @@ enum child_status
 #define EXEC_MAGIC_SIZE sizeof(child_info)
 
 /* Change this value if you get a message indicating that it is out-of-sync. */
-#define CURR_CHILD_INFO_MAGIC 0xacbf4682U
+#define CURR_CHILD_INFO_MAGIC 0x8af37cfU
 
 #include "pinfo.h"
 struct cchildren
@@ -135,6 +135,16 @@ public:
   void reattach_children (HANDLE);
 };
 
+struct spawn_worker_args
+{
+  int mode;
+  int stdfds[3];
+
+  spawn_worker_args (int mode)
+    : mode (mode), stdfds {-1, -1, -1}
+  { }
+};
+
 class child_info_spawn: public child_info
 {
   HANDLE hExeced;
@@ -145,7 +155,7 @@ public:
   cygheap_exec_info *moreinfo;
   int __stdin;
   int __stdout;
-  char filler[4];
+  int __stderr;
 
   void cleanup ();
   child_info_spawn () {};
@@ -190,7 +200,7 @@ public:
   bool has_execed_cygwin () const { return iscygwin () && has_execed (); }
   operator HANDLE& () {return hExeced;}
   int worker (const char *, const char *const *, const char *const [],
-		     int, int = -1, int = -1);
+	      const spawn_worker_args &);
 };
 
 extern child_info_spawn ch_spawn;

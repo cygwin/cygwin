@@ -280,16 +280,16 @@ extern DWORD mutex_timeout; /* defined in fhandler_termios.cc */
 
 int
 child_info_spawn::worker (const char *prog_arg, const char *const *argv,
-			  const char *const envp[], int mode,
-			  int in__stdin, int in__stdout)
+			  const char *const envp[],
+			  const spawn_worker_args &args)
 {
   bool rc;
   int res = -1;
 
   /* Check if we have been called from exec{lv}p or spawn{lv}p and mask
      mode to keep only the spawn mode. */
-  bool p_type_exec = !!(mode & _P_PATH_TYPE_EXEC);
-  mode = _P_MODE (mode);
+  bool p_type_exec = !!(args.mode & _P_PATH_TYPE_EXEC);
+  int mode = _P_MODE (args.mode);
 
   if (prog_arg == NULL)
     {
@@ -515,8 +515,9 @@ child_info_spawn::worker (const char *prog_arg, const char *const *argv,
 	  __leave;
 	}
       set (chtype, real_path.iscygexec ());
-      __stdin = in__stdin;
-      __stdout = in__stdout;
+      __stdin = args.stdfds[0];
+      __stdout = args.stdfds[1];
+      __stderr = args.stdfds[2];
       record_children ();
 
       si.lpReserved2 = (LPBYTE) this;
@@ -574,9 +575,9 @@ child_info_spawn::worker (const char *prog_arg, const char *const *argv,
 			 PROCESS_QUERY_LIMITED_INFORMATION))
 	sa = &sec_none_nih;
 
-      int fileno_stdin = in__stdin < 0 ? 0 : in__stdin;
-      int fileno_stdout = in__stdout < 0 ? 1 : in__stdout;
-      int fileno_stderr = 2;
+      int fileno_stdin = args.stdfds[0] < 0 ? 0 : args.stdfds[0];
+      int fileno_stdout = args.stdfds[1] < 0 ? 1 : args.stdfds[1];
+      int fileno_stderr = args.stdfds[2] < 0 ? 2 : args.stdfds[2];
 
       bool no_pcon = mode != _P_OVERLAY && mode != _P_WAIT;
       term_spawn_worker.setup (iscygwin (), handle (fileno_stdin, false),
@@ -951,7 +952,7 @@ spawnve (int mode, const char *path, const char *const *argv,
   switch (_P_MODE (mode))
     {
     case _P_OVERLAY:
-      ch_spawn.worker (path, argv, envp, mode);
+      ch_spawn.worker (path, argv, envp, spawn_worker_args (mode));
       /* Errno should be set by worker.  */
       ret = -1;
       break;
@@ -961,7 +962,7 @@ spawnve (int mode, const char *path, const char *const *argv,
     case _P_WAIT:
     case _P_DETACH:
     case _P_SYSTEM:
-      ret = ch_spawn.worker (path, argv, envp, mode);
+      ret = ch_spawn.worker (path, argv, envp, spawn_worker_args (mode));
       break;
     default:
       set_errno (EINVAL);
@@ -1376,7 +1377,7 @@ __posix_spawn_execvpe (const char *path, char * const *argv, char *const *envp,
   ch_spawn.set_sem (sem);
   ch_spawn.worker (use_env_path ? (find_exec (path, buf, "PATH", FE_NNF) ?: "")
 				: path,
-		   argv, envp, _P_OVERLAY);
+		   argv, envp, spawn_worker_args (_P_OVERLAY));
   __posix_spawn_sem_release (sem, errno);
   return -1;
 }

@@ -4507,10 +4507,11 @@ popen (const char *command, const char *in_type)
       int stdchild = myix ^ 1;	/* stdchild denotes the index into fd for the
 				   handle which will be redirected to
 				   stdin/stdout */
-      int __std[2];
-      __std[myix] = -1;		/* -1 means don't pass this fd to the child
-				   process */
-      __std[stdchild] = fds[stdchild]; /* Do pass this as the std handle */
+      spawn_worker_args spawnargs (_P_NOWAIT);
+      spawnargs.stdfds[myix] = -1; /* -1 means don't pass this fd to the child
+				      process */
+      spawnargs.stdfds[stdchild] = fds[stdchild]; /* Do pass this as the std
+						     handle */
 
       const char *argv[4] =
 	{
@@ -4524,7 +4525,7 @@ popen (const char *command, const char *in_type)
          end of the pipe.  Otherwise don't pass our end of the pipe to the
 	 child process. */
       if (pipe_flags & O_CLOEXEC)
-	fcntl (__std[stdchild], F_SETFD, 0);
+	fcntl (spawnargs.stdfds[stdchild], F_SETFD, 0);
       else
 	fcntl (myfd, F_SETFD, FD_CLOEXEC);
 
@@ -4535,8 +4536,7 @@ popen (const char *command, const char *in_type)
       fcntl (stdchild, F_SETFD, stdchild_state | FD_CLOEXEC);
 
       /* Start a shell process to run the given command without forking. */
-      pid_t pid = ch_spawn.worker ("/bin/sh", argv, environ, _P_NOWAIT,
-				   __std[0], __std[1]);
+      pid_t pid = ch_spawn.worker ("/bin/sh", argv, environ, spawnargs);
 
       /* Reinstate the close-on-exec state */
       fcntl (stdchild, F_SETFD, stdchild_state);
