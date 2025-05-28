@@ -10,6 +10,8 @@ details. */
 #include <stdlib.h>
 #include <unistd.h>
 #include <process.h>
+#include <spawn.h>
+#include <sys/queue.h>
 #include <sys/wait.h>
 #include <wchar.h>
 #include <ctype.h>
@@ -29,6 +31,7 @@ details. */
 #include "winf.h"
 #include "ntdll.h"
 #include "shared_info.h"
+#include "../posix/posix_spawn.h"
 
 /* Add .exe to PROG if not already present and see if that exists.
    If not, return PROG (converted from posix to win32 rules if necessary).
@@ -1450,4 +1453,36 @@ __posix_spawn_execvpe (const char *path, char * const *argv, char *const *envp,
 		   spawn_worker_args (argv, envp));
   __posix_spawn_sem_release (sem, errno);
   return -1;
+}
+
+static int
+do_posix_spawn (pid_t *pid, const char *path,
+		const posix_spawn_file_actions_t *fa,
+		const posix_spawnattr_t *sa, char * const argv[],
+		char * const envp[], int use_env_path)
+{
+  syscall_printf ("posix_spawn%s (%p, %s, %p, %p, %p, %p)",
+      use_env_path ? "p" : "", pid, path, fa, sa, argv, envp);
+  if (use_env_path)
+    return posix_spawnp (pid, path, fa, sa, argv, envp);
+  else
+    return posix_spawn (pid, path, fa, sa, argv, envp);
+}
+
+extern "C" int
+cygwin_posix_spawn (pid_t *pid, const char *path,
+		    const posix_spawn_file_actions_t *fa,
+		    const posix_spawnattr_t *sa, char * const argv[],
+		    char * const envp[])
+{
+  return do_posix_spawn (pid, path, fa, sa, argv, envp, 0);
+}
+
+extern "C" int
+cygwin_posix_spawnp (pid_t *pid, const char *path,
+		     const posix_spawn_file_actions_t *fa,
+		     const posix_spawnattr_t *sa, char * const argv[],
+		     char * const envp[])
+{
+  return do_posix_spawn (pid, path, fa, sa, argv, envp, 1);
 }
