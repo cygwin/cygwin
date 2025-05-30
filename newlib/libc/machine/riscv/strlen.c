@@ -9,6 +9,7 @@
    http://www.opensource.org/licenses.
 */
 
+#include <sys/types.h>
 #include <string.h>
 #include <stdint.h>
 #include "rv_string.h"
@@ -38,7 +39,9 @@ size_t strlen(const char *str)
   asm volatile ("" : "+r"(ps)); /* prevent "optimization" */
 
   str = (const char *)ps;
-  size_t ret = str - start, sp = sizeof (*ps);
+
+  size_t ret = str - start;
+  ssize_t sp = sizeof (*ps);
 
   #if __riscv_zbb
     psval = ~__LIBC_RISCV_ZBB_ORC_B(psval);
