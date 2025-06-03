@@ -1996,10 +1996,6 @@ pwdgrp::fetch_account_from_windows (fetch_user_arg_t &arg, cyg_ldap *pldap)
       if (sid_id_auth (sid) == 5 /* SECURITY_NT_AUTHORITY */
 	  && sid_sub_auth (sid, 0) == SECURITY_APPPOOL_ID_BASE_RID)
 	break;
-      /* AzureAD SIDs */
-      if (sid_id_auth (sid) == 12 /* AzureAD ID */
-	  && sid_sub_auth (sid, 0) == 1 /* Azure ID base RID */)
-	break;
       /* Samba user/group SIDs */
       if (sid_id_auth (sid) == 22)
 	break;
