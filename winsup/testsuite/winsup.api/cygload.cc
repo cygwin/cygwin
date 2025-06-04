@@ -82,6 +82,13 @@ cygwin::padding::padding ()
     "movl %%fs:4, %0"
     :"=r"(stackbase)
     );
+# elif __aarch64__
+  // x18 register points to TEB. See _TEB structure definition in
+  // winsup\cygwin\local_includes\ntdll.h
+  __asm__ volatile (
+    "ldr %0, [x18, #0x8]"
+   :"=r" (stackbase)
+   );
 # else
 #  error Unknown architecture
 # endif

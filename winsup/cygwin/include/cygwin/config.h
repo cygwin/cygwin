@@ -36,8 +36,13 @@ __attribute__((__gnu_inline__))
 extern inline struct _reent *__getreent (void)
 {
   register char *ret;
-#ifdef __x86_64__
+#if defined(__x86_64__)
   __asm __volatile__ ("movq %%gs:8,%0" : "=r" (ret));
+#elif defined(__aarch64__)
+  /* x18 register points to TEB, offset 0x8 points to stack base.
+     See _TEB structure definition in winsup\cygwin\local_includes\ntdll.h
+     for more details. */
+  __asm __volatile__ ("ldr %0, [x18, #0x8]" : "=r" (ret));
 #else
 #error unimplemented for this target
 #endif
