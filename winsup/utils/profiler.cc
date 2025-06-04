@@ -33,6 +33,7 @@ typedef uint16_t u_int16_t; // Non-standard sized type needed by ancient gmon.h
 #define NO_GLOBALS_H
 #include "gmon.h"
 #include "path.h"
+#include "register.h"
 
 /* Undo this #define from winsup.h. */
 #ifdef ExitThread
@@ -193,11 +194,7 @@ sample (CONTEXT *context, HANDLE h)
       return 0ULL;
     }
   else
-#ifdef __x86_64__
-    return context->Rip;
-#else
-#error unimplemented for this target
-#endif
+    return context->_CX_instPtr;
 }
 
 void

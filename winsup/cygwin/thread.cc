@@ -32,6 +32,7 @@ details. */
 #include "ntdll.h"
 #include "cygwait.h"
 #include "exception.h"
+#include "register.h"
 
 /* For Linux compatibility, the length of a thread name is 16 characters. */
 #define THRNAMELEN 16
@@ -629,7 +630,7 @@ pthread::cancel ()
       threadlist_t *tl_entry = cygheap->find_tls (cygtls);
       if (!cygtls->inside_kernel (&context))
 	{
-	  context.Rip = (ULONG_PTR) pthread::static_cancel_self;
+	  context._CX_instPtr = (ULONG_PTR) pthread::static_cancel_self;
 	  SetThreadContext (win32_obj_id, &context);
 	}
       cygheap->unlock_tls (tl_entry);

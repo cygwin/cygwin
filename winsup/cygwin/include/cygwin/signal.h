@@ -19,7 +19,7 @@ extern "C" {
   Define a struct __mcontext, which should be identical in layout to the Win32
   API type CONTEXT with the addition of oldmask and cr2 fields at the end.
 */
-#ifdef __x86_64__
+#if defined(__x86_64__)
 
 struct _uc_fpxreg {
   __uint16_t significand[4];
@@ -94,6 +94,81 @@ struct __attribute__ ((__aligned__ (16))) __mcontext
   __uint64_t bfr;
   __uint64_t etr;
   __uint64_t efr;
+  __uint64_t oldmask;
+  __uint64_t cr2;
+};
+
+#elif defined(__aarch64__)
+
+/* Based on mingw-w64-headers/include/winnt.h. */
+
+#define ARM64_MAX_BREAKPOINTS 8
+#define ARM64_MAX_WATCHPOINTS 2
+
+union _neon128
+{
+  struct
+  {
+    __uint64_t low;
+    __int64_t high;
+  };
+  double d[2];
+  float s[4];
+  __uint16_t h[8];
+  __uint8_t b[16];
+};
+
+struct __attribute__ ((__aligned__ (16))) __mcontext
+{
+  __uint32_t ctxflags;
+  __uint32_t cpsr;
+  union
+  {
+    struct
+    {
+      __uint64_t x0;
+      __uint64_t x1;
+      __uint64_t x2;
+      __uint64_t x3;
+      __uint64_t x4;
+      __uint64_t x5;
+      __uint64_t x6;
+      __uint64_t x7;
+      __uint64_t x8;
+      __uint64_t x9;
+      __uint64_t x10;
+      __uint64_t x11;
+      __uint64_t x12;
+      __uint64_t x13;
+      __uint64_t x14;
+      __uint64_t x15;
+      __uint64_t x16;
+      __uint64_t x17;
+      __uint64_t x18;
+      __uint64_t x19;
+      __uint64_t x20;
+      __uint64_t x21;
+      __uint64_t x22;
+      __uint64_t x23;
+      __uint64_t x24;
+      __uint64_t x25;
+      __uint64_t x26;
+      __uint64_t x27;
+      __uint64_t x28;
+      __uint64_t fp;
+      __uint64_t lr;
+    };
+    __uint64_t x[31];
+  };
+  __uint64_t sp;
+  __uint64_t pc;
+  union _neon128 v[32];
+  __uint32_t fpcr;
+  __uint32_t fpsr;
+  __uint32_t bcr[ARM64_MAX_BREAKPOINTS];
+  __uint64_t bvr[ARM64_MAX_BREAKPOINTS];
+  __uint32_t wcr[ARM64_MAX_WATCHPOINTS];
+  __uint64_t wvr[ARM64_MAX_WATCHPOINTS];
   __uint64_t oldmask;
   __uint64_t cr2;
 };

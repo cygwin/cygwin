@@ -28,24 +28,8 @@ details. */
 #include "ntdll.h"
 #include "exception.h"
 #include "posix_timer.h"
+#include "register.h"
 #include "gcc_seh.h"
-
-/* Define macros for CPU-agnostic register access.  The _CX_foo
-   macros are for access into CONTEXT, the _MC_foo ones for access into
-   mcontext. The idea is to access the registers in terms of their job,
-   not in terms of their name on the given target. */
-#ifdef __x86_64__
-#define _CX_instPtr	Rip
-#define _CX_stackPtr	Rsp
-#define _CX_framePtr	Rbp
-/* For special register access inside mcontext. */
-#define _MC_retReg	rax
-#define _MC_instPtr	rip
-#define _MC_stackPtr	rsp
-#define _MC_uclinkReg	rbx	/* MUST be callee-saved reg */
-#else
-#error unimplemented for this target
-#endif
 
 #define CALL_HANDLER_RETRY_OUTER 10
 #define CALL_HANDLER_RETRY_INNER 10
@@ -230,7 +214,7 @@ cygwin_exception::dump_exception ()
 	}
     }
 
-#ifdef __x86_64__
+#if defined(__x86_64__)
   if (exception_name)
     small_printf ("Exception: %s at rip=%012X\r\n", exception_name, ctx->Rip);
   else
@@ -250,6 +234,31 @@ cygwin_exception::dump_exception ()
   small_printf ("cs=%04x ds=%04x es=%04x fs=%04x gs=%04x ss=%04x\r\n",
 		ctx->SegCs, ctx->SegDs, ctx->SegEs, ctx->SegFs,
 		ctx->SegGs, ctx->SegSs);
+#elif defined(__aarch64__)
+  if (exception_name)
+    small_printf ("Exception: %s at pc=%012X\r\n", exception_name, ctx->Pc);
+  else
+    small_printf ("Signal %d at pc=%012X\r\n", e->ExceptionCode, ctx->Pc);
+  small_printf ("x0=%016X x1=%016X x2=%016X x3=%016X\r\n",
+		ctx->X0, ctx->X1, ctx->X2, ctx->X3);
+  small_printf ("x4=%016X x5=%016X x6=%016X x7=%016X\r\n",
+		ctx->X4, ctx->X5, ctx->X6, ctx->X7);
+  small_printf ("x8=%016X x9=%016X x10=%016X x11=%016X\r\n",
+		ctx->X8, ctx->X9, ctx->X10, ctx->X11);
+  small_printf ("x12=%016X x13=%016X x14=%016X x15=%016X\r\n",
+		ctx->X12, ctx->X13, ctx->X14, ctx->X15);
+  small_printf ("x16=%016X x17=%016X x18=%016X x19=%016X\r\n",
+		ctx->X16, ctx->X17, ctx->X18, ctx->X19);
+  small_printf ("x20=%016X x21=%016X x22=%016X x23=%016X\r\n",
+		ctx->X20, ctx->X21, ctx->X22, ctx->X23);
+  small_printf ("x24=%016X x25=%016X x26=%016X x27=%016X\r\n",
+		ctx->X24, ctx->X25, ctx->X26, ctx->X27);
+  small_printf ("x28=%016X fp=%016X lr=%016X sp=%016X\r\n",
+		ctx->X28, ctx->Fp, ctx->Lr, ctx->Sp);
+  small_printf ("program=%W, pid %u, thread %s\r\n",
+		myself->progname, myself->pid, mythreadname ());
+  small_printf ("fpcr=%016X fpsr=%016X\r\n",
+		ctx->Fpcr, ctx->Fpsr);
 #else
 #error unimplemented for this target
 #endif
@@ -1781,11 +1790,7 @@ _cygtls::call_signal_handler ()
 	      __unwind_single_frame ((PCONTEXT) &context1.uc_mcontext);
 	      if (stackptr > stack)
 		{
-#ifdef __x86_64__
-		  context1.uc_mcontext.rip = retaddr ();
-#else
-#error unimplemented for this target
-#endif
+		  context1.uc_mcontext._MC_instPtr = retaddr ();
 		}
 	    }
 
