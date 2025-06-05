@@ -69,12 +69,14 @@ DLL_ENTRY="dll_entry"
 
 case "$target_cpu" in
    x86_64)	;;
+   aarch64)	;;
    *)		AC_MSG_ERROR([Invalid target processor "$target_cpu"]) ;;
 esac
 
 AC_SUBST(DLL_ENTRY)
 
 AM_CONDITIONAL(TARGET_X86_64, [test $target_cpu = "x86_64"])
+AM_CONDITIONAL(TARGET_AARCH64, [test $target_cpu = "aarch64"])
 
 AC_ARG_ENABLE(doc,
 	      [AS_HELP_STRING([--disable-doc], [do not build documentation])],,
