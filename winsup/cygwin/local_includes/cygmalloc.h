@@ -21,7 +21,10 @@ int dlmalloc_trim (size_t);
 int dlmallopt (int p, int v);
 void dlmalloc_stats ();
 
+// Already defined for AArch64 in newlib/libc/include/sys/config.h
+#ifndef MALLOC_ALIGNMENT
 #define MALLOC_ALIGNMENT ((size_t)16U)
+#endif
 
 #if defined (DLMALLOC_VERSION)	/* Building malloc.cc */
 
