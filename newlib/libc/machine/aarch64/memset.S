@@ -25,9 +25,6 @@
 #define zva_val	x5
 
 ENTRY (memset)
-	PTR_ARG (0)
-	SIZE_ARG (2)
-
 	dup	v0.16B, valw
 	add	dstend, dstin, count
 
