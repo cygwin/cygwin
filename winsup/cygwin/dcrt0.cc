@@ -1030,7 +1030,7 @@ _dll_crt0 ()
 	  PVOID stackaddr = create_new_main_thread_stack (allocationbase);
 	  if (stackaddr)
 	    {
-#ifdef __x86_64__
+#if defined(__x86_64__)
 	      /* Set stack pointer to new address.  Set frame pointer to
 	         stack pointer and subtract 32 bytes for shadow space. */
 	      __asm__ ("\n\
@@ -1038,6 +1038,13 @@ _dll_crt0 ()
 		       movq  %%rsp, %%rbp  \n\
 		       subq  $32,%%rsp     \n"
 		       : : [ADDR] "r" (stackaddr));
+#elif defined(__aarch64__)
+	      /* Set stack and frame pointers to new address. */
+	      __asm__ ("\n\
+		       mov fp, %[ADDR] \n\
+		       mov sp, fp      \n"
+		       : : [ADDR] "r" (stackaddr)
+		       : "memory");
 #else
 #error unimplemented for this target
 #endif
