@@ -1699,9 +1699,9 @@ class fhandler_disk_file: public fhandler_base
   uint64_t fs_ioc_getflags ();
   int fs_ioc_setflags (uint64_t);
 
-  falloc_allocate (int, off_t, off_t);
-  falloc_punch_hole (off_t, off_t);
-  falloc_zero_range (int, off_t, off_t);
+  int falloc_allocate (int, off_t, off_t);
+  int falloc_punch_hole (off_t, off_t);
+  int falloc_zero_range (int, off_t, off_t);
 
  public:
   fhandler_disk_file ();

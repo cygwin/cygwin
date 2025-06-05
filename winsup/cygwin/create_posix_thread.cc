@@ -206,7 +206,7 @@ class thread_allocator
 public:
   thread_allocator () : current (THREAD_STORAGE_HIGH)
   {
-    alloc_func = wincap.has_extended_mem_api () ? &_alloc : &_alloc_old;
+    alloc_func = wincap.has_extended_mem_api () ? &thread_allocator::_alloc : &thread_allocator::_alloc_old;
   }
   PVOID alloc (SIZE_T size)
   {
