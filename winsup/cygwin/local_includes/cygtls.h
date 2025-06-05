@@ -243,8 +243,11 @@ public: /* Do NOT remove this public: line, it's a marker for gentls_offsets. */
   {
     while (InterlockedExchange (&stacklock, 1))
       {
-#ifdef __x86_64__
+#if defined(__x86_64__)
 	__asm__ ("pause");
+#elif defined(__aarch64__)
+	__asm__ ("dmb ishst\n"
+                 "yield");
 #else
 #error unimplemented for this target
 #endif
