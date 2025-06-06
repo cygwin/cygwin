@@ -660,8 +660,10 @@ dofork (void **proc, bool *with_forkables)
     ischild = !!setjmp (grouped.ch.jmp);
 
     volatile char * volatile stackp;
-#ifdef __x86_64__
+#if defined(__x86_64__)
     __asm__ volatile ("movq %%rsp,%0": "=r" (stackp));
+#elif defined(__aarch64__)
+    __asm__ volatile ("mov %0, sp" : "=r" (stackp));
 #else
 #error unimplemented for this target
 #endif
