@@ -17,7 +17,7 @@ SECTIONS
     *(SORT(.text$*))
     *(.glue_7t)
     *(.glue_7)
-#ifdef __x86_64__
+#if defined(__x86_64__) || defined(__aarch64__)
     . = ALIGN(8);
      ___CTOR_LIST__ = .; __CTOR_LIST__ = .;
 			LONG (-1); LONG (-1); *(SORT(.ctors.*)); *(.ctors); *(.ctor); LONG (0); LONG (0);
