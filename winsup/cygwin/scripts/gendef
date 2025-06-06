@@ -21,6 +21,7 @@ if (!defined($cpu) || !defined($output_def)) {
     die "$0: missing required option\n";
 }
 
+my $is_aarch64 = $cpu eq 'aarch64';
 my $is_x86_64 = $cpu eq 'x86_64';
 # FIXME? Do other (non-32 bit) arches on Windows still use symbol prefixes?
 my $sym_prefix = '';
@@ -89,7 +90,7 @@ sub fefunc {
     my $func = $sym_prefix . shift;
     my $fe = $sym_prefix . shift;
     my $sigfe_func;
-    if ($is_x86_64) {
+    if ($is_x86_64 || $is_aarch64) {
 	$sigfe_func = ($fe =~ /^(.*)_${func}$/)[0];
     }
     my $extra;
@@ -109,6 +110,15 @@ $fe:
 
 EOF
     }
+    # TODO: This is only a stub, it needs to be implemented properly for AArch64.
+    if ($is_aarch64) {
+	$res = <<EOF;
+	.extern $func
+	.global $fe
+$fe:
+EOF
+    }
+
     if (!$main::first++) {
 	if ($is_x86_64) {
 	  $res = <<EOF . longjmp () . $res;
@@ -340,6 +350,23 @@ stabilize_sig_stack:
 	.seh_endproc
 EOF
 	}
+	# TODO: These are only stubs, they need to be implemented properly for AArch64.
+	if ($is_aarch64) {
+	  $res = <<EOF . longjmp () . $res;
+	.include "tlsoffsets"
+	.text
+
+_sigfe_maybe:
+	.global _sigbe
+_sigfe:
+_sigbe:
+	.global	sigdelayed
+sigdelayed:
+_sigdelayed_end:
+	.global _sigdelayed_end
+stabilize_sig_stack:
+EOF
+	}
     }
     return $res;
 }
@@ -474,6 +501,19 @@ longjmp:
 	incl	%eax
 0:	ret
 	.seh_endproc
+EOF
+    }
+    if ($is_aarch64) {
+	# TODO: These are only stubs, they need to be implemented properly for AArch64.
+	return <<EOF;
+	.globl	sigsetjmp
+sigsetjmp:
+	.globl  setjmp
+setjmp:
+	.globl	siglongjmp
+siglongjmp:
+	.globl  longjmp
+longjmp:
 EOF
     }
 }
