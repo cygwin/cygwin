@@ -62,7 +62,7 @@ start_offset=$(gawk '\
   /^__CYGTLS__/ {
     varname = gensub (/__CYGTLS__(\w+):/, "\\1", "g");
   }
-  /\s*\.long\s+/ {
+  /\s*\.(word|long)\s+/ {
     if (length (varname) > 0) {
       if (varname == "start_offset") {
 	print $2;
@@ -85,7 +85,7 @@ gawk -v start_offset="$start_offset" '\
       varname = "";
     }
   }
-  /\s*\.long\s+/ {
+  /\s*\.(word|long)\s+/ {
     if (length (varname) > 0) {
       if (varname == "start_offset") {
 	printf (".equ _cygtls.%s, -%u\n", varname, start_offset);
