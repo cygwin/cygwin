@@ -1,9 +1,11 @@
 #ifdef __x86_64__
 OUTPUT_FORMAT(pei-x86-64)
-SEARCH_DIR("/usr/x86_64-pc-cygwin/lib/w32api"); SEARCH_DIR("=/usr/lib/w32api");
+#elif __aarch64__
+OUTPUT_FORMAT(pei-aarch64-little)
 #else
 #error unimplemented for this target
 #endif
+SEARCH_DIR("=/usr/lib/w32api")
 #define __CONCAT1(a,b)	a##b
 #define __CONCAT(a,b) __CONCAT1(a,b)
 #define _SYM(x)	__CONCAT(__USER_LABEL_PREFIX__, x)
