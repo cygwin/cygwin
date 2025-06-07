@@ -1322,6 +1322,7 @@ set_process_mask_delta ()
   else
     oldmask = _my_tls.sigmask;
   newmask = (oldmask | _my_tls.deltamask) & ~SIG_NONMASKABLE;
+  _my_tls.deltamask = 0;
   sigproc_printf ("oldmask %lx, newmask %lx, deltamask %lx", oldmask, newmask,
 		  _my_tls.deltamask);
   _my_tls.sigmask = newmask;
@@ -1544,12 +1545,15 @@ sigpacket::process ()
       if (tl_entry)
 	{
 	  tls = tl_entry->thread;
+	  tl_entry->thread->lock ();
 	  if (sigismember (&tls->sigwait_mask, si.si_signo))
 	    issig_wait = true;
-	  else if (!sigismember (&tls->sigmask, si.si_signo))
+	  else if (!sigismember (&tls->sigmask, si.si_signo)
+		   && !sigismember (&tls->deltamask, si.si_signo))
 	    issig_wait = false;
 	  else
 	    tls = NULL;
+	  tl_entry->thread->unlock ();
 	}
     }
 
