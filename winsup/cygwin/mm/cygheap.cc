@@ -743,6 +743,7 @@ init_cygheap::find_tls (int sig, bool& issig_wait)
   while (++ix < (int) nthreads)
     {
       /* Only pthreads have tid set to non-0. */
+      threadlist[ix].thread->lock ();
       if (!threadlist[ix].thread->tid
 	  || !threadlist[ix].thread->initialized)
 	;
@@ -752,13 +753,21 @@ init_cygheap::find_tls (int sig, bool& issig_wait)
 	  issig_wait = true;
 	  break;
 	}
-      else if (!t && !sigismember (&(threadlist[ix].thread->sigmask), sig))
+      else if (!t && !sigismember (&(threadlist[ix].thread->sigmask), sig)
+	       && !sigismember (&(threadlist[ix].thread->deltamask), sig))
+	{
 	  t = &cygheap->threadlist[ix];
+	  break;
+	}
+      threadlist[ix].thread->unlock ();
     }
   /* Leave with locked mutex.  The calling function is responsible for
      unlocking the mutex. */
   if (t)
-    WaitForSingleObject (t->mutex, INFINITE);
+    {
+      threadlist[ix].thread->unlock ();
+      WaitForSingleObject (t->mutex, INFINITE);
+    }
   return t;
 }
 
