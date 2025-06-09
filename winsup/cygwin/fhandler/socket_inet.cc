@@ -20,7 +20,12 @@
 #undef u_long
 #define u_long __ms_u_long
 #include <w32api/ws2tcpip.h>
+/* 2025-06-09: win32api headers v13 now define a cmsghdr type which clashes with
+   our socket.h. Arrange not to see it here. */
+#undef cmsghdr
+#define cmsghdr __ms_cmsghdr
 #include <w32api/mswsock.h>
+#undef cmsghdr
 #include <w32api/mstcpip.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
