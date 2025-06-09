@@ -64,6 +64,11 @@ TARGET_FILES= \
 	x86_64/wmempcpy.S
 endif
 
+if TARGET_AARCH64
+TARGET_FILES= \
+	aarch64/fastcwd.cc
+endif
+
 # These objects are included directly into the import library
 LIB_FILES= \
 	lib/_cygwin_crt0_common.cc \
