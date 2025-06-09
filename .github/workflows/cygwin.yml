@@ -107,7 +107,10 @@ jobs:
     - run: git config --global core.autocrlf input
     # remove inheritable permissions since they break assumptions testsuite
     # makes about file modes
-    - run: icacls . /inheritance:r
+    - name: adjust permissions
+      run: |
+        icacls . /inheritance:r
+        icacls . /grant Administrators:F
     - uses: actions/checkout@v3
 
     # install cygwin and build tools
