@@ -14,7 +14,7 @@
  */
 
 extern int inbyte ();
-extern char * __inln ();
+extern char * __inln (char *);
 
 /*
  * read  -- read bytes from the serial port. Ignore fd, since
