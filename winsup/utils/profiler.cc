@@ -503,8 +503,10 @@ find_text_section (LPVOID base, HANDLE h)
 
   read_child ((void *) &machine, sizeof (machine),
               &inth->FileHeader.Machine, h);
-#ifdef __x86_64__
+#if defined(__x86_64__)
   if (machine != IMAGE_FILE_MACHINE_AMD64)
+#elif defined(__aarch64__)
+  if (machine != IMAGE_FILE_MACHINE_ARM64)
 #else
 #error unimplemented for this target
 #endif
