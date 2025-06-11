@@ -263,9 +263,15 @@
 
 #ifdef __MIPSEL__
 #define __IEEE_LITTLE_ENDIAN
+#if __SIZEOF_DOUBLE__ == 4
+#define _DOUBLE_IS_32BITS
+#endif
 #endif
 #ifdef __MIPSEB__
 #define __IEEE_BIG_ENDIAN
+#if __SIZEOF_DOUBLE__ == 4
+#define _DOUBLE_IS_32BITS
+#endif
 #endif
 
 #ifdef __MMIX__

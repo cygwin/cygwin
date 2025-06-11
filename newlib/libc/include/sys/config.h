@@ -4,7 +4,7 @@
 #include <machine/ieeefp.h>  /* floating point macros */
 #include <sys/features.h>	/* POSIX defs */
 
-#ifdef __aarch64__
+#if defined(__aarch64__) || defined(__mips__)
 #define MALLOC_ALIGNMENT 16
 #endif
 

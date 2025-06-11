@@ -1,31 +1,30 @@
 /*
- * Copyright (c) 2014
- *      Imagination Technologies Limited.
+ * Copyright (C) 2014-2018 MIPS Tech, LLC
  *
  * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. Neither the name of the MIPS Technologies, Inc., nor the names of its
- *    contributors may be used to endorse or promote products derived from
- *    this software without specific prior written permission.
+ * modification, are permitted provided that the following conditions are met:
  *
- * THIS SOFTWARE IS PROVIDED BY IMAGINATION TECHNOLOGIES LIMITED ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * 1. Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its
+ * contributors may be used to endorse or promote products derived from this
+ * software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL IMAGINATION TECHNOLOGIES LIMITED BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- */
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+*/
 
 #ifdef ANDROID_CHANGES
 # include "machine/asm.h"
@@ -36,18 +35,6 @@
 #else
 # include <regdef.h>
 # include <sys/asm.h>
-#endif
-
-/* Technically strcmp should not read past the end of the strings being
-   compared.  We will read a full word that may contain excess bits beyond
-   the NULL string terminator but unless ENABLE_READAHEAD is set, we will not
-   read the next word after the end of string.  Setting ENABLE_READAHEAD will
-   improve performance but is technically illegal based on the definition of
-   strcmp.  */
-#ifdef ENABLE_READAHEAD
-# define DELAY_READ
-#else
-# define DELAY_READ nop
 #endif
 
 /* Testing on a little endian machine showed using CLZ was a
@@ -85,7 +72,6 @@ LEAF(STRCMP_NAME, 0)
 LEAF(STRCMP_NAME)
 #endif
 	.set	nomips16
-	.set	noreorder
 
 	or	t0, a0, a1
 	andi	t0,0x3
@@ -93,50 +79,47 @@ LEAF(STRCMP_NAME)
 
 /* Both strings are 4 byte aligned at this point.  */
 
-	lui	t8, 0x0101
-	ori	t8, t8, 0x0101
-	lui	t9, 0x7f7f
-	ori	t9, 0x7f7f
+	li	t8, 0x01010101
+	li	t9, 0x7f7f7f7f
 
 #define STRCMP32(OFFSET) \
-	lw	v0, OFFSET(a0); \
-	lw	v1, OFFSET(a1); \
-	subu	t0, v0, t8; \
-	bne	v0, v1, L(worddiff); \
-	nor	t1, v0, t9; \
+	lw	vt0, OFFSET(a0); \
+	lw	vt1, OFFSET(a1); \
+	subu	t0, vt0, t8; \
+	nor	t1, vt0, t9; \
+	bne	vt0, vt1, L(worddiff); \
 	and	t0, t0, t1; \
 	bne	t0, zero, L(returnzero)
 
 L(wordloop):
 	STRCMP32(0)
-	DELAY_READ
 	STRCMP32(4)
-	DELAY_READ
 	STRCMP32(8)
-	DELAY_READ
 	STRCMP32(12)
-	DELAY_READ
 	STRCMP32(16)
-	DELAY_READ
 	STRCMP32(20)
-	DELAY_READ
 	STRCMP32(24)
-	DELAY_READ
-	STRCMP32(28)
+	lw	vt0, 28(a0)
+	lw	vt1, 28(a1)
+	subu	t0, vt0, t8
+	nor	t1, vt0, t9
+	bne	vt0, vt1, L(worddiff)
+	and	t0, t0, t1
 	PTR_ADDIU a0, a0, 32
-	b	L(wordloop)
+	bne	t0, zero, L(returnzero)
 	PTR_ADDIU a1, a1, 32
+	b	L(wordloop)
 
 L(returnzero):
-	j	ra
-	move	v0, zero
+	move	va0, zero
+	jr	ra
 
 L(worddiff):
 #ifdef USE_CLZ
-	subu	t0, v0, t8
-	nor	t1, v0, t9
+	subu	t0, vt0, t8
+	nor	t1, vt0, t9
 	and	t1, t0, t1
-	xor	t0, v0, v1
+	xor	t0, vt0, vt1
 	or	t0, t0, t1
 # if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	wsbh	t0, t0
@@ -148,85 +131,86 @@ L(worddiff):
 	neg	t1
 	addu	t1, 24
 # endif
-	rotrv	v0, v0, t1
-	rotrv	v1, v1, t1
-	and	v0, v0, 0xff
-	and	v1, v1, 0xff
-	j	ra
-	subu	v0, v0, v1
+	rotrv	vt0, vt0, t1
+	rotrv	vt1, vt1, t1
+	and	vt0, vt0, 0xff
+	and	vt1, vt1, 0xff
+	subu	va0, vt0, vt1
+	jr	ra
 #else /* USE_CLZ */
 # if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-	andi	t0, v0, 0xff
+	andi	t0, vt0, 0xff
+	andi	t1, vt1, 0xff
 	beq	t0, zero, L(wexit01)
-	andi	t1, v1, 0xff
+	srl	t8, vt0, 8
 	bne	t0, t1, L(wexit01)
 
-	srl	t8, v0, 8
-	srl	t9, v1, 8
+	srl	t9, vt1, 8
 	andi	t8, t8, 0xff
-	beq	t8, zero, L(wexit89)
 	andi	t9, t9, 0xff
+	beq	t8, zero, L(wexit89)
+	srl	t0, vt0, 16
 	bne	t8, t9, L(wexit89)
 
-	srl	t0, v0, 16
-	srl	t1, v1, 16
+	srl	t1, vt1, 16
 	andi	t0, t0, 0xff
-	beq	t0, zero, L(wexit01)
 	andi	t1, t1, 0xff
+	beq	t0, zero, L(wexit01)
+	srl	t8, vt0, 24
 	bne	t0, t1, L(wexit01)
 
-	srl	t8, v0, 24
-	srl	t9, v1, 24
+	srl	t9, vt1, 24
 # else /* __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ */
-	srl	t0, v0, 24
+	srl	t0, vt0, 24
+	srl	t1, vt1, 24
 	beq	t0, zero, L(wexit01)
-	srl	t1, v1, 24
+	srl	t8, vt0, 16
 	bne	t0, t1, L(wexit01)
 
-	srl	t8, v0, 16
-	srl	t9, v1, 16
+	srl	t9, vt1, 16
 	andi	t8, t8, 0xff
-	beq	t8, zero, L(wexit89)
 	andi	t9, t9, 0xff
+	beq	t8, zero, L(wexit89)
+	srl	t0, vt0, 8
 	bne	t8, t9, L(wexit89)
 
-	srl	t0, v0, 8
-	srl	t1, v1, 8
+	srl	t1, vt1, 8
 	andi	t0, t0, 0xff
-	beq	t0, zero, L(wexit01)
 	andi	t1, t1, 0xff
+	beq	t0, zero, L(wexit01)
+	andi	t8, vt0, 0xff
 	bne	t0, t1, L(wexit01)
 
-	andi	t8, v0, 0xff
-	andi	t9, v1, 0xff
+	andi	t9, vt1, 0xff
 # endif /* __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ */
 
 L(wexit89):
-	j	ra
-	subu	v0, t8, t9
+	subu	va0, t8, t9
+	jr	ra
 L(wexit01):
-	j	ra
-	subu	v0, t0, t1
+	subu	va0, t0, t1
+	jr	ra
 #endif /* USE_CLZ */
 
 /* It might seem better to do the 'beq' instruction between the two 'lbu'
    instructions so that the nop is not needed but testing showed that this
    code is actually faster (based on glibc strcmp test).  */
 #define BYTECMP01(OFFSET) \
-	lbu	v0, OFFSET(a0); \
-	lbu	v1, OFFSET(a1); \
-	beq	v0, zero, L(bexit01); \
+	lbu	vt1, OFFSET(a1); \
 	nop; \
-	bne	v0, v1, L(bexit01)
+	beq	vt0, zero, L(bexit01); \
+	lbu	t8, OFFSET+1(a0); \
+	bne	vt0, vt1, L(bexit01)
 
 #define BYTECMP89(OFFSET) \
-	lbu	t8, OFFSET(a0); \
 	lbu	t9, OFFSET(a1); \
-	beq	t8, zero, L(bexit89); \
 	nop;	\
+	beq	t8, zero, L(bexit89); \
+	lbu	vt0, OFFSET+1(a0); \
 	bne	t8, t9, L(bexit89)
 
 L(byteloop):
+	lbu	vt0, 0(a0)
 	BYTECMP01(0)
 	BYTECMP89(1)
 	BYTECMP01(2)
@@ -234,19 +218,21 @@ L(byteloop):
 	BYTECMP01(4)
 	BYTECMP89(5)
 	BYTECMP01(6)
-	BYTECMP89(7)
+	lbu	t9, 7(a1)
+	nop
+	beq	t8, zero, L(bexit89)
 	PTR_ADDIU a0, a0, 8
-	b	L(byteloop)
+	bne	t8, t9, L(bexit89)
 	PTR_ADDIU a1, a1, 8
+	b	L(byteloop)
 
 L(bexit01):
-	j	ra
-	subu	v0, v0, v1
+	subu	va0, vt0, vt1
+	jr	ra
 L(bexit89):
-	j	ra
-	subu	v0, t8, t9
+	subu	va0, t8, t9
+	jr	ra
 
 	.set	at
-	.set	reorder
 
 END(STRCMP_NAME)

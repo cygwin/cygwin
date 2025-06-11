@@ -38,6 +38,16 @@ struct	stat
   time_t	st_atime;
   time_t	st_mtime;
   time_t	st_ctime;
+#elif defined(__mips__)
+  time_t	st_atime;
+  long		st_spare1;
+  time_t	st_mtime;
+  long		st_spare2;
+  time_t	st_ctime;
+  long		st_spare3;
+  blksize_t	st_blksize;
+  blkcnt_t	st_blocks;
+  long		st_spare4[2];
 #else
   struct timespec st_atim;
   struct timespec st_mtim;
@@ -50,7 +60,7 @@ struct	stat
 #endif
 };
 
-#if !(defined(__svr4__) && !defined(__PPC__) && !defined(__sun__))
+#if !((defined(__svr4__) && !defined(__PPC__) && !defined(__sun__)) || defined(__mips__))
 #define st_atime st_atim.tv_sec
 #define st_ctime st_ctim.tv_sec
 #define st_mtime st_mtim.tv_sec
@@ -136,7 +146,11 @@ struct	stat
 
 int	chmod (const char *__path, mode_t __mode );
 int     fchmod (int __fd, mode_t __mode);
+#if defined(__mips__) && defined(__mips16)
+int __attribute__((nomips16)) fstat (int __fd, struct stat *__sbuf );
+#else
 int	fstat (int __fd, struct stat *__sbuf );
+#endif // __mips__
 int	mkdir (const char *_path, mode_t __mode );
 int	mkfifo (const char *__path, mode_t __mode );
 int	stat (const char *__restrict __path, struct stat *__restrict __sbuf );

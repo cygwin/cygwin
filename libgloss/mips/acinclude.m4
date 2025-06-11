@@ -9,17 +9,15 @@ case "${target}" in
     MIPS_SCRIPT_LIST="dve idt jmr3904app jmr3904dram jmr3904dram-java jmr3904app-java sde32 sde64 mti32 mti64 mti64_n32 mti64_64"
     MIPS_BSP_LIST="libdve.a libidt.a libjmr3904.a"
     ;;
-  mipsisa32-*-* | mipsisa32el-*-* | \
-  mipsisa32r2-*-* | mipsisa32r2el-*-* | \
-  mipsisa64*-*-*)
-    MIPS_CRT0="crt0_cfe.o crt0_cygmon.o crt0.o"
-    MIPS_SCRIPT_LIST="idt32 idt64 cfe"
-    MIPS_BSP_LIST="libcygmon.a libidt.a libcfe.a"
-    ;;
   mips*-lsi*-*)
     MIPS_PART_SPECIFIC_OBJ="entry.o"
     MIPS_SCRIPT_LIST="lsi"
     MIPS_BSP_LIST=liblsi.a
+    ;;
+  mips*-mti*-* | mips*-img*-*)
+    MIPS_CRT0="crt0.o"
+    MIPS_SCRIPT_LIST="idt nullmon mti32 mti64_n32 mti64_64 uhi32 uhi64_64 uhi64_n32 malta32-yamon bootcode"
+    MIPS_BSP_LIST="libidt.a libnullmon.a libuhi.a libyamon.a libhal.a libcm3_impl.a"
     ;;
   mips64vr5*-*-*)
     MIPS_PART_SPECIFIC_OBJ="vr5xxx.o cma101.o"
@@ -31,6 +29,13 @@ case "${target}" in
     MIPS_PART_SPECIFIC_OBJ="vr5xxx.o cma101.o"
     MIPS_SCRIPT_LIST="ddb ddb-kseg0 nullmon"
     MIPS_BSP_LIST="libpmon.a libnullmon.a"
+    ;;
+  mipsisa32-*-* | mipsisa32el-*-* | \
+  mipsisa32r2-*-* | mipsisa32r2el-*-* | \
+  mipsisa64*-*-*)
+    MIPS_CRT0="crt0_cfe.o crt0_cygmon.o crt0.o"
+    MIPS_SCRIPT_LIST="idt32 idt64 cfe"
+    MIPS_BSP_LIST="libcygmon.a libidt.a libcfe.a"
     ;;
   mips*)
     MIPS_CRT0="crt0_cfe.o crt0.o"

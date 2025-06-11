@@ -13,6 +13,7 @@
  * they apply.
  */
 #include "glue.h"
+void _exit(int);
 
 extern void _exit (int) __attribute__((__noreturn__));
 
