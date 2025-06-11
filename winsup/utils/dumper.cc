@@ -700,8 +700,10 @@ dumper::init_core_dump ()
 {
   bfd_init ();
 
-#ifdef __x86_64__
+#if defined(__x86_64__)
   const char *target = "elf64-x86-64";
+#elif defined(__aarch64__)
+  const char *target = "elf64-aarch64";
 #else
 #error unimplemented for this target
 #endif
