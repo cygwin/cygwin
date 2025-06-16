@@ -76,7 +76,8 @@ LIB_FILES= \
 	lib/premain1.c \
 	lib/premain2.c \
 	lib/premain3.c \
-	lib/pseudo-reloc-dummy.c
+	lib/pseudo-reloc-dummy.c \
+	lib/pthreadconst.S
 
 FHANDLER_FILES= \
 	fhandler/base.cc \
@@ -306,6 +307,7 @@ DLL_FILES= \
 	ipc.cc \
 	kernel32.cc \
 	ldap.cc \
+	lib/pthreadconst.S \
 	libstdcxx_wrapper.cc \
 	loadavg.cc \
 	lsearch.cc \

@@ -31,8 +31,6 @@ extern "C"
 #define PTHREAD_CANCEL_DEFERRED 0
 #define PTHREAD_CANCEL_DISABLE 1
 #define PTHREAD_CANCELED ((void *)-1)
-/* this should be a value that can never be a valid address */
-#define PTHREAD_COND_INITIALIZER (pthread_cond_t)21
 #define PTHREAD_CREATE_DETACHED 1
 /* the default : joinable */
 #define PTHREAD_CREATE_JOINABLE 0
@@ -42,10 +40,6 @@ extern "C"
 #define PTHREAD_MUTEX_ERRORCHECK 1
 #define PTHREAD_MUTEX_NORMAL 2
 #define PTHREAD_MUTEX_DEFAULT PTHREAD_MUTEX_NORMAL
-/* this should be too low to ever be a valid address */
-#define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP (pthread_mutex_t)18
-#define PTHREAD_NORMAL_MUTEX_INITIALIZER_NP (pthread_mutex_t)19
-#define PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP (pthread_mutex_t)20
 #define PTHREAD_MUTEX_INITIALIZER PTHREAD_NORMAL_MUTEX_INITIALIZER_NP
 #define PTHREAD_ONCE_INIT { PTHREAD_MUTEX_INITIALIZER, 0 }
 #if defined(_POSIX_THREAD_PRIO_INHERIT) && _POSIX_THREAD_PRIO_INHERIT >= 0
@@ -55,11 +49,34 @@ extern "C"
 #endif
 #define PTHREAD_PROCESS_SHARED 1
 #define PTHREAD_PROCESS_PRIVATE 0
-#define PTHREAD_RWLOCK_INITIALIZER (pthread_rwlock_t)22
 /* process is the default */
 #define PTHREAD_SCOPE_PROCESS 0
 #define PTHREAD_SCOPE_SYSTEM 1
 #define PTHREAD_BARRIER_SERIAL_THREAD (-1)
+
+/* This condition matches the one in <sys/_pthreadtypes.h> */
+#if !defined(__INSIDE_CYGWIN__) || !defined(__cplusplus)
+/* Constants for initializer macros */
+extern struct __pthread_mutex_t __pthread_recursive_mutex_initializer_np;
+extern struct __pthread_mutex_t __pthread_normal_mutex_initializer_np;
+extern struct __pthread_mutex_t __pthread_errorcheck_mutex_initializer_np;
+extern struct __pthread_cond_t __pthread_cond_initializer;
+extern struct __pthread_rwlock_t __pthread_rwlock_initializer;
+#define PTHREAD_COND_INITIALIZER (&__pthread_cond_initializer)
+#define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP (&__pthread_recursive_mutex_initializer_np)
+#define PTHREAD_NORMAL_MUTEX_INITIALIZER_NP (&__pthread_normal_mutex_initializer_np)
+#define PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP (&__pthread_errorcheck_mutex_initializer_np)
+#define PTHREAD_RWLOCK_INITIALIZER (&__pthread_rwlock_initializer)
+#else
+/* Inside the Cygwin DLL's C++ code, using absolute linker symbols sometimes
+   results in "relocation truncated to fit" errors due to being built with
+   -mcmodel=small. */
+#define PTHREAD_COND_INITIALIZER (pthread_cond_t)21
+#define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP (pthread_mutex_t)18
+#define PTHREAD_NORMAL_MUTEX_INITIALIZER_NP (pthread_mutex_t)19
+#define PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP (pthread_mutex_t)20
+#define PTHREAD_RWLOCK_INITIALIZER (pthread_rwlock_t)22
+#endif
 
 /* Register Fork Handlers */
 int pthread_atfork (void (*)(void), void (*)(void), void (*)(void));
