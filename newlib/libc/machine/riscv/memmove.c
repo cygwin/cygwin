@@ -30,6 +30,31 @@ __libc_fast_xlen_aligned (void *dst, const void *src)
 #endif
 }
 
+static inline void
+__libc_aligned_copy_unrolled (uintxlen_t *aligned_dst,
+                              const uintxlen_t *aligned_src)
+{
+  uintxlen_t dst0 = *aligned_src++;
+  uintxlen_t dst1 = *aligned_src++;
+  uintxlen_t dst2 = *aligned_src++;
+  uintxlen_t dst3 = *aligned_src++;
+  uintxlen_t dst4 = *aligned_src++;
+  uintxlen_t dst5 = *aligned_src++;
+  uintxlen_t dst6 = *aligned_src++;
+  uintxlen_t dst7 = *aligned_src++;
+  uintxlen_t dst8 = *aligned_src;
+
+  *aligned_dst++ = dst0;
+  *aligned_dst++ = dst1;
+  *aligned_dst++ = dst2;
+  *aligned_dst++ = dst3;
+  *aligned_dst++ = dst4;
+  *aligned_dst++ = dst5;
+  *aligned_dst++ = dst6;
+  *aligned_dst++ = dst7;
+  *aligned_dst = dst8;
+}
+
 void *__inhibit_loop_to_libcall
 memmove (void *dst_void, const void *src_void, size_t length)
 {
@@ -49,7 +74,20 @@ memmove (void *dst_void, const void *src_void, size_t length)
           aligned_dst = (uintxlen_t *)dst;
           aligned_src = (uintxlen_t *)src;
 
-          /* Copy one uintxlen_t word at a time if possible.  */
+          /* If possible, unroll the word-copy loop by a factor 9 to
+             match memcpy. This speeds up the copying process for longer
+             lengths while barely degrading performance for lengths < SZREG*9.
+             Since we are copying backwards, decrement the addresses
+             before copying.
+           */
+          while (length >= SZREG * 9)
+            {
+              aligned_dst -= 9;
+              aligned_src -= 9;
+              __libc_aligned_copy_unrolled (aligned_dst, aligned_src);
+              length -= (SZREG * 9);
+            }
+
           while (length >= SZREG)
             {
               *--aligned_dst = *--aligned_src;
@@ -76,17 +114,18 @@ memmove (void *dst_void, const void *src_void, size_t length)
           aligned_dst = (uintxlen_t *)dst;
           aligned_src = (uintxlen_t *)src;
 
-          /* Copy 4X uintxlen_t words at a time if possible.  */
-          while (length >= (SZREG * 4))
+          /* If possible, unroll the word-copy loop by a factor 9 to
+             match memcpy. This speeds up the copying process for longer
+             lengths while barely degrading performance for lengths < SZREG*9.
+           */
+          while (length >= SZREG * 9)
             {
-              *aligned_dst++ = *aligned_src++;
-              *aligned_dst++ = *aligned_src++;
-              *aligned_dst++ = *aligned_src++;
-              *aligned_dst++ = *aligned_src++;
-              length -= SZREG * 4;
+              __libc_aligned_copy_unrolled (aligned_dst, aligned_src);
+              aligned_dst += 9;
+              aligned_src += 9;
+              length -= (SZREG * 9);
             }
 
-          /* Copy one uintxlen_t word at a time if possible.  */
           while (length >= SZREG)
             {
               *aligned_dst++ = *aligned_src++;
