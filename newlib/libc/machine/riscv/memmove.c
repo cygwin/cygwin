@@ -76,6 +76,16 @@ __libc_aligned_copy_unrolled (uintxlen_t *aligned_dst,
   *aligned_dst = dst8;
 }
 
+static inline void
+__libc_memmove_bytewise_forward_copy (unsigned char *dst,
+                                      const unsigned char *src, size_t length)
+{
+  while (length--)
+    {
+      *dst++ = *src++;
+    }
+}
+
 void *__inhibit_loop_to_libcall
 memmove (void *dst_void, const void *src_void, size_t length)
 {
@@ -84,82 +94,87 @@ memmove (void *dst_void, const void *src_void, size_t length)
   uintxlen_t *aligned_dst;
   const uintxlen_t *aligned_src;
 
-  if (src < dst && dst < src + length)
+  if (src <= dst)
     {
-      /* Destructive overlap...have to copy backwards */
-      src += length;
-      dst += length;
-
-      if (length >= SZREG)
+      if (dst < src + length) /* Memory areas overlap destructively, have to
+                                 copy backwards. */
         {
-          if (__libc_fast_xlen_aligned (dst, src))
+          src += length;
+          dst += length;
+
+          if (length >= SZREG)
             {
-              aligned_dst = (uintxlen_t *)dst;
-              aligned_src = (uintxlen_t *)src;
-
-              /* If possible, unroll the word-copy loop by a factor 9 to
-                 match memcpy. This speeds up the copying process for longer
-                 lengths while barely degrading performance for lengths <
-                 SZREG*9. Since we are copying backwards, decrement the
-                 addresses before copying.
-               */
-              while (length >= SZREG * 9)
+              if (__libc_fast_xlen_aligned (dst, src))
                 {
-                  aligned_dst -= 9;
-                  aligned_src -= 9;
-                  __libc_aligned_copy_unrolled (aligned_dst, aligned_src);
-                  length -= (SZREG * 9);
-                }
+                  aligned_dst = (uintxlen_t *)dst;
+                  aligned_src = (uintxlen_t *)src;
 
-              while (length >= SZREG)
-                {
-                  *--aligned_dst = *--aligned_src;
-                  length -= SZREG;
-                }
+                  /* If possible, unroll the word-copy loop by a factor 9 to
+                     match memcpy. This speeds up the copying process for
+                     longer lengths while barely degrading performance for
+                     lengths < SZREG*9. Since we are copying backwards,
+                     decrement the addresses before copying.
+                   */
+                  while (length >= SZREG * 9)
+                    {
+                      aligned_dst -= 9;
+                      aligned_src -= 9;
+                      __libc_aligned_copy_unrolled (aligned_dst, aligned_src);
+                      length -= (SZREG * 9);
+                    }
 
-              /* Pick up any residual with a byte copier.  */
-              dst = (unsigned char *)aligned_dst;
-              src = (unsigned char *)aligned_src;
-            }
+                  while (length >= SZREG)
+                    {
+                      *--aligned_dst = *--aligned_src;
+                      length -= SZREG;
+                    }
+
+                  /* Pick up any residual with a byte copier.  */
+                  dst = (unsigned char *)aligned_dst;
+                  src = (unsigned char *)aligned_src;
+                }
 #if !defined(__riscv_misaligned_fast)
-          else if (length > (SZREG * 2))
-            {
-              /* At least one address is not xlen-aligned. If
-                 misaligned accesses are slow or  prohibited,
-                 align the src so we can load SZREG bytes at a time.
-                 This reduces the amount of memory accesses made
-                 and therefore improves performance.
-               */
-              while ((uintxlen_t)src & (SZREG - 1))
+              else if (length > (SZREG * 2))
                 {
-                  *--dst = *--src;
-                  length--;
+                  /* At least one address is not xlen-aligned. If
+                     misaligned accesses are slow or  prohibited,
+                     align the src so we can load SZREG bytes at a time.
+                     This reduces the amount of memory accesses made
+                     and therefore improves performance.
+                   */
+                  while ((uintxlen_t)src & (SZREG - 1))
+                    {
+                      *--dst = *--src;
+                      length--;
+                    }
+
+                  aligned_src = (uintxlen_t *)src;
+
+                  /* Decrement the addresses before copying since
+                     we are copying backwards. */
+                  do
+                    {
+                      aligned_src--;
+                      dst -= SZREG;
+                      __libc_memmove_misaligned_copy (dst, aligned_src);
+                      length -= SZREG;
+                    }
+                  while (length >= SZREG);
+
+                  /* Pick up any residual with a byte copier.  */
+                  src = (unsigned char *)aligned_src;
                 }
-
-              aligned_src = (uintxlen_t *)src;
-
-              /* Decrement the addresses before copying since
-                 we are copying backwards. */
-              do
-                {
-                  aligned_src--;
-                  dst -= SZREG;
-                  __libc_memmove_misaligned_copy (dst, aligned_src);
-                  length -= SZREG;
-                }
-              while (length >= SZREG);
-
-              /* Pick up any residual with a byte copier.  */
-              src = (unsigned char *)aligned_src;
-            }
 #endif
-        }
-      while (length--)
-        {
-          *--dst = *--src;
+            }
+          while (length--)
+            {
+              *--dst = *--src;
+            }
+
+          return dst_void;
         }
     }
-  else /* Memory areas overlap non-destructively or not at all. */
+  else if (src < dst + length) /* Memory areas overlap non-destructively. */
     {
       if (length >= SZREG)
         {
@@ -222,12 +237,23 @@ memmove (void *dst_void, const void *src_void, size_t length)
             }
 #endif
         }
-      while (length--)
-        {
-          *dst++ = *src++;
-        }
+
+      __libc_memmove_bytewise_forward_copy (dst, src, length);
+      return dst_void;
     }
 
-  return dst_void;
+  /* Memory areas do not overlap, redirect to memcpy.
+     Copy byte-by-byte for lengths <= SZREG to reduce
+     overhead on very short copies.
+  */
+  if (length > SZREG)
+    {
+      return memcpy (dst_void, src_void, length);
+    }
+  else
+    {
+      __libc_memmove_bytewise_forward_copy (dst, src, length);
+      return dst_void;
+    }
 }
 #endif
