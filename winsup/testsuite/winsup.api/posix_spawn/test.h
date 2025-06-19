@@ -34,5 +34,15 @@
 		   "child exited with code %d", WEXITSTATUS ((status))); \
 } while (0)
 
+/* first vararg to testAssertMsg must be string msg */
+#define testAssertMsg(cond, ...) do { \
+  if (!(cond)) \
+    error_at_line (1, 0, __FILE__, __LINE__, __VA_ARGS__); \
+} while (0);
+
+#define testAssert(cond) testAssertMsg(cond, "%s", #cond)
+
+#define MYSELF "/proc/self/exe"
+
 #endif /* _POSIX_SPAWN_TEST_H_ */
 
