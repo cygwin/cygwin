@@ -1855,9 +1855,18 @@ symlink_native (const char *oldpath, path_conv &win32_newpath)
       while (towupper (*++c_old) == towupper (*++c_new))
 	;
       /* The last component could share a common prefix, so make sure we end
-         up on the first char after the last common backslash. */
-      while (c_old[-1] != L'\\')
-	--c_old, --c_new;
+         up on the first char after the last common backslash.
+
+	 However, if c_old is a strict prefix of c_new (at a component
+	 boundary), or vice versa, then do not try to find the last common
+	 backslash. */
+      if ((!*c_old || *c_old == L'\\') && (!*c_new || *c_new == L'\\'))
+	c_old += !!*c_old, c_new += !!*c_new;
+      else
+	{
+	  while (c_old[-1] != L'\\')
+	    --c_old, --c_new;
+	}
 
       /* 2. Check if prefix is long enough.  The prefix must at least points to
             a complete device:  \\?\X:\ or \\?\UNC\server\share\ are the minimum
@@ -1882,8 +1891,10 @@ symlink_native (const char *oldpath, path_conv &win32_newpath)
 	  final_oldpath = &final_oldpath_buf;
 	  final_oldpath->Buffer = tp.w_get ();
 	  PWCHAR e_old = final_oldpath->Buffer;
-	  while (num-- > 0)
-	    e_old = wcpcpy (e_old, L"..\\");
+	  while (num > 1 || (num == 1 && *c_old))
+	    e_old = wcpcpy (e_old, L"..\\"), num--;
+	  if (num > 0)
+	    e_old = wcpcpy (e_old, L"..");
 	  wcpcpy (e_old, c_old);
 	}
     }
