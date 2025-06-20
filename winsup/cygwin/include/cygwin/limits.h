@@ -43,7 +43,13 @@ details. */
 #define __SEM_VALUE_MAX 1147483648
 #define __SIGQUEUE_MAX 1024
 #define __STREAM_MAX 20
-#define __SYMLOOP_MAX 10
+/* __SYMLOOP_MAX
+   https://learn.microsoft.com/en-us/windows/win32/fileio/reparse-points
+   ... There is a limit of 63 reparse points on any given path.
+   NOTE: The limit can be reduced depending on the length of the
+   reparse point. For example, if your reparse point targets a fully
+   qualified path, the limit becomes 31. */
+#define __SYMLOOP_MAX 63
 #define __TIMER_MAX 32
 #define __TTY_NAME_MAX 32
 #define __FILESIZEBITS 64
