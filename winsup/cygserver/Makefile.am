@@ -12,7 +12,9 @@ cygserver_flags=$(cxxflags_common) -Wimplicit-fallthrough=5 -Werror -DSYSCONFDIR
 AM_CXXFLAGS = $(CFLAGS)
 
 noinst_LIBRARIES = libcygserver.a
+if BUILD_CYGSERVER
 sbin_PROGRAMS = cygserver
+endif
 bin_SCRIPTS = cygserver-config
 
 cygserver_SOURCES = \

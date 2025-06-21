@@ -698,8 +698,23 @@ Building these programs can be disabled with the <literal>--without-cross-bootst
 option to <literal>configure</literal>.
 </para>
 
+<para>
+Build of <literal>cygserver</literal> can be skipped with
+<literal>--disable-cygserver</literal> and build of other Cygwin utilities with
+<literal>--disable-utils</literal>.
+</para>
+
+<para>
+In combination, <literal>--disable-cygserver</literal>,
+<literal>--disable-dumper</literal>, <literal>--disable-utils</literal>
+and  <literal>--without-cross-bootstrap</literal> allow building of just
+<literal>cygwin1.dll</literal> and <literal>crt0.o</literal> for a stage2
+compiler, when being built with stage1 compiler which does not support linking
+executables yet (because those files are missing).
+</para>
+
 <!-- If you want to run the tests <literal>busybox</literal> and
-     <literal>cygutils-extra<literal> are also required. -->
+     <literal>cygutils-extra</literal> are also required. -->
 
 <para>
 Building the documentation also requires the <literal>dblatex</literal>,
