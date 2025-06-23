@@ -57,6 +57,11 @@ clock_t	   clock (void);
 double	   difftime (time_t _time2, time_t _time1);
 time_t	   mktime (struct tm *_timeptr);
 time_t	   time (time_t *_timer);
+#if (__ISO_C_VISIBLE >= 2011 || __POSIX_VISIBLE >= 202405)
+#define TIME_UTC 1
+
+int        timespec_get(struct timespec *ts, int base);
+#endif
 #ifndef _REENT_ONLY
 char	  *asctime (const struct tm *_tblock);
 char	  *ctime (const time_t *_time);
