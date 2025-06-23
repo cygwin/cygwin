@@ -35,6 +35,10 @@
 
 #include <sys/cdefs.h>
 
+#if (__GNU_VISIBLE || __POSIX_VISIBLE >= 202405)
+#include <signal.h>
+#endif
+
 /*
  * This file is intended to be compatible with the traditional poll.h.
  */
@@ -100,6 +104,11 @@ struct pollfd {
 
 __BEGIN_DECLS
 int	poll(struct pollfd _pfd[], nfds_t _nfds, int _timeout);
+#if (__GNU_VISIBLE || __POSIX_VISIBLE >= 202405)
+int	ppoll(struct pollfd _pfd[], nfds_t _nfds,
+	    const struct timespec *__restrict _timeout,
+	    const sigset_t *__restrict _newsigmask);
+#endif /* __GNU_VISIBLE || __POSIX_VISIBLE >= 202405 */
 __END_DECLS
 
 #endif /* !_KERNEL */
