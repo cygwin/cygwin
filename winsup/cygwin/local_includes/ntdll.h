@@ -1660,6 +1660,8 @@ extern "C"
 					 BOOLEAN);
   WCHAR RtlUpcaseUnicodeChar (WCHAR);
   NTSTATUS RtlUpcaseUnicodeString (PUNICODE_STRING, PUNICODE_STRING, BOOLEAN);
+  VOID RtlWakeAddressSingle (PVOID);
+  NTSTATUS RtlWaitOnAddress (volatile void *, PVOID, SIZE_T, PLARGE_INTEGER);
   NTSTATUS RtlWriteRegistryValue (ULONG, PCWSTR, PCWSTR, ULONG, PVOID, ULONG);
 
 #ifdef __cplusplus
