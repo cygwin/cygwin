@@ -32,7 +32,7 @@ extern "C"
   int sem_unlink (const char *__name);
   int sem_wait (sem_t *__sem);
   int sem_trywait (sem_t *__sem);
-#if __GNU_VISIBLE
+#if __GNU_VISIBLE || __POSIX_VISIBLE >= 202405
   int sem_clockwait (sem_t *__sem, clockid_t __clock_id, const struct timespec *__abstime);
 #endif
   int sem_timedwait (sem_t *__sem, const struct timespec *__abstime);

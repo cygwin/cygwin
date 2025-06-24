@@ -39,7 +39,7 @@ struct pollfd {
 typedef unsigned int nfds_t;
 
 extern int poll __P ((struct pollfd *fds, nfds_t nfds, int timeout));
-#if __GNU_VISIBLE
+#if __GNU_VISIBLE || __POSIX_VISIBLE >= 202405
 extern int ppoll __P ((struct pollfd *fds, nfds_t nfds,
 		       const struct timespec *timeout_ts,
 		       const sigset_t *sigmask));
