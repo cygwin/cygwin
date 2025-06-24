@@ -311,6 +311,7 @@ check_PROGRAMS = \
 	winsup.api/pthread/self2 \
 	winsup.api/pthread/threadidafterfork \
 	winsup.api/pthread/tsd1 \
+	winsup.api/posix_spawn/chdir \
 	winsup.api/posix_spawn/errors \
 	winsup.api/posix_spawn/fds \
 	winsup.api/posix_spawn/signals \

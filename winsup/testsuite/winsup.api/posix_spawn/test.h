@@ -12,6 +12,11 @@
     error_at_line(1, errno, __FILE__, __LINE__, "%s", #x); \
 } while (0)
 
+#define nullError(x) do { \
+  if (!(x)) \
+    error_at_line(1, errno, __FILE__, __LINE__, "%s", #x); \
+} while (0)
+
 #define sigError(x) do { \
   if ((x) == SIG_ERR) \
     error_at_line(1, errno, __FILE__, __LINE__, "%s", #x); \

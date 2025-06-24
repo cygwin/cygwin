@@ -115,7 +115,7 @@ int main (int argc, char **argv)
   errCode (posix_spawn_file_actions_destroy (&fa));
 
   /* TODO: test new fds (open or dup2) not 0 through 2 */
-  /* TODO: test posix_spawn_file_actions_add(f)chdir */
+  /* TODO: test error cases */
 
   negError (close (fd));
   negError (close (fdcloexec));
