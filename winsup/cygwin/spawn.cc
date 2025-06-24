@@ -588,6 +588,8 @@ child_info_spawn::worker (int mode, const char *prog_arg,
       __stdin = args.stdfds[0];
       __stdout = args.stdfds[1];
       __stderr = args.stdfds[2];
+      if (args.sigmask)
+	sigmask = *args.sigmask;
       record_children ();
 
       si.lpReserved2 = (LPBYTE) this;
@@ -1461,6 +1463,8 @@ do_posix_spawn (pid_t *pid, const char *path,
 		const posix_spawnattr_t *sa, char * const argv[],
 		char * const envp[], int use_env_path)
 {
+  spawn_worker_args args (argv, envp ?: environ);
+  struct sigaction *sigs = NULL;
   syscall_printf ("posix_spawn%s (%p, %s, %p, %p, %p, %p)",
       use_env_path ? "p" : "", pid, path, fa, sa, argv, envp);
 
@@ -1468,15 +1472,26 @@ do_posix_spawn (pid_t *pid, const char *path,
      POSIX_SPAWN_RESETIDS
      POSIX_SPAWN_SETPGROUP
      POSIX_SPAWN_SETSCHEDPARAM
-     POSIX_SPAWN_SETSCHEDULER
-     POSIX_SPAWN_SETSIGDEF
-     POSIX_SPAWN_SETSIGMASK */
-  if (sa && (*sa)->sa_flags)
-    goto fallback;
+     POSIX_SPAWN_SETSCHEDULER */
+  if (sa)
+    {
+      if ((*sa)->sa_flags & ~(POSIX_SPAWN_SETSIGMASK|POSIX_SPAWN_SETSIGDEF))
+	goto fallback;
+
+      if ((*sa)->sa_flags & POSIX_SPAWN_SETSIGMASK)
+	args.sigmask = &(*sa)->sa_sigmask;
+
+      if ((*sa)->sa_flags & POSIX_SPAWN_SETSIGDEF)
+	{
+	  sigs = (struct sigaction *) cmalloc (HEAP_SIGS,
+					     _NSIG * sizeof (struct sigaction));
+	  if (!sigs)
+	    return ENOMEM;
+	}
+    }
 
   {
     path_conv buf;
-    spawn_worker_args args (argv, envp ?: environ);
     /* lock the process to temporarily manipulate file descriptors for the
        spawn operation */
     lock_process now;
@@ -1627,11 +1642,39 @@ do_posix_spawn (pid_t *pid, const char *path,
 	  }
       }
 
+    if (sigs)
+      {
+	memcpy (sigs, cygheap->sigs, _NSIG * sizeof (struct sigaction));
+	for (int i = 1; i < _NSIG; i++)
+	  {
+	    if ((*sa)->sa_sigdefault & SIGTOMASK (i))
+	      {
+		sigs[i].sa_mask = 0;
+		sigs[i].sa_handler = SIG_DFL;
+		sigs[i].sa_flags &= ~SA_SIGINFO;
+	      }
+	  }
+
+	/* the active signal handler info is kept in global_sigs and
+	   cygheap->sigs is only used for inheritance to child processes, so we
+	   can swap out cygheap->sigs without worrying about messing up the
+	   current process's state.  Use an InterlockedExchange just to be
+	   safe. */
+	sigs = (struct sigaction *) InterlockedExchangePointer (
+						(PVOID *) &cygheap->sigs, sigs);
+      }
+
     chpid = child_info_spawn (_CH_NADA).worker (_P_NOWAIT,
 	use_env_path ?
 		(find_exec (path, buf, "PATH", FE_NNF, NULL, args.cwdfd) ?: "")
 		     : path,
 	args);
+
+    /* put cygheap->sigs back how we found it (should be the same as
+       global_sigs */
+    if (sigs)
+      sigs = (struct sigaction *) InterlockedExchangePointer (
+						(PVOID *) &cygheap->sigs, sigs);
 
     if (chpid < 0)
       {
@@ -1645,6 +1688,8 @@ do_posix_spawn (pid_t *pid, const char *path,
 
 closes:
     int save_errno = get_errno ();
+    if (sigs)
+      cfree (sigs);
     if (args.cwdfd >= 0)
       close (args.cwdfd);
     for (size_t i = 0; i < 3; i++)
