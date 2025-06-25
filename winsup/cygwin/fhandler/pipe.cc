@@ -442,7 +442,6 @@ ssize_t
 fhandler_pipe_fifo::raw_write (const void *ptr, size_t len)
 {
   size_t nbytes = 0;
-  ULONG chunk;
   NTSTATUS status = STATUS_SUCCESS;
   IO_STATUS_BLOCK io;
   HANDLE evt;
@@ -543,11 +542,6 @@ fhandler_pipe_fifo::raw_write (const void *ptr, size_t len)
 	}
     }
 
-  if (len <= (size_t) avail)
-    chunk = len;
-  else
-    chunk = avail;
-
   if (!(evt = CreateEvent (NULL, false, false, NULL)))
     {
       __seterrno ();
@@ -564,8 +558,8 @@ fhandler_pipe_fifo::raw_write (const void *ptr, size_t len)
       ULONG len1;
       DWORD waitret = WAIT_OBJECT_0;
 
-      if (left > chunk && !is_nonblocking ())
-	len1 = chunk;
+      if (left > (size_t) avail && !is_nonblocking ())
+	len1 = (ULONG) avail;
       else
 	len1 = (ULONG) left;
 
