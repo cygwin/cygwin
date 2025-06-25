@@ -349,7 +349,7 @@ XFAIL_TESTS = \
 LOG_COMPILER = $(srcdir)/cygrun.sh
 
 export runtime_root=$(abs_builddir)/testinst/bin
-export cygrun=$(builddir)/mingw/cygrun
+export mingwtestdir=$(builddir)/mingw
 
 # Set up things in the Cygwin 'installation' at testsuite/testinst/ to provide
 # things which tests need to work
