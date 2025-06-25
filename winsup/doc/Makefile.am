@@ -48,10 +48,11 @@ clean-local:
 	rm -f *.5
 	rm -f *.info* charmap
 
-install-html-local: cygwin-ug-net/cygwin-ug-net.html cygwin-api/cygwin-api.html faq/faq.html
+install-html-local: cygwin-ug-net/cygwin-ug-net.html cygwin-ug-net/cygwin-ug-net-nochunks.html.gz cygwin-api/cygwin-api.html faq/faq.html
 	@$(MKDIR_P) $(DESTDIR)$(htmldir)/cygwin-ug-net
 	$(INSTALL_DATA) cygwin-ug-net/*.html $(DESTDIR)$(htmldir)/cygwin-ug-net
 	(cd $(DESTDIR)$(htmldir)/cygwin-ug-net && ln -f cygwin-ug-net.html index.html)
+	$(INSTALL_DATA) cygwin-ug-net/cygwin-ug-net-nochunks.html.gz $(DESTDIR)$(htmldir)/cygwin-ug-net
 	$(INSTALL_DATA) $(srcdir)/docbook.css $(DESTDIR)$(htmldir)/cygwin-ug-net
 	@$(MKDIR_P) $(DESTDIR)$(htmldir)/cygwin-api
 	$(INSTALL_DATA) cygwin-api/*.html $(DESTDIR)$(htmldir)/cygwin-api
@@ -59,6 +60,7 @@ install-html-local: cygwin-ug-net/cygwin-ug-net.html cygwin-api/cygwin-api.html 
 	$(INSTALL_DATA) $(srcdir)/docbook.css $(DESTDIR)$(htmldir)/cygwin-api
 	@$(MKDIR_P) $(DESTDIR)$(htmldir)/faq
 	$(INSTALL_DATA) faq/faq.html $(DESTDIR)$(htmldir)/faq
+	$(INSTALL_DATA) faq/faq.body $(DESTDIR)$(htmldir)/faq
 	(cd $(DESTDIR)$(htmldir)/faq && ln -f faq.html index.html)
 	$(INSTALL_DATA) $(srcdir)/docbook.css $(DESTDIR)$(htmldir)/faq
 
@@ -98,6 +100,7 @@ uninstall-html:
 	    rm -f $(DESTDIR)$(htmldir)/$$i ; \
 	done ;
 	rm -f $(DESTDIR)$(htmldir)/cygwin-ug-net/index.html
+	rm -f $(DESTDIR)$(htmldir)/cygwin-ug-net/cygwin-ug-net-nochunks.html.gz
 	rm -f $(DESTDIR)$(htmldir)/cygwin-ug-net/docbook.css
 	for i in cygwin-api/*.html ; do \
 	    rm -f $(DESTDIR)$(htmldir)/$$i ; \
@@ -105,6 +108,7 @@ uninstall-html:
 	rm -f $(DESTDIR)$(htmldir)/cygwin-api/index.html
 	rm -f $(DESTDIR)$(htmldir)/cygwin-api/docbook.css
 	rm -f $(DESTDIR)$(htmldir)/faq/faq.html
+	rm -f $(DESTDIR)$(htmldir)/faq/faq.body
 	rm -f $(DESTDIR)$(htmldir)/faq/index.html
 	rm -f $(DESTDIR)$(htmldir)/faq/docbook.css
 
@@ -119,7 +123,7 @@ uninstall-etc:
 
 uninstall-hook: uninstall-extra-man uninstall-html uninstall-info uninstall-etc
 
-# nochunks ug html is not installed, but will be deployed to website
+# nochunks ug html is not packaged, but will be deployed to website
 cygwin-ug-net/cygwin-ug-net-nochunks.html.gz: $(cygwin-ug-net_SOURCES) html.xsl
 	$(AM_V_GEN)$(XMLTO) html-nochunks -m $(srcdir)/html.xsl $<
 	@$(MKDIR_P) cygwin-ug-net
@@ -167,7 +171,7 @@ faq/faq.html: $(faq_SOURCES) html.xsl
 	$(AM_V_GEN)$(XMLTO) html -o faq -m $(srcdir)/html.xsl $(XMLTO_HTML_CHUNK_QUIET) $(srcdir)/faq.xml
 	@sed -i 's;<a name="id[mp][0-9]*"></a>;;g' faq/faq.html
 
-# faq body is not installed, but is intended to be deployed to website, where it
+# faq body is not packaged, but is intended to be deployed to website, where it
 # can be SSI included in a framing page
 faq/faq.body: faq/faq.html
 	$(AM_V_GEN)$(srcdir)/bodysnatcher.pl $<
