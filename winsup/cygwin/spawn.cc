@@ -37,12 +37,25 @@ details. */
    Returns (possibly NULL) suffix */
 
 static const char *
-perhaps_suffix (const char *prog, path_conv& buf, int& err, unsigned opt)
+perhaps_suffix (const char *prog, path_conv& buf, int& err, unsigned opt,
+		int cwdfd)
 {
+  tmp_pathbuf tp;
   const char *ext;
 
   err = 0;
   debug_printf ("prog '%s'", prog);
+  if (cwdfd != AT_FDCWD && !isabspath_strict (prog))
+    {
+      char *tmp = tp.c_get ();
+      if (gen_full_path_at (tmp, cwdfd, prog))
+	{
+	  err = get_errno ();
+	  return NULL;
+	}
+      prog = tmp;
+    }
+
   buf.check (prog,
 	     PC_SYM_FOLLOW | PC_SYM_NOFOLLOW_REP | PC_NULLEMPTY | PC_POSIX,
 	     stat_suffixes);
@@ -79,7 +92,7 @@ perhaps_suffix (const char *prog, path_conv& buf, int& err, unsigned opt)
    and NULL is returned.  */
 const char *
 find_exec (const char *name, path_conv& buf, const char *search,
-	   unsigned opt, const char **known_suffix)
+	   unsigned opt, const char **known_suffix, int cwdfd)
 {
   const char *suffix = "";
   const char *retval = NULL;
@@ -94,7 +107,7 @@ find_exec (const char *name, path_conv& buf, const char *search,
 
   /* Check to see if file can be opened as is first. */
   if ((has_slash || opt & FE_CWD)
-      && (suffix = perhaps_suffix (name, buf, err, opt)) != NULL)
+      && (suffix = perhaps_suffix (name, buf, err, opt, cwdfd)) != NULL)
     {
       /* Overwrite potential symlink target with original path.
 	 See comment preceeding this method. */
@@ -153,7 +166,7 @@ find_exec (const char *name, path_conv& buf, const char *search,
 
       int err1;
 
-      if ((suffix = perhaps_suffix (tmp_path, buf, err1, opt)) != NULL)
+      if ((suffix = perhaps_suffix (tmp_path, buf, err1, opt, cwdfd)) != NULL)
 	{
 	  if (buf.has_acls () && check_file_access (buf, X_OK, true))
 	    continue;
@@ -349,19 +362,79 @@ child_info_spawn::worker (int mode, const char *prog_arg,
 
       int err;
       const char *ext;
-      if ((ext = perhaps_suffix (prog_arg, real_path, err, FE_NADA)) == NULL)
+      if ((ext = perhaps_suffix (prog_arg, real_path, err, FE_NADA,
+				 args.cwdfd)) == NULL)
 	{
 	  set_errno (err);
 	  res = -1;
 	  __leave;
 	}
 
-      res = newargv.setup (prog_arg, real_path, ext, ac, args.argv, p_type_exec);
+      res = newargv.setup (prog_arg, real_path, ext, ac, args.argv, p_type_exec,
+			   args.cwdfd);
 
       if (res)
 	__leave;
 
-      if (!real_path.iscygexec () && ::cygheap->cwd.get_error ())
+      LPWSTR cwd = NULL;
+      if (real_path.iscygexec ())
+	{
+	  moreinfo->argc = newargv.argc;
+	  moreinfo->argv = newargv;
+	  moreinfo->cwdfd = args.cwdfd;
+	}
+
+      if (args.cwdfd > 0)
+        {
+	  cygheap_fdget cfd (args.cwdfd);
+	  if (cfd < 0)
+	    {
+	      set_errno (EBADF);
+	      res = -1;
+	      __leave;
+	    }
+	  cfd->set_close_on_exec (!real_path.iscygexec ());
+	  if (!real_path.iscygexec ())
+	    {
+	      PUNICODE_STRING natcwd = cfd->pc.get_nt_native_path ();
+	      cwd = tp.w_get ();
+	      USHORT len = natcwd->Length / sizeof (WCHAR);
+	      if (RtlEqualUnicodePathPrefix (natcwd, &ro_u_natp, FALSE))
+		{
+		  cwd = cfd->pc.get_wide_win32_path (cwd);
+		  if (len < MAX_PATH + 2)
+		    {
+		      if (cwd[5] == L':')
+			cwd += 4;
+		      else
+			*(cwd += 6) = L'\\';
+		    }
+		  else
+		    {
+		      set_errno (ENAMETOOLONG);
+		      res = -1;
+		      __leave;
+		    }
+		}
+	      else if (len <
+			NT_MAX_PATH - ro_u_globalroot.Length / sizeof (WCHAR))
+		{
+		  UNICODE_STRING ucwd;
+
+		  RtlInitEmptyUnicodeString (&ucwd, cwd,
+					    (NT_MAX_PATH - 1) * sizeof (WCHAR));
+		  RtlCopyUnicodeString (&ucwd, &ro_u_globalroot);
+		  RtlAppendUnicodeStringToString (&ucwd, natcwd);
+		}
+	      else
+		{
+		  set_errno (ENAMETOOLONG);
+		  res = -1;
+		  __leave;
+		}
+	    }
+	}
+      else if (!real_path.iscygexec () && ::cygheap->cwd.get_error ())
 	{
 	  small_printf ("Error: Current working directory %s.\n"
 			"Can't start native Windows application from here.\n\n",
@@ -371,11 +444,6 @@ child_info_spawn::worker (int mode, const char *prog_arg,
 	  __leave;
 	}
 
-      if (real_path.iscygexec ())
-	{
-	  moreinfo->argc = newargv.argc;
-	  moreinfo->argv = newargv;
-	}
       if ((wincmdln || !real_path.iscygexec ())
 	   && !cmd.fromargv (newargv, real_path.get_win32 (),
 			     real_path.iscygexec ()))
@@ -626,7 +694,7 @@ child_info_spawn::worker (int mode, const char *prog_arg,
 			       TRUE,		/* inherit handles */
 			       c_flags,
 			       envblock,	/* environment */
-			       NULL,
+			       cwd,
 			       &si,
 			       &pi);
 	}
@@ -678,7 +746,7 @@ child_info_spawn::worker (int mode, const char *prog_arg,
 			       TRUE,		/* inherit handles */
 			       c_flags,
 			       envblock,	/* environment */
-			       NULL,
+			       cwd,
 			       &si,
 			       &pi);
 	  if (hwst)
@@ -1094,7 +1162,7 @@ spawnvpe (int mode, const char *file, const char * const *argv,
 
 int
 av::setup (const char *prog_arg, path_conv& real_path, const char *ext,
-	   int ac_in, const char *const *av_in, bool p_type_exec)
+	   int ac_in, const char *const *av_in, bool p_type_exec, int cwdfd)
 {
   const char *p;
   bool exeext = ascii_strcasematch (ext, ".exe");
@@ -1273,7 +1341,7 @@ av::setup (const char *prog_arg, path_conv& real_path, const char *ext,
 	if (arg1)
 	  unshift (arg1);
 
-	find_exec (pgm, real_path, "PATH", FE_NADA, &ext);
+	find_exec (pgm, real_path, "PATH", FE_NADA, &ext, cwdfd);
 	unshift (real_path.get_posix ());
       }
   if (real_path.iscygexec ())

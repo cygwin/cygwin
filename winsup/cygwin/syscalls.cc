@@ -4616,9 +4616,9 @@ pclose (FILE *fp)
 
 /* Preliminary(?) implementation of the openat family of functions. */
 
-static int
+int
 gen_full_path_at (char *path_ret, int dirfd, const char *pathname,
-		  int flags = 0)
+		  int flags)
 {
   /* futimesat allows a NULL pathname. */
   if (!pathname && !(flags & _AT_NULL_PATHNAME_ALLOWED))
