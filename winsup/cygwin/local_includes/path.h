@@ -463,6 +463,9 @@ class path_conv
 /* Interix symlink marker */
 #define INTERIX_SYMLINK_COOKIE  "IntxLNK\1"
 
+int gen_full_path_at (char *path_ret, int dirfd, const char *pathname,
+		      int flags = 0);
+
 enum fe_types
 {
   FE_NADA = 0,		/* Nothing special */
@@ -473,7 +476,8 @@ enum fe_types
 const char *find_exec (const char *name, path_conv& buf,
 				 const char *search = "PATH",
 				 unsigned opt = FE_NADA,
-				 const char **known_suffix = NULL);
+				 const char **known_suffix = NULL,
+				 int cwdfd = AT_FDCWD);
 
 /* Common macros for checking for invalid path names */
 #define isdrive(s) (isalpha (*(s)) && (s)[1] == ':')

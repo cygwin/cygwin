@@ -46,6 +46,7 @@ extern "C" void __sinit (_reent *);
 
 static int NO_COPY envc;
 static char NO_COPY **envp;
+static int NO_COPY cwdfd = AT_FDCWD;
 
 bool NO_COPY jit_debug;
 
@@ -656,6 +657,7 @@ child_info_spawn::handle_spawn ()
   __argv = moreinfo->argv;
   envp = moreinfo->envp;
   envc = moreinfo->envc;
+  cwdfd = moreinfo->cwdfd;
   if (!dynamically_loaded)
     cygheap->fdtab.fixup_after_exec ();
   if (__stdin >= 0)
@@ -842,7 +844,22 @@ dll_crt0_1 (void *)
 
   ProtectHandle (hMainThread);
 
-  cygheap->cwd.init ();
+  if (cwdfd >= 0)
+    {
+      int res = fchdir (cwdfd);
+      if (res < 0)
+	{
+	  /* if the error occurs after the calling process successfully
+	     returns, the child process shall exit with exit status 127. */
+	  /* why is this byteswapped? */
+	  set_api_fatal_return (0x7f00);
+	  api_fatal ("can't fchdir, %R", res);
+	}
+      close (cwdfd);
+      cwdfd = AT_FDCWD;
+    }
+  else
+    cygheap->cwd.init ();
 
   /* Initialize pthread mainthread when not forked and it is safe to call new,
      otherwise it is reinitalized in fixup_after_fork */
