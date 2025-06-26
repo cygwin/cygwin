@@ -63,7 +63,7 @@ class av
     calloced = argc;
   }
   int setup (const char *, path_conv&, const char *, int, const char *const *,
-	     bool);
+	     bool, int = AT_FDCWD);
 };
 
 class linebuf

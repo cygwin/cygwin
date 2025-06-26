@@ -128,6 +128,7 @@ public:
   int envc;
   char **envp;
   HANDLE myself_pinfo;
+  int cwdfd;
   int nchildren;
   cchildren children[0];
   static cygheap_exec_info *alloc ();
@@ -139,9 +140,10 @@ struct spawn_worker_args
 {
   int mode;
   int stdfds[3];
+  int cwdfd;
 
   spawn_worker_args (int mode)
-    : mode (mode), stdfds {-1, -1, -1}
+    : mode (mode), stdfds {-1, -1, -1}, cwdfd (AT_FDCWD)
   { }
 };
 
