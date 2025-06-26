@@ -16,6 +16,7 @@ void cleanup_tmpfile (void)
 
 int main (void)
 {
+  posix_spawn_file_actions_t fa;
   pid_t pid;
   int fd;
   char *childargv[] = {"ls", NULL};
@@ -53,6 +54,13 @@ int main (void)
   errCodeExpected (ENOTDIR,
       posix_spawn (&pid, tmpsub, NULL, NULL, childargv, environ));
 #endif
+
+  /* expected ENOENT: relative path after chdir */
+  errCode (posix_spawn_file_actions_init (&fa));
+  errCode (posix_spawn_file_actions_addchdir_np (&fa, "/tmp"));
+  errCodeExpected (ENOENT,
+      posix_spawn (&pid, tmppath, &fa, NULL, childargv, environ));
+  errCode (posix_spawn_file_actions_destroy (&fa));
 
   return 0;
 }
