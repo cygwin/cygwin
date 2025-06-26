@@ -140,6 +140,18 @@ int main (int argc, char **argv)
   negError (waitpid (pid, &status, 0));
   exitStatus (status, 0);
   errCode (posix_spawn_file_actions_destroy (&fa));
+
+  /* test posix_spawn_file_actions_addfchdir + adddup2 of directory fd */
+  errCode (posix_spawn_file_actions_init (&fa));
+  errCode (posix_spawn_file_actions_adddup2 (&fa, fd, 0));
+  errCode (posix_spawn_file_actions_addfchdir_np (&fa, fd));
+  errCode (posix_spawn_file_actions_addopen (&fa, 1, "tmpfile2", O_WRONLY, 0644));
+  childargv[3] = buf;
+  errCode (posix_spawn (&pid, MYSELF, &fa, NULL, childargv, environ));
+  negError (waitpid (pid, &status, 0));
+  exitStatus (status, 0);
+  errCode (posix_spawn_file_actions_destroy (&fa));
+
   negError (close (fd));
 
   return 0;

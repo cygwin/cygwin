@@ -162,6 +162,17 @@ int main (void)
   errCode (posix_spawn_file_actions_destroy (&fa));
   free (childargv[2]);
 
+  /* test posix_spawn_file_actions_adddup2 of directory handle */
+  errCode (posix_spawn_file_actions_init (&fa));
+  errCode (posix_spawn_file_actions_adddup2 (&fa, cwdfd, 0));
+  childargv[1] = "0";
+  childargv[2] = cygwin_create_path (CCP_POSIX_TO_WIN_A|CCP_ABSOLUTE, tmpcwd);
+  errCode (posix_spawn (&pid, winchild, &fa, NULL, childargv, environ));
+  negError (waitpid (pid, &status, 0));
+  exitStatus (status, 0);
+  errCode (posix_spawn_file_actions_destroy (&fa));
+  free (childargv[2]);
+
   negError (close (cwdfd));
   negError (close (fd));
   negError (close (fdcloexec));
