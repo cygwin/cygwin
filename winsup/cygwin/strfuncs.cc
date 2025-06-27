@@ -23,7 +23,7 @@ details. */
    is affected as well, but we can't transform it as long as we accept Win32
    paths as input. */
 static const WCHAR tfx_chars[] = {
- 0xf000 |   0, 0xf000 |   1, 0xf000 |   2, 0xf000 |   3,
+            0, 0xf000 |   1, 0xf000 |   2, 0xf000 |   3,
  0xf000 |   4, 0xf000 |   5, 0xf000 |   6, 0xf000 |   7,
  0xf000 |   8, 0xf000 |   9, 0xf000 |  10, 0xf000 |  11,
  0xf000 |  12, 0xf000 |  13, 0xf000 |  14, 0xf000 |  15,
@@ -62,7 +62,7 @@ static const WCHAR tfx_chars[] = {
    converting back space and dot on filesystems only supporting DOS
    filenames. */
 static const WCHAR tfx_rev_chars[] = {
- 0xf000 |   0, 0xf000 |   1, 0xf000 |   2, 0xf000 |   3,
+            0, 0xf000 |   1, 0xf000 |   2, 0xf000 |   3,
  0xf000 |   4, 0xf000 |   5, 0xf000 |   6, 0xf000 |   7,
  0xf000 |   8, 0xf000 |   9, 0xf000 |  10, 0xf000 |  11,
  0xf000 |  12, 0xf000 |  13, 0xf000 |  14, 0xf000 |  15,
@@ -109,7 +109,7 @@ transform_chars_af_unix (PWCHAR out, const char *path, __socklen_t len)
 {
   len -= sizeof (__sa_family_t);
   for (const unsigned char *p = (const unsigned char *) path; len-- > 0; ++p)
-    *out++ = (*p <= 0x7f) ? tfx_chars[*p] : *p;
+    *out++ = (*p <= 0x7f) ? (*p == 0) ? 0xf000 : tfx_chars[*p] : *p;
   return out;
 }
 
