@@ -326,7 +326,6 @@ fhandler_pipe::raw_read (void *ptr, size_t& len)
       ULONG_PTR nbytes_now = 0;
       ULONG len1 = (ULONG) (len - nbytes);
       DWORD select_sem_timeout = 0;
-      bool real_non_blocking_mode = false;
 
       FILE_PIPE_LOCAL_INFORMATION fpli;
       status = NtQueryInformationFile (get_handle (), &io,
@@ -453,7 +452,6 @@ fhandler_pipe_fifo::raw_write (const void *ptr, size_t len)
     return 0;
 
   ssize_t avail = pipe_buf_size;
-  bool real_non_blocking_mode = false;
 
   /* Workaround for native ninja. Native ninja creates pipe with size == 0,
      and starts cygwin process with that pipe. */

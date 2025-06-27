@@ -1203,6 +1203,7 @@ class fhandler_pipe_fifo: public fhandler_base
  protected:
   size_t pipe_buf_size;
   HANDLE pipe_mtx; /* Used only in the pipe case */
+  bool real_non_blocking_mode; /* Used only in the pipe case */
   virtual void release_select_sem (const char *) {};
 
   IMPLEMENT_STATUS_FLAG (bool, isclosed)
@@ -1212,6 +1213,8 @@ class fhandler_pipe_fifo: public fhandler_base
 
   virtual bool reader_closed () { return false; };
   ssize_t raw_write (const void *ptr, size_t len);
+
+  friend ssize_t pipe_data_available (int, fhandler_base *, HANDLE, int);
 };
 
 class fhandler_pipe: public fhandler_pipe_fifo
