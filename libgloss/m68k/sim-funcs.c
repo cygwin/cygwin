@@ -15,6 +15,7 @@
 
 #define _XOPEN_SOURCE
 #include <unistd.h>
+#include <stdlib.h>
 
 int
 kill(int pid, int sig)

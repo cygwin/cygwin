@@ -15,6 +15,8 @@
  */
 #include "leds.h"
 
+extern void delay(int);
+
 /*
  * led_putnum -- print a hex number on the LED. the value of num must be a char with
  *              the ascii value. ie... number 0 is '0', a is 'a', ' ' (null) clears
