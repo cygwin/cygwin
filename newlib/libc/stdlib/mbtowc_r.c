@@ -677,6 +677,21 @@ __utf8_mbtowc (struct _reent *r,
 	state->__count = 3;
       else if (n < (size_t)-1)
 	++n;
+      if (n < 4)
+	return -2;
+      ch = t[i++];
+      if (ch < 0x80 || ch > 0xbf)
+	{
+	  _REENT_ERRNO(r) = EILSEQ;
+	  return -1;
+	}
+      /* Note: Originally we created the low surrogate pair on systems with
+	 wchar_t == UTF-16 *before* checking the 4th byte.  This was utterly
+	 wrong, because this failed to check the last byte for being a valid
+	 value for a complete UTF-8 4 byte sequence.  As a result, calling
+	 functions happily digested the low surrogate and then got an entirely
+	 different character and handled this separately, thus generating
+	 invalid UTF-16 values. */
       if (state->__count == 3 && sizeof(wchar_t) == 2)
 	{
 	  /* On systems which have wchar_t being UTF-16 values, the value
@@ -695,15 +710,7 @@ __utf8_mbtowc (struct _reent *r,
 	    |   (wint_t)((state->__value.__wchb[2] & 0x3f) << 6);
 	  state->__count = 4;
 	  *pwc = 0xd800 | ((tmp - 0x10000) >> 10);
-	  return i;
-	}
-      if (n < 4)
-	return -2;
-      ch = t[i++];
-      if (ch < 0x80 || ch > 0xbf)
-	{
-	  _REENT_ERRNO(r) = EILSEQ;
-	  return -1;
+	  return 3;
 	}
       tmp = (wint_t)((state->__value.__wchb[0] & 0x07) << 18)
 	|   (wint_t)((state->__value.__wchb[1] & 0x3f) << 12)
