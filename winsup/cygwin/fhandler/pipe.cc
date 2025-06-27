@@ -663,12 +663,13 @@ fhandler_pipe_fifo::raw_write (const void *ptr, size_t len)
 	     in a very implementation-defined way we can't emulate, but it
 	     resembles it closely enough to get useful results. */
 	  avail = pipe_data_available (-1, this, get_handle (), PDA_WRITE);
-	  if (avail < 1)	/* error or pipe closed */
+	  if (avail == PDA_UNKNOWN && real_non_blocking_mode)
+	    avail = len1;
+	  else if (avail == 0 || !PDA_NOERROR (avail))
+	    /* error or pipe closed */
 	    break;
 	  if (avail > len1)	/* somebody read from the pipe */
 	    avail = len1;
-	  if (avail == 1)	/* 1 byte left or non-Cygwin pipe */
-	    len1 >>= 1;
 	  else if (avail >= PIPE_BUF)
 	    len1 = avail & ~(PIPE_BUF - 1);
 	  else
