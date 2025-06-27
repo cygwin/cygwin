@@ -497,8 +497,8 @@ fhandler_pipe_fifo::raw_write (const void *ptr, size_t len)
 	    { /* Refer to the comment in select.cc: pipe_data_available(). */
 	      /* NtSetInformationFile() in set_pipe_non_blocking(true) seems
 		 to fail with STATUS_PIPE_BUSY if the pipe is not empty.
-		 In this case, the pipe is really full if WriteQuotaAvailable
-		 is zero. Otherwise, the pipe is empty. */
+		 In this case, WriteQuotaAvailable indicates real pipe space.
+		 Otherwise, the pipe is empty. */
 	      status = fh->set_pipe_non_blocking (true);
 	      if (NT_SUCCESS (status))
 		/* Pipe should be empty because reader is waiting for data. */
@@ -655,9 +655,7 @@ fhandler_pipe_fifo::raw_write (const void *ptr, size_t len)
 	  if (io.Information > 0 || len <= PIPE_BUF || short_write_once)
 	    break;
 	  /* Independent of being blocking or non-blocking, if we're here,
-	     the pipe has less space than requested.  If the pipe is a
-	     non-Cygwin pipe, just try the old strategy of trying a half
-	     write.  If the pipe has at
+	     the pipe has less space than requested.  If the pipe has at
 	     least PIPE_BUF bytes available, try to write all matching
 	     PIPE_BUF sized blocks.  If it's less than PIPE_BUF,  try
 	     the next less power of 2 bytes.  This is not really the Linux
