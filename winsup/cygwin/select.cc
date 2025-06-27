@@ -645,8 +645,8 @@ pipe_data_available (int fd, fhandler_base *fh, HANDLE h, int mode)
 	 and it is pending.
 	 In the latter case, the fact that the reader cannot read the data
 	 immediately means that the pipe is empty. In the former case,
-	 NtSetInformationFile() in set_pipe_non_blocking(true) will fail
-	 with STATUS_PIPE_BUSY, while it succeeds in the latter case.
+	 NtSetInformationFile() in set_pipe_non_blocking(!orig_mode) will
+	 fail with STATUS_PIPE_BUSY, while it succeeds in the latter case.
 	 Therefore, we can distinguish these cases by calling set_pipe_non_
 	 blocking(true). If it returns success, the pipe is empty, so we
 	 return the pipe buffer size. Otherwise, we return the value of
@@ -654,15 +654,16 @@ pipe_data_available (int fd, fhandler_base *fh, HANDLE h, int mode)
       if (fh->get_device () == FH_PIPEW
 	  && fpli.WriteQuotaAvailable < fpli.InboundQuota)
 	{
+	  bool orig_mode = ((fhandler_pipe *) fh)->real_non_blocking_mode;
 	  NTSTATUS status =
-	    ((fhandler_pipe *) fh)->set_pipe_non_blocking (true);
+	    ((fhandler_pipe *) fh)->set_pipe_non_blocking (!orig_mode);
 	  if (status == STATUS_PIPE_BUSY)
 	    return fpli.WriteQuotaAvailable; /* Not empty */
 	  else if (!NT_SUCCESS (status))
 	    /* We cannot know actual write pipe space. */
 	    return PDA_UNKNOWN;
-	  /* Restore pipe mode to blocking mode */
-	  ((fhandler_pipe *) fh)->set_pipe_non_blocking (false);
+	  /* Restore pipe mode to original blocking mode */
+	  ((fhandler_pipe *) fh)->set_pipe_non_blocking (orig_mode);
 	  /* Empty */
 	  fpli.WriteQuotaAvailable = fpli.InboundQuota;
 	}
