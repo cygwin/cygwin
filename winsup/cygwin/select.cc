@@ -649,12 +649,13 @@ pipe_data_available (int fd, fhandler_base *fh, HANDLE h, int mode)
 	Therefore, we can distinguish these cases by calling set_pipe_non_
 	blocking(true). If it returns success, the pipe is empty, so we
 	return the pipe buffer size. Otherwise, we return 0. */
-      if (fh->get_device () == FH_PIPEW && fpli.WriteQuotaAvailable == 0)
+      if (fh->get_device () == FH_PIPEW
+	  && fpli.WriteQuotaAvailable < fpli.InboundQuota)
 	{
 	  NTSTATUS status =
 	    ((fhandler_pipe *) fh)->set_pipe_non_blocking (true);
 	  if (status == STATUS_PIPE_BUSY)
-	    return 0; /* Full */
+	    return fpli.WriteQuotaAvailable; /* Not empty */
 	  else if (!NT_SUCCESS (status))
 	    /* We cannot know actual write pipe space. */
 	    return 1;
