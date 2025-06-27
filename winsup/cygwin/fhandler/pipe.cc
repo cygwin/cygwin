@@ -491,9 +491,9 @@ fhandler_pipe_fifo::raw_write (const void *ptr, size_t len)
 				       FilePipeLocalInformation);
       if (NT_SUCCESS (status))
 	{
-	  if (fpli.WriteQuotaAvailable != 0)
+	  if (fpli.WriteQuotaAvailable == fpli.InboundQuota)
 	    avail = fpli.WriteQuotaAvailable;
-	  else /* WriteQuotaAvailable == 0 */
+	  else /* WriteQuotaAvailable != InboundQuota */
 	    { /* Refer to the comment in select.cc: pipe_data_available(). */
 	      /* NtSetInformationFile() in set_pipe_non_blocking(true) seems
 		 to fail with STATUS_PIPE_BUSY if the pipe is not empty.
@@ -506,9 +506,14 @@ fhandler_pipe_fifo::raw_write (const void *ptr, size_t len)
 		fh->set_pipe_non_blocking (false);
 	      else if (status == STATUS_PIPE_BUSY)
 		{
-		  /* Full */
-		  set_errno (EAGAIN);
-		  goto err;
+		  if (fpli.WriteQuotaAvailable == 0)
+		    {
+		      /* Full */
+		      set_errno (EAGAIN);
+		      goto err;
+		    }
+		  avail = fpli.WriteQuotaAvailable;
+		  status = STATUS_SUCCESS;
 		}
 	    }
 	}
