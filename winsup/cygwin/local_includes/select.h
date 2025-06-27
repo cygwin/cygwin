@@ -143,5 +143,8 @@ ssize_t pipe_data_available (int, fhandler_base *, HANDLE, int);
 
 #define PDA_READ	0x00
 #define PDA_WRITE	0x01
+#define PDA_ERROR	-1
+#define PDA_UNKNOWN	-2
+#define PDA_NOERROR(x)	(x >= 0)
 
 #endif /* _SELECT_H_ */

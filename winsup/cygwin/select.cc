@@ -601,7 +601,7 @@ pipe_data_available (int fd, fhandler_base *fh, HANDLE h, int mode)
       if (mode == PDA_READ
 	  && PeekNamedPipe (h, NULL, 0, NULL, &nbytes_in_pipe, NULL))
 	return nbytes_in_pipe;
-      return -1;
+      return PDA_ERROR;
     }
 
   IO_STATUS_BLOCK iosb = {{0}, 0};
@@ -618,7 +618,7 @@ pipe_data_available (int fd, fhandler_base *fh, HANDLE h, int mode)
 	 access on the write end.  */
       select_printf ("fd %d, %s, NtQueryInformationFile failed, status %y",
 		     fd, fh->get_name (), status);
-      return (mode == PDA_WRITE) ? 1 : -1;
+      return (mode == PDA_WRITE) ? PDA_UNKNOWN : PDA_ERROR;
     }
   if (mode == PDA_WRITE)
     {
@@ -660,7 +660,7 @@ pipe_data_available (int fd, fhandler_base *fh, HANDLE h, int mode)
 	    return fpli.WriteQuotaAvailable; /* Not empty */
 	  else if (!NT_SUCCESS (status))
 	    /* We cannot know actual write pipe space. */
-	    return 1;
+	    return PDA_UNKNOWN;
 	  /* Restore pipe mode to blocking mode */
 	  ((fhandler_pipe *) fh)->set_pipe_non_blocking (false);
 	  /* Empty */
@@ -684,7 +684,7 @@ pipe_data_available (int fd, fhandler_base *fh, HANDLE h, int mode)
       return fpli.ReadDataAvailable;
     }
   if (fpli.NamedPipeState & FILE_PIPE_CLOSING_STATE)
-    return -1;
+    return PDA_ERROR;
   return 0;
 }
 
@@ -734,7 +734,7 @@ peek_pipe (select_record *s, bool from_select)
       if (n == 0 && fh->get_echo_handle ())
 	n = pipe_data_available (s->fd, fh, fh->get_echo_handle (), PDA_READ);
 
-      if (n < 0)
+      if (n == PDA_ERROR)
 	{
 	  select_printf ("read: %s, n %d", fh->get_name (), n);
 	  if (s->except_selected)
@@ -775,8 +775,8 @@ out:
 	}
       ssize_t n = pipe_data_available (s->fd, fh, h, PDA_WRITE);
       select_printf ("write: %s, n %d", fh->get_name (), n);
-      gotone += s->write_ready = (n > 0);
-      if (n < 0 && s->except_selected)
+      gotone += s->write_ready = (n > 0 || n == PDA_UNKNOWN);
+      if (n == PDA_ERROR && s->except_selected)
 	gotone += s->except_ready = true;
     }
   return gotone;
@@ -989,7 +989,7 @@ out:
       ssize_t n = pipe_data_available (s->fd, fh, fh->get_handle (), PDA_WRITE);
       select_printf ("write: %s, n %d", fh->get_name (), n);
       gotone += s->write_ready = (n > 0);
-      if (n < 0 && s->except_selected)
+      if (n == PDA_ERROR && s->except_selected)
 	gotone += s->except_ready = true;
     }
   return gotone;
@@ -1415,7 +1415,7 @@ out:
       ssize_t n = pipe_data_available (s->fd, fh, h, PDA_WRITE);
       select_printf ("write: %s, n %d", fh->get_name (), n);
       gotone += s->write_ready = (n > 0);
-      if (n < 0 && s->except_selected)
+      if (n == PDA_ERROR && s->except_selected)
 	gotone += s->except_ready = true;
     }
   return gotone;
