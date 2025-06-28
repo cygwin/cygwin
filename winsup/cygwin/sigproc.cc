@@ -257,7 +257,7 @@ proc_subproc (DWORD what, uintptr_t val)
 	{
 	  vchild->uid = myself->uid;
 	  vchild->gid = myself->gid;
-	  vchild->pgid = myself->pgid;
+	  InterlockedCompareExchange ((LONG*) &vchild->pgid, myself->pgid, 0);
 	  vchild->sid = myself->sid;
 	  vchild->ctty = myself->ctty;
 	  vchild->cygstarted = true;
