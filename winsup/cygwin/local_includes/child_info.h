@@ -142,11 +142,12 @@ struct spawn_worker_args
   const char *const *envp;
   int stdfds[3];
   int cwdfd;
+  pid_t pgid;
   sigset_t *sigmask;
 
   spawn_worker_args (const char *const *argv, const char *const envp[])
     : argv (argv), envp (envp), stdfds {-1, -1, -1}, cwdfd (AT_FDCWD),
-      sigmask (NULL)
+      pgid (-1), sigmask (NULL)
   { }
 };
 
