@@ -613,7 +613,8 @@ child_info_spawn::worker (int mode, const char *prog_arg,
 	 they ignore it explicitely.  CREATE_NEW_PROCESS_GROUP does that for us. */
       pid_t ctty_pgid =
 	::cygheap->ctty ? ::cygheap->ctty->tc_getpgid () : 0;
-      if (!iscygwin () && ctty_pgid && ctty_pgid != myself->pgid)
+      if (!iscygwin () && ctty_pgid &&
+	  ctty_pgid != (args.pgid == -1 ? myself->pgid : args.pgid))
 	c_flags |= CREATE_NEW_PROCESS_GROUP;
 
       if (mode == _P_DETACH)
@@ -859,6 +860,8 @@ child_info_spawn::worker (int mode, const char *prog_arg,
 	    }
 	  child->dwProcessId = pi.dwProcessId;
 	  child.hProcess = pi.hProcess;
+	  if (args.pgid != -1)
+	    child->pgid = args.pgid ?: cygpid;
 
 	  real_path.get_wide_win32_path (child->progname);
 	  /* This introduces an unreferenced, open handle into the child.
@@ -1470,16 +1473,26 @@ do_posix_spawn (pid_t *pid, const char *path,
 
   /* TODO: possibly implement spawnattr flags:
      POSIX_SPAWN_RESETIDS
-     POSIX_SPAWN_SETPGROUP
      POSIX_SPAWN_SETSCHEDPARAM
      POSIX_SPAWN_SETSCHEDULER */
   if (sa)
     {
-      if ((*sa)->sa_flags & ~(POSIX_SPAWN_SETSIGMASK|POSIX_SPAWN_SETSIGDEF))
+      static const short FASTPATH_FLAGS =
+	POSIX_SPAWN_SETSIGMASK|POSIX_SPAWN_SETSIGDEF|POSIX_SPAWN_SETPGROUP;
+      if ((*sa)->sa_flags & ~FASTPATH_FLAGS)
 	goto fallback;
 
       if ((*sa)->sa_flags & POSIX_SPAWN_SETSIGMASK)
 	args.sigmask = &(*sa)->sa_sigmask;
+
+      if ((*sa)->sa_flags & POSIX_SPAWN_SETPGROUP)
+	{
+	  args.pgid = (*sa)->sa_pgroup;
+	  if (args.pgid < 0)
+	    return EINVAL;
+	  /* According to POSIX there should be more error cases, but setpgid
+	     does not implement them, so replicate its behavior. */
+	}
 
       if ((*sa)->sa_flags & POSIX_SPAWN_SETSIGDEF)
 	{
