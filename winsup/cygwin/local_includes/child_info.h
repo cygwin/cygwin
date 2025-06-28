@@ -141,10 +141,12 @@ struct spawn_worker_args
   int mode;
   int stdfds[3];
   int cwdfd;
+  pid_t pgid;
   sigset_t *sigmask;
 
   spawn_worker_args (int mode)
-    : mode (mode), stdfds {-1, -1, -1}, cwdfd (AT_FDCWD), sigmask (NULL)
+    : mode (mode), stdfds {-1, -1, -1}, cwdfd (AT_FDCWD), pgid (-1),
+      sigmask (NULL)
   { }
 };
 
