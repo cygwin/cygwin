@@ -62,8 +62,8 @@ __utf8_wctomb (struct _reent *r,
 	 of the surrogate and proceed to convert the given character.  Note
 	 to return extra 3 bytes. */
       wchar_t tmp;
-      tmp = (state->__value.__wchb[0] << 16 | state->__value.__wchb[1] << 8)
-	    - (0x10000 >> 10 | 0xd80d);
+      tmp = (((state->__value.__wchb[0] << 16 | state->__value.__wchb[1] << 8)
+	    - 0x10000) >> 10) | 0xd800;
       *s++ = 0xe0 | ((tmp & 0xf000) >> 12);
       *s++ = 0x80 | ((tmp &  0xfc0) >> 6);
       *s++ = 0x80 |  (tmp &   0x3f);
