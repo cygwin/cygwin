@@ -710,6 +710,18 @@ packages. Building the documentation can be disabled with the
 <literal>--disable-doc</literal> option to <literal>configure</literal>.
 </para>
 
+<para>
+Below are ready-made commands to download the required
+packages. When you reach the <emphasis>Select Packages</emphasis> screen,
+these packages should be amongst the search results.
+</para>
+<screen>
+$ setup-x86_64.exe -P autoconf,automake,cocom,gcc-g++,git,libtool,make,patch,perl                           # download build tool packages
+$ setup-x86_64.exe -P gettext-devel,libiconv,libiconv-devel,libiconv2,libzstd-devel,zlib-devel              # download dumper packages
+$ setup-x86_64.exe -P mingw64-x86_64-gcc-g++,mingw64-x86_64-zlib                                            # download utility packages
+$ setup-x86_64.exe -P dblatex,docbook-utils,docbook-xml45,docbook-xsl,docbook2X,perl-XML-SAX-Expat,xmlto    # download documentation packages
+</screen>
+
 <para>Next, check out the Cygwin sources from the
 <ulink url="https://cygwin.com/git.html">Cygwin GIT source repository</ulink>).
 This is the <emphasis>preferred method</emphasis> for acquiring the sources.
