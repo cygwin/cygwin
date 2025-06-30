@@ -392,7 +392,10 @@ fhandler_pipe::raw_read (void *ptr, size_t& len)
       status = NtReadFile (get_handle (), NULL, NULL, NULL, &io, ptr,
 			   len1, NULL, NULL);
       if (real_non_blocking_mode)
-	set_pipe_non_blocking (false);
+	{
+	  set_pipe_non_blocking (false);
+	  real_non_blocking_mode = false;
+	}
       if (isclosed ())  /* A signal handler might have closed the fd. */
 	{
 	  set_errno (EBADF);
@@ -708,7 +711,10 @@ fhandler_pipe_fifo::raw_write (const void *ptr, size_t len)
     }
 
   if (real_non_blocking_mode)
-    ((fhandler_pipe *) this)->set_pipe_non_blocking (false);
+    {
+      ((fhandler_pipe *) this)->set_pipe_non_blocking (false);
+      real_non_blocking_mode = false;
+    }
 
   CloseHandle (evt);
   if (pipe_mtx) /* pipe_mtx is NULL in the fifo case */
