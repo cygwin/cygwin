@@ -676,17 +676,18 @@ rewriting the runtime library in question from specs...
 <answer>
 
 <para>First, you need to make sure you have the necessary build tools
-installed; you at least need <literal>gcc-g++</literal>,
-<literal>make</literal>, <literal>automake</literal>,
-<literal>autoconf</literal>, <literal>git</literal>, <literal>perl</literal>,
-<literal>cocom</literal> and <literal>patch</literal>.
+installed; you at least need <literal>autoconf</literal>,
+<literal>automake</literal>, <literal>cocom</literal>,
+<literal>gcc-g++</literal>, <literal>git</literal>,
+<literal>libtool</literal>, <literal>make</literal>,
+<literal>patch</literal>, and <literal>perl</literal>.
 </para>
 
 <para>
 Additionally, building the <code>dumper</code> utility requires
-<literal>gettext-devel</literal>, <literal>libiconv-devel</literal>, <literal>libzstd-devel</literal> and
-<literal>zlib-devel</literal>.  Building this program can be disabled with the
-<literal>--disable-dumper</literal> option to <literal>configure</literal>.
+<literal>gettext-devel</literal>, <literal>libiconv</literal>,
+<literal>libiconv-devel</literal>, <literal>libiconv2</literal>,
+<literal>libzstd-devel</literal>, and <literal>zlib-devel</literal>.
 </para>
 
 <para>
@@ -702,10 +703,11 @@ option to <literal>configure</literal>.
 
 <para>
 Building the documentation also requires the <literal>dblatex</literal>,
-<literal>docbook2X</literal>, <literal>docbook-xml45</literal>,
-<literal>docbook-xsl</literal>, and <literal>xmlto</literal> packages.  Building
-the documentation can be disabled with the <literal>--disable-doc</literal>
-option to <literal>configure</literal>.
+<literal>docbook-utils</literal>, <literal>docbook-xml45</literal>,
+<literal>docbook-xsl</literal>, <literal>docbook2X</literal>,
+<literal>perl-XML-SAX-Expat</literal>, and <literal>xmlto</literal>
+packages. Building the documentation can be disabled with the
+<literal>--disable-doc</literal> option to <literal>configure</literal>.
 </para>
 
 <para>Next, check out the Cygwin sources from the
