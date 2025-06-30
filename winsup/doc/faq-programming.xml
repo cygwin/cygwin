@@ -723,7 +723,7 @@ $ setup-x86_64.exe -P dblatex,docbook-utils,docbook-xml45,docbook-xsl,docbook2X,
 </screen>
 
 <para>Next, check out the Cygwin sources from the
-<ulink url="https://cygwin.com/git.html">Cygwin GIT source repository</ulink>).
+<ulink url="https://cygwin.com/git.html">Cygwin GIT source repository</ulink>.
 This is the <emphasis>preferred method</emphasis> for acquiring the sources.
 Otherwise, if you are trying to duplicate a cygwin release then you should
 download the corresponding source package
