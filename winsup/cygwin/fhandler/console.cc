@@ -831,7 +831,7 @@ fhandler_console::set_input_mode (tty::cons_mode m, const termios *t,
       break;
     case tty::cygwin:
       flags |= ENABLE_WINDOW_INPUT;
-      if (con.master_thread_suspended)
+      if (con.master_thread_suspended || con.disable_master_thread)
 	flags |= ENABLE_PROCESSED_INPUT;
       if (wincap.has_con_24bit_colors () && !con_is_legacy)
 	flags |= ENABLE_VIRTUAL_TERMINAL_INPUT;
