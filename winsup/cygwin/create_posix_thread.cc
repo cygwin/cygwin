@@ -103,18 +103,19 @@ pthread_wrapper (PVOID arg)
   /* Sets up a new thread stack, frees the original OS stack,
    * and calls the thread function with its arg using AArch64 ABI. */
   __asm__ __volatile__ ("\n\
-	   mov     x19, %[WRAPPER_ARG]  // x19 = &wrapper_arg              \n\
-	   ldp     x0, x10, [x19, #16]  // x0 = stackaddr, x10 = stackbase \n\
-	   sub     sp, x10, %[CYGTLS]   // sp = stackbase - (CYGTLS)       \n\
-	   mov     fp, xzr              // clear frame pointer (x29)       \n\
-	   mov     x1, xzr              // x1 = 0 (dwSize)                 \n\
-	   mov     x2, #0x8000          // x2 = MEM_RELEASE                \n\
-	   bl      VirtualFree          // free original stack             \n\
-	   ldp     x19, x0, [x19]       // x19 = func, x0 = arg            \n\
-	   blr     x19                  // call thread function            \n"
+	   ldp     x20, x21, [%[WRAPPER_ARG]]    // x20 = thread func, x21 = thread arg \n\
+	   ldp     x0, x1, [%[WRAPPER_ARG], #16] // x0 = stackaddr, x1 = stackbase	\n\
+	   sub     sp, x1, %[CYGTLS]  		 // sp = stackbase - (CYGTLS)    	\n\
+	   mov     fp, xzr              	 // clear frame pointer (x29)    	\n\
+						 // x0 already has stackaddr		\n\
+	   mov     x1, xzr              	 // x1 = 0 (dwSize)              	\n\
+	   mov     x2, #0x8000          	 // x2 = MEM_RELEASE             	\n\
+	   bl      VirtualFree          	 // free original stack          	\n\
+	   mov     x0, x21  			 // Move arg into x0			\n\
+	   blr     x20                  	 // call thread function         	\n"
 	   : : [WRAPPER_ARG] "r" (&wrapper_arg),
 	       [CYGTLS] "r" (__CYGTLS_PADSIZE__)
-	   : "x0", "x1", "x2", "x10", "x19", "x29", "memory");
+	   : "x0", "x1", "x2", "x20", "x21", "x29", "memory");
 #else
 #error unimplemented for this target
 #endif
