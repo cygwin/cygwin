@@ -30,7 +30,7 @@ __libc_memcpy_bytewise (unsigned char *dst, const unsigned char *src,
     *dst++ = *src++;
 }
 
-#if defined(__riscv_misaligned_slow) || defined(__riscv_misaligned_avoid)
+#ifndef __riscv_misaligned_fast
 static uintxlen_t
 __libc_load_xlen (const void *src)
 {
@@ -75,7 +75,7 @@ memcpy (void *__restrict aa, const void *__restrict bb, size_t n)
  * This uses only one aligned store for every four (or eight for XLEN == 64)
  * bytes of data.
  */
-#if defined(__riscv_misaligned_slow) || defined(__riscv_misaligned_avoid)
+#ifndef __riscv_misaligned_fast
   if (unlikely ((((uintptr_t)a & msk) != ((uintptr_t)b & msk))))
     {
       size_t dst_pad = (uintptr_t)a & msk;
