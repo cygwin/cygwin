@@ -525,6 +525,8 @@ LoadDLLfunc (CoInitialize, ole32)
 LoadDLLfunc (CoUninitialize, ole32)
 LoadDLLfunc (CoTaskMemFree, ole32)
 
+LoadDLLfunc (EnumProcessModules, psapi)
+
 LoadDLLfunc (LsaConnectUntrusted, secur32)
 LoadDLLfunc (LsaDeregisterLogonProcess, secur32)
 LoadDLLfunc (LsaFreeReturnBuffer, secur32)
