@@ -7,6 +7,7 @@ Cygwin license.  Please consult the file "CYGWIN_LICENSE" for
 details. */
 
 #include "winsup.h"
+#include <psapi.h>
 #include <stdlib.h>
 #include <dlfcn.h>
 #include <ctype.h>
@@ -318,32 +319,18 @@ dlsym (void *handle, const char *name)
 
   if (handle == RTLD_DEFAULT)
     { /* search all modules */
-      PDEBUG_BUFFER buf;
-      NTSTATUS status;
+      HMODULE *modules;
+      tmp_pathbuf tp;
+      DWORD size;
 
-      buf = RtlCreateQueryDebugBuffer (0, FALSE);
-      if (!buf)
-	{
-	  set_errno (ENOMEM);
-	  set_dl_error ("dlsym");
-	  return NULL;
-	}
-      status = RtlQueryProcessDebugInformation (GetCurrentProcessId (),
-						PDI_MODULES, buf);
-      if (!NT_SUCCESS (status))
-	__seterrno_from_nt_status (status);
+      modules = (HMODULE *) tp.w_get ();
+      if (!EnumProcessModules (GetCurrentProcess (), modules,
+			       2 * NT_MAX_PATH, &size))
+	__seterrno ();
       else
-	{
-	  PDEBUG_MODULE_ARRAY mods = (PDEBUG_MODULE_ARRAY)
-				     buf->ModuleInformation;
-	  for (ULONG i = 0; i < mods->Count; ++i)
-	    if ((ret = (void *)
-		       GetProcAddress ((HMODULE) mods->Modules[i].Base, name)))
-	      break;
-	  if (!ret)
-	    set_errno (ENOENT);
-	}
-      RtlDestroyQueryDebugBuffer (buf);
+	for (uint32_t i = 0; i < size / sizeof (HMODULE); ++i)
+	  if ((ret = (void *) GetProcAddress (modules[i], name)))
+	    break;
     }
   else
     {
