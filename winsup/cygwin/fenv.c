@@ -3,3 +3,13 @@
    being called from mainCRTStartup in crt0.o. */
 void _feinitialise (void)
 {}
+
+#if defined(__aarch64__)
+
+#include <fenv.h>
+#include <stddef.h>
+
+/* _fe_nomask_env is exported by cygwin.din but not used at all for AArch64. */
+const fenv_t *_fe_nomask_env = NULL;
+
+#endif /* __aarch64__ */
