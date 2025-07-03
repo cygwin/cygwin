@@ -326,11 +326,7 @@ dtable::init_std_file_from_handle (int fd, HANDLE handle)
       if (CTTY_IS_VALID (myself->ctty))
 	dev.parse (myself->ctty);
       else
-	{
-	  dev.parse (FH_CONSOLE);
-	  CloseHandle (handle);
-	  handle = INVALID_HANDLE_VALUE;
-	}
+	dev.parse (FH_CONSOLE);
     }
   else if (GetCommState (handle, &dcb))
     /* FIXME: Not right - assumes ttyS0 */

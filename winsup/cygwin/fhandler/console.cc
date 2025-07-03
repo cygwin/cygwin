@@ -927,8 +927,10 @@ fhandler_console::cleanup_for_non_cygwin_app (handle_set_t *p)
   /* conmode can be tty::restore when non-cygwin app is
      exec'ed from login shell. */
   tty::cons_mode conmode = cons_mode_on_close (p);
-  set_output_mode (conmode, ti, p);
-  set_input_mode (conmode, ti, p);
+  if (con.curr_output_mode != conmode)
+    set_output_mode (conmode, ti, p);
+  if (con.curr_input_mode != conmode)
+    set_input_mode (conmode, ti, p);
 }
 
 /* Return the tty structure associated with a given tty number.  If the
@@ -1889,13 +1891,24 @@ fhandler_console::open (int flags, mode_t)
 	setenv ("TERM", "cygwin", 1);
     }
 
-  if (con.curr_input_mode != tty::cygwin)
+  HANDLE h_in = GetStdHandle (STD_INPUT_HANDLE);
+  HANDLE h_out = GetStdHandle (STD_OUTPUT_HANDLE);
+  HANDLE h_err = GetStdHandle (STD_ERROR_HANDLE);
+
+  DWORD dummy;
+  bool in_is_console = GetConsoleMode (h_in, &dummy);
+  bool out_is_console =
+    GetConsoleMode (h_out, &dummy) || GetConsoleMode (h_err, &dummy);
+  if (in_is_console)
+    CloseHandle (h_in);
+
+  if (in_is_console && con.curr_input_mode != tty::cygwin)
     {
       prev_input_mode_backup = con.prev_input_mode;
       GetConsoleMode (get_handle (), &con.prev_input_mode);
       set_input_mode (tty::cygwin, &get_ttyp ()->ti, &handle_set);
     }
-  if (con.curr_output_mode != tty::cygwin)
+  if (out_is_console && con.curr_output_mode != tty::cygwin)
     {
       prev_output_mode_backup = con.prev_output_mode;
       GetConsoleMode (get_output_handle (), &con.prev_output_mode);
@@ -2012,12 +2025,13 @@ fhandler_console::close (int flag)
 
   acquire_output_mutex (mutex_timeout);
 
-  if (shared_console_info[unit] && con.curr_input_mode != tty::restore
-      && (dev_t) myself->ctty == get_device ()
+  if (shared_console_info[unit] && (dev_t) myself->ctty == get_device ()
       && cons_mode_on_close (&handle_set) == tty::restore)
     {
-      set_output_mode (tty::restore, &get_ttyp ()->ti, &handle_set);
-      set_input_mode (tty::restore, &get_ttyp ()->ti, &handle_set);
+      if (con.curr_output_mode != tty::restore)
+	set_output_mode (tty::restore, &get_ttyp ()->ti, &handle_set);
+      if (con.curr_input_mode != tty::restore)
+	set_input_mode (tty::restore, &get_ttyp ()->ti, &handle_set);
       set_disable_master_thread (true, this);
     }
 
@@ -2246,8 +2260,10 @@ int
 fhandler_console::tcsetattr (int a, struct termios const *t)
 {
   get_ttyp ()->ti = *t;
-  set_input_mode (tty::cygwin, t, &handle_set);
-  set_output_mode (tty::cygwin, t, &handle_set);
+  if (con.curr_input_mode == tty::cygwin)
+    set_input_mode (tty::cygwin, t, &handle_set);
+  if (con.curr_output_mode == tty::cygwin)
+    set_output_mode (tty::cygwin, t, &handle_set);
   return 0;
 }
 
