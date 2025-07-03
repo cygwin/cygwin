@@ -621,14 +621,39 @@ struct heap_info
     : heap_vm_chunks (NULL)
   {
     PDEBUG_BUFFER buf;
+    wchar_t mtx_name [32];
+    HANDLE mtx;
     NTSTATUS status;
     PDEBUG_HEAP_ARRAY harray;
 
-    buf = RtlCreateQueryDebugBuffer (16 * 65536, FALSE);
-    if (!buf)
+    /* We need a global mutex here, because RtlQueryProcessDebugInformation
+       is neither thread-safe, nor multi-process-safe.  If it's called in
+       parallel on the same process it can crash that process.  We can't
+       avoid this if a non-Cygwin app calls RtlQueryProcessDebugInformation
+       on the same process in parallel, but we can avoid Cygwin processes
+       crashing process PID just because they open /proc/PID/maps in parallel
+       by serializing RtlQueryProcessDebugInformation on the same process.
+
+       Note that the mutex guards the entire code from
+       RtlCreateQueryDebugBuffer to RtlDestroyQueryDebugBuffer including the
+       code accessing the debug buffer.  Apparently the debug buffer needs
+       safeguarded against parallel access all the time it's used!!! */
+    __small_swprintf (mtx_name, L"cyg-heapinfo-mtx-%u", pid);
+    mtx = CreateMutexW (&sec_none_nih, FALSE, mtx_name);
+    if (!mtx)
       return;
-    status = RtlQueryProcessDebugInformation (pid, PDI_HEAPS | PDI_HEAP_BLOCKS,
-					      buf);
+    WaitForSingleObject (mtx, INFINITE);
+    buf = RtlCreateQueryDebugBuffer (16 * 65536, FALSE);
+    if (buf)
+      status = RtlQueryProcessDebugInformation (pid,
+						PDI_HEAPS | PDI_HEAP_BLOCKS,
+						buf);
+    if (!buf)
+      {
+	ReleaseMutex (mtx);
+	CloseHandle (mtx);
+	return;
+      }
     if (NT_SUCCESS (status)
 	&& (harray = (PDEBUG_HEAP_ARRAY) buf->HeapInformation) != NULL)
       for (ULONG hcnt = 0; hcnt < harray->Count; ++hcnt)
@@ -653,6 +678,8 @@ struct heap_info
 	      }
 	}
     RtlDestroyQueryDebugBuffer (buf);
+    ReleaseMutex (mtx);
+    CloseHandle (mtx);
   }
 
   char *fill_if_match (char *base, ULONG type, char *dest)
