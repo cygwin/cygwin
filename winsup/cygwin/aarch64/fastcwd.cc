@@ -23,10 +23,7 @@ GetArm64ProcAddress (HMODULE hModule, LPCSTR procname)
 #if defined (__aarch64__)
   return proc;
 #else
-#if defined (__i386__)
-  static const BYTE thunk[] = "\x8b\xff\x55\x8b\xec\x5d\x90\xe9";
-  static const BYTE thunk2[0];
-#elif defined (__x86_64__)
+#if defined (__x86_64__)
   /* see
      https://learn.microsoft.com/en-us/windows/arm/arm64ec-abi#fast-forward-sequences */
   static const BYTE thunk[] = "\x48\x8b\xc4\x48\x89\x58\x20\x55\x5d\xe9";
