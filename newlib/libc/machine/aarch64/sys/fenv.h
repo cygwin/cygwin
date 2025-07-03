@@ -123,6 +123,21 @@ fegetexcept(void)
 
 #endif /* __BSD_VISIBLE */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
+#ifdef __CYGWIN__
+
+#if __MISC_VISIBLE
+int fegetprec (void);
+int fesetprec (int __prec);
+#endif
+
+#endif /* __CYGWIN__ */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	/* !_FENV_H_ */

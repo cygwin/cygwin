@@ -33,11 +33,13 @@
 	%D%/feclearexcept.c \
 	%D%/fegetenv.c \
 	%D%/fegetexceptflag.c \
+	%D%/fegetprec.c \
 	%D%/fegetround.c \
 	%D%/feholdexcept.c \
 	%D%/feraiseexcept.c \
 	%D%/fesetenv.c \
 	%D%/fesetexceptflag.c \
+	%D%/fesetprec.c \
 	%D%/fesetround.c \
 	%D%/fetestexcept.c \
 	%D%/feupdateenv.c
