@@ -14,9 +14,14 @@ usage()
   cat <<EOF
 Usage: ${0##*/} [OPTION...] {CI|WORK|FAIL|test...}
 
-  -n        print commands only (dry-run)
-  -f        force execution of tests tagged 'heavy' or 'admin'
   -c LIST   set CPU affinity to LIST
+  -e MODE   select handling of failed tests:
+              c[ont]   continue with next test [default]
+              s[kip]   continue but do not repeat the failed test
+              e[xit]   exit after first failed test
+  -f        force execution of tests tagged 'heavy' or 'admin'
+  -n        print commands only (dry-run)
+  -r N      run test set N times [default: 1]
   -s PATH   stress-ng executable [default: stress-ng]
   -t N      run each test for at least N seconds [default: 5]
   -v        print stress-ng output always [default: on error only]
@@ -450,15 +455,17 @@ stress_tests='
   zombie        # WORKS,CI
 '
 
-stress_ng="stress-ng"
-timeout=5; workers=2
+error_mode="cont"; stress_ng="stress-ng"
+num_runs=1; timeout=5; workers=2
 dryrun=false; force=false; verbose=false
 taskset=
 
 while :; do case $1 in
   -c) shift; taskset=$1 ;;
+  -e) shift; error_mode=$1 ;;
   -f) force=true ;;
   -n) dryrun=true ;;
+  -r) shift; num_runs=$1 ;;
   -s) shift; stress_ng=$1 ;;
   -t) shift; timeout=$1 ;;
   -v) verbose=true ;;
@@ -466,16 +473,25 @@ while :; do case $1 in
   -*) usage ;;
   *) break ;;
 esac; shift || usage; done
+[[ "${num_runs}${timeout}${workers}" =~ ^[0-9]*$ ]] || usage
 
-run_ci=false; run_work=false; run_fail=false
-run_tests=
+skip_after_failure=false; exit_after_failure=false
+case $error_mode in
+  c|cont) skip_after_failure=false; exit_after_failure=false ;;
+  s|skip) skip_after_failure=true;  exit_after_failure=false ;;
+  e|exit) skip_after_failure=false; exit_after_failure=true ;;
+  *) usage ;;
+esac
+
+run_ci=false; run_work=false; run_fail=false;
+declare -A run_tests=()
 
 while [ $# -ge 1 ]; do case $1 in
   CI) run_ci=true ;;  WORK) run_work=true ;; FAIL) run_fail=true ;;
-  [a-z]*[a-z]) run_tests+=" $1" ;;
+  [a-z]*[a-z]) run_tests["$1"]=t ;;
   *) usage ;;
 esac; shift; done
-$run_ci || $run_work || $run_fail || [ ${run_tests:+t} ] || usage
+$run_ci || $run_work || $run_fail || [ ${#run_tests[*]} -gt 0 ] || usage
 
 command -V "$stress_ng" >/dev/null || exit 1
 
@@ -502,8 +518,14 @@ stop_stress()
   taskkill /F /T /IM "${stress_ng_name}.exe" ||:
 }
 
-total=0
-fails=0
+ts()
+{
+  date '+%H:%M:%S.%2N'
+}
+
+total_tested=0; total_failed=0
+total_testcases=0
+stopped=false
 
 # stress TEST [OPTION...]
 stress()
@@ -511,7 +533,7 @@ stress()
   local name=$1
   shift || return 1
 
-  local td="$tempdir/stress-ng.$$.$total.d"
+  local td="$tempdir/stress-ng.$$.$total_tested.d"
   local logfile="$logdir/$name"
   local cmd=("$stress_ng" -v -M --oomable --timestamp --verify --temp-path "$td" -t "$timeout")
   test -z "$taskset" || cmd+=(--taskset "$taskset")
@@ -529,8 +551,7 @@ stress()
     ( sleep 1; stop_stress ) &
     exit 0
   ) &
-  local watchdog=$!
-  trap "kill $watchdog 2>/dev/null ||:; exit 130" SIGINT SIGTERM
+  watchdog=$!
 
   mkdir "$td"
   local rc=0
@@ -542,13 +563,14 @@ stress()
   fi
 
   kill $watchdog 2>/dev/null ||:
-  trap - SIGINT SIGTERM
 
   local errs=
   if wait $watchdog; then
-    sleep 2
     errs=", command hangs"
+    sleep 2
   fi
+  watchdog=
+  ! $stopped || return 0
 
   local p
   if p=$(find_stress); then
@@ -559,16 +581,18 @@ stress()
 
   rmdir "$td" 2>/dev/null || errs+=", files left in '$td'"
 
-  ! grep -Eqv '^(stress-ng|info):' "$logfile" || errs+=", unexpected output"
+  ! grep -qv '^stress-ng:' "$logfile" || errs+=", unexpected output"
 
   if [ "${rc}${errs:+t}" != "0" ]; then
     $verbose || cat "$logfile"
-    echo ">>> FAILURE: $name" "$@" "(exit status ${rc}${errs})"
     ! [ ${p:+t} ] || echo "$p"
+    echo ">>> FAILURE: $(ts): $name" "$@" "(exit status ${rc}${errs})"
     echo
     return 1
   fi
-  echo ">>> SUCCESS: $name" "$@"
+
+  ! grep '^stress-ng:.* fail:' "$logfile" || set -- "$@" "(warning: 'fail:' messages)"
+  echo ">>> SUCCESS: $(ts): $name" "$@"
   ! $verbose || echo
   return 0
 }
@@ -579,13 +603,15 @@ if p=$(find_stress); then
   $dryrun || exit 1
 fi
 
+tests=()
+
 while read; do
   args=${REPLY#*|}
-  name=${args%% *}
+
   run_this=false
-  for t in $run_tests; do if [ "$t" = "$name" ]; then
-    run_this=true; break
-  fi; done
+  if [ -n "${run_tests["$args"]}" ]; then
+    run_this=true; unset run_tests["$args"]
+  fi
 
   tag=${REPLY%%|*}
   case $tag in
@@ -596,14 +622,13 @@ while read; do
     admin|heavy)
       $run_this || continue
       if ! $force; then
-        echo ">>> SKIPPED: $name (tagged '$tag', use '-f' to override)"; echo
+        echo ">>> SKIPPED: $args (tagged '$tag', use '-f' to override)"
         continue
       fi ;;
     *) echo "*** syntax error: '$REPLY'"; exit 1 ;;
   esac
 
-  : $((++total))
-  stress $args ||: $((++fails))
+  tests+=("$args")
 done <<<"$(
   sed -E \
     -e 's/^ *([-0-9a-z]+)( +-[^#]*[^ #])? +# *(FAILS|WORKS(,CI)?|admin|heavy|-----) *(#.*)?$/\3|\1\2/' \
@@ -611,9 +636,91 @@ done <<<"$(
     <<<"$stress_tests"
 )"
 
-if [ $fails -ne 0 ]; then
-  echo ">>> FAILURE: $fails of $total stress test(s) failed"
+if [ ${#run_tests[*]} != 0 ]; then
+  for t in "${!run_tests[@]}"; do
+    echo "$t: unknown test"
+  done
   exit 1
 fi
-echo ">>> SUCCESS: All $total stress test(s) succeeded"
+
+tests_run=()
+tests_failed=()
+
+watchdog=
+trap '
+  test -z "$watchdog" || kill $watchdog 2>/dev/null ||:
+  stopped=true
+' SIGINT SIGTERM
+
+echo ">>> STARTED: $(ts)"
+
+for ((r = 0; r < num_runs; r++)); do
+  curr_tested=0; curr_failed=0; curr_skipped=0
+
+  for ((t = 0; t < ${#tests[*]}; t++)); do
+    if $skip_after_failure && [ -n "${tests_failed[t]}" ]; then
+      echo ">>> -------: $(ts): ${tests[t]}"
+      : $((++curr_skipped))
+      continue
+    fi
+
+    rc=0
+    stress ${tests[t]} || rc=$?
+
+    if $stopped; then
+      echo ">>> STOPPED: $(ts): ${tests[t]}"
+      echo
+      break
+    fi
+
+    : $((++curr_tested)) $((++total_tested)) $((++tests_run[t]))
+    test $total_testcases -gt $t || total_testcases=$((t + 1))
+
+    if [ $rc != 0 ]; then
+      : $((++curr_failed)) $((++total_failed)) $((++tests_failed[t]))
+      ! $exit_after_failure || break
+    fi
+  done
+
+  test $num_runs -gt 1 || break
+
+  if [ $curr_failed != 0 ]; then
+    echo -n ">>> FAILURE: $(ts): run $((r+1)) of $num_runs: $curr_failed of $curr_tested test(s) failed"
+  else
+    echo -n ">>> SUCCESS: $(ts): run $((r+1)) of $num_runs: all $curr_tested test(s) succeeded"
+  fi
+  test $curr_skipped = 0 || echo -n "; $curr_skipped test(s) skipped"
+  if [ $total_failed != 0 ]; then
+    echo "; total: $total_failed of $total_tested test(s) failed"
+  else
+    echo "; total: all $total_tested test(s) succeeded"
+  fi
+  echo
+
+  ! $stopped || break
+  ! $exit_after_failure || [ $curr_failed = 0 ] || break
+  ! $skip_after_failure || [ $curr_failed -lt $curr_tested ] || break
+done
+
+if [ $total_failed != 0 ]; then
+  if [ $num_runs -gt 1 ]; then
+    echo ">>> SUMMARY:"
+    for ((t = 0; t < ${#tests[*]}; t++)); do
+      if [ -n "${tests_failed[t]}" ]; then
+        echo ">>> FAILURE: ${tests[t]}: ${tests_failed[t]} of ${tests_run[t]} test(s) failed"
+      else
+        test -z "${tests_run[t]}" \
+        || echo ">>> SUCCESS: ${tests[t]}: all ${tests_run[t]} test(s) succeeded"
+      fi
+    done
+    echo
+  fi
+
+  echo -n ">>> FAILURE: $(ts): ${#tests_failed[*]} of $total_testcases test case(s) failed"
+  echo "; total: $total_failed of $total_tested test(s) failed"
+  exit 1
+fi
+
+echo -n ">>> SUCCESS: $(ts): all test(s) of $total_testcases test case(s) succeeded"
+echo "; total: $total_tested test(s)"
 exit 0
