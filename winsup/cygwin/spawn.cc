@@ -544,9 +544,6 @@ child_info_spawn::worker (const char *prog_arg, const char *const *argv,
 	c_flags |= CREATE_NEW_PROCESS_GROUP;
       refresh_cygheap ();
 
-      if (c_flags & CREATE_NEW_PROCESS_GROUP)
-	InterlockedOr ((LONG *) &myself->process_state, PID_NEW_PG);
-
       if (mode == _P_DETACH)
 	/* all set */;
       else if (mode != _P_OVERLAY || !my_wr_proc_pipe)
@@ -605,7 +602,12 @@ child_info_spawn::worker (const char *prog_arg, const char *const *argv,
       ::cygheap->user.deimpersonate ();
 
       if (!real_path.iscygexec () && mode == _P_OVERLAY)
-	InterlockedOr ((LONG *) &myself->process_state, PID_NOTCYGWIN);
+	{
+	  LONG pidflags = PID_NOTCYGWIN;
+	  if (c_flags & CREATE_NEW_PROCESS_GROUP)
+	    pidflags |= PID_NEW_PG;
+	  InterlockedOr ((LONG *) &myself->process_state, pidflags);
+	}
 
       cygpid = (mode != _P_OVERLAY) ? create_cygwin_pid () : myself->pid;
 
@@ -707,7 +709,8 @@ child_info_spawn::worker (const char *prog_arg, const char *const *argv,
 	      myself->sendsig = myself->exec_sendsig;
 	      myself->exec_sendsig = NULL;
 	    }
-	  InterlockedAnd ((LONG *) &myself->process_state, ~PID_NOTCYGWIN);
+	  InterlockedAnd ((LONG *) &myself->process_state,
+			  ~(PID_NOTCYGWIN|PID_NEW_PG));
 	  /* Reset handle inheritance to default when the execution of a'
 	     non-Cygwin process fails.  Only need to do this for _P_OVERLAY
 	     since the handle will be closed otherwise.  Don't need to do
@@ -769,7 +772,9 @@ child_info_spawn::worker (const char *prog_arg, const char *const *argv,
 	  myself->set_has_pgid_children ();
 	  ProtectHandle (pi.hThread);
 	  pinfo child (cygpid,
-		       PID_IN_USE | (real_path.iscygexec () ? 0 : PID_NOTCYGWIN));
+		       PID_IN_USE |
+		       (real_path.iscygexec () ? 0 : PID_NOTCYGWIN) |
+		       ((c_flags & CREATE_NEW_PROCESS_GROUP) ? PID_NEW_PG : 0));
 	  if (!child)
 	    {
 	      syscall_printf ("pinfo failed");
