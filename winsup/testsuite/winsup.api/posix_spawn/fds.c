@@ -74,6 +74,16 @@ int main (int argc, char **argv)
   exitStatus (status, 0);
   errCode (posix_spawn_file_actions_destroy (&fa));
 
+  /* test posix_spawn_file_actions_addopen with O_CLOEXEC */
+  errCode (posix_spawn_file_actions_init (&fa));
+  errCode (posix_spawn_file_actions_addopen (&fa, 0, "/dev/zero",
+					     O_RDONLY|O_CLOEXEC, 0644));
+  childargv[3] = "<ENOENT>";
+  errCode (posix_spawn (&pid, MYSELF, &fa, NULL, childargv, environ));
+  negError (waitpid (pid, &status, 0));
+  exitStatus (status, 0);
+  errCode (posix_spawn_file_actions_destroy (&fa));
+
   /* test posix_spawn_file_actions_adddup2 */
   errCode (posix_spawn_file_actions_init (&fa));
   errCode (posix_spawn_file_actions_adddup2 (&fa, fd, 0));
