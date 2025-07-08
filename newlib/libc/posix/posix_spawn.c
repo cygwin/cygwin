@@ -179,23 +179,31 @@ process_file_actions_entry(posix_spawn_file_actions_entry_t *fae)
 		if (fd < 0)
 			return (errno);
 		if (fd != fae->fae_fildes) {
+#ifdef HAVE_FCNTL
+			int fdflags = _fcntl(fd, F_GETFD);
+			if (fdflags == -1)
+				return (errno);
+#endif
 			if (dup2(fd, fae->fae_fildes) == -1)
 				return (errno);
 			if (_close(fd) != 0) {
 				if (errno == EBADF)
 					return (EBADF);
 			}
-		}
 #ifdef HAVE_FCNTL
-		if (_fcntl(fae->fae_fildes, F_SETFD, 0) == -1)
-			return (errno);
+			if (_fcntl(fae->fae_fildes, F_SETFD, fdflags) == -1)
+				return (errno);
 #endif /* HAVE_FCNTL */
+		}
 		break;
 	case FAE_DUP2:
 		/* Perform a dup2() */
 		if (dup2(fae->fae_fildes, fae->fae_newfildes) == -1)
 			return (errno);
 #ifdef HAVE_FCNTL
+		/* This is necessary because POSIX says the FD_CLOEXEC flag
+		 * must be clear, even though dup2 is specified to not clear
+		 * the FD_CLOEXEC flag if the two file descriptors are equal */
 		if (_fcntl(fae->fae_newfildes, F_SETFD, 0) == -1)
 			return (errno);
 #endif /* HAVE_FCNTL */
