@@ -720,9 +720,9 @@ fhandler_base::open (int flags, mode_t mode)
 	goto done;
    }
 
-  if (get_device () == FH_FS)
+  if (get_device () == FH_FS && (flags & O_CREAT))
     {
-      /* Fix up file attributes, they are desperately needed later.
+      /* Fix up file attributes if we just made an attempt to create the file.
 
 	 Originally we only did that in the FILE_CREATED case below, but that's
 	 insufficient:
