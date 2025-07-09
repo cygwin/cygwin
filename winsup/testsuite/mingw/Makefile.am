@@ -23,7 +23,7 @@ cygrun_SOURCES = \
 
 cygload_SOURCES = \
 	../winsup.api/cygload.cc
-cygload_LDFLAGS=-static -Wl,-e,cygloadCRTStartup
+cygload_LDFLAGS=-static -Wl,-e,cygloadCRTStartup -Wl,--disable-high-entropy-va
 
 winchild_SOURCES = \
 	../winsup.api/posix_spawn/winchild.c
