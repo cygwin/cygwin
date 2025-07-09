@@ -138,12 +138,13 @@ stress_tests='
                             #   https://sourceware.org/pipermail/cygwin/2025-June/258386.html
                             # (fixed in Cygwin 3.7.0: lone high surrogate not encoded correctly)
   filename --filename-opts posix # WORKS,CI # restricts filenames to POSIX charset
-  filerace      # WORKS,CI
+  filerace      # heavy     # uses many [p]write() commands
+                            # TODO undecided: watchdog timeout may be too short
   flipflop      # WORKS
-  flock         # WORKS,CI
+  flock         # WORKS     # TODO undecided: "processes left" in some cases
   flushcache    # WORKS
   fma           # WORKS
-  fork          # WORKS,CI
+  fork          # WORKS     # TODO undecided: "processes left" in some cases
   forkheavy     # heavy     # forks until process table is full
   fp            # WORKS,CI
   fp-error      # WORKS,CI
