@@ -42,7 +42,14 @@ extern "C" int sscanf (const char *, const char *, ...);
   } while (0)
 
 /* pty master control pipe messages */
+enum pipe_request_cmd {
+  GET_HANDLES,
+  FLUSH_INPUT,
+  QUIT
+};
+
 struct pipe_request {
+  pipe_request_cmd cmd;
   DWORD pid;
 };
 
@@ -871,7 +878,7 @@ fhandler_pty_slave::open (int flags, mode_t)
     }
   else
     {
-      pipe_request req = { GetCurrentProcessId () };
+      pipe_request req = { GET_HANDLES, GetCurrentProcessId () };
       pipe_reply repl;
       DWORD len;
 
@@ -1139,7 +1146,7 @@ fhandler_pty_slave::reset_switch_to_nat_pipe (void)
 		      __small_sprintf (pipe,
 			       "\\\\.\\pipe\\cygwin-%S-pty%d-master-ctl",
 			       &cygheap->installation_key, get_minor ());
-		      pipe_request req = { GetCurrentProcessId () };
+		      pipe_request req = { GET_HANDLES, GetCurrentProcessId () };
 		      pipe_reply repl;
 		      DWORD len;
 		      if (!CallNamedPipe (pipe, &req, sizeof req,
@@ -1597,6 +1604,14 @@ fhandler_pty_slave::tcflush (int queue)
 
   if (queue == TCIFLUSH || queue == TCIOFLUSH)
     {
+      char pipe[MAX_PATH];
+      __small_sprintf (pipe,
+		       "\\\\.\\pipe\\cygwin-%S-pty%d-master-ctl",
+		       &cygheap->installation_key, get_minor ());
+      pipe_request req = { FLUSH_INPUT, GetCurrentProcessId () };
+      pipe_reply repl;
+      DWORD n;
+      CallNamedPipe (pipe, &req, sizeof req, &repl, sizeof repl, &n, 500);
       size_t len = UINT_MAX;
       read (NULL, len);
       ret = ((int) len) >= 0 ? 0 : -1;
@@ -2020,7 +2035,7 @@ fhandler_pty_master::close (int flag)
       if (master_ctl && get_ttyp ()->master_pid == myself->pid)
 	{
 	  char buf[MAX_PATH];
-	  pipe_request req = { (DWORD) -1 };
+	  pipe_request req = { QUIT, GetCurrentProcessId () };
 	  pipe_reply repl;
 	  DWORD len;
 
@@ -2521,11 +2536,16 @@ fhandler_pty_master::pty_master_thread (const master_thread_param_t *p)
 	  termios_printf ("RevertToSelf, %E");
 	  goto reply;
 	}
-      if (req.pid == (DWORD) -1)	/* Request to finish thread. */
+      if (req.cmd == QUIT) /* Request to finish thread. */
 	{
 	  /* Check if the requesting process is the master process itself. */
 	  if (pid == GetCurrentProcessId ())
 	    exit = true;
+	  goto reply;
+	}
+      if (req.cmd == FLUSH_INPUT)
+	{
+	  p->master->eat_readahead (-1);
 	  goto reply;
 	}
       if (NT_SUCCESS (allow))
@@ -3780,6 +3800,7 @@ fhandler_pty_master::get_master_thread_param (master_thread_param_t *p)
   p->to_slave = get_output_handle ();
   p->master_ctl = master_ctl;
   p->input_available_event = input_available_event;
+  p->master = this;
   SetEvent (thread_param_copied_event);
 }
 
@@ -3821,7 +3842,7 @@ fhandler_pty_slave::transfer_input (tty::xfer_dir dir, HANDLE from, tty *ttyp,
       __small_sprintf (pipe,
 		       "\\\\.\\pipe\\cygwin-%S-pty%d-master-ctl",
 		       &cygheap->installation_key, ttyp->get_minor ());
-      pipe_request req = { GetCurrentProcessId () };
+      pipe_request req = { GET_HANDLES, GetCurrentProcessId () };
       pipe_reply repl;
       DWORD len;
       if (!CallNamedPipe (pipe, &req, sizeof req,
