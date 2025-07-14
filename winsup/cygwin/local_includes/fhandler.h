@@ -2542,6 +2542,7 @@ public:
     HANDLE to_slave;
     HANDLE master_ctl;
     HANDLE input_available_event;
+    fhandler_pty_master *master;
   };
   /* Parameter set for the static function pty_master_fwd_thread() */
   struct master_fwd_thread_param_t {
