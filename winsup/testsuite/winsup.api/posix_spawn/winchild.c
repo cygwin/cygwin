@@ -85,7 +85,6 @@ int wmain (int argc, wchar_t **argv)
 					  FILE_NAME_OPENED|VOLUME_NAME_DOS))
 	    {
 	      POBJECT_NAME_INFORMATION pinfo = (POBJECT_NAME_INFORMATION) buf;
-	      DWORD err = GetLastError ();
 	      ULONG len;
 	      NTSTATUS status = NtQueryObject (stdhandle, ObjectNameInformation,
 					       pinfo, 65536, &len);
