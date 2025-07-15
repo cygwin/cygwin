@@ -86,8 +86,8 @@ jobs:
         # load the key (restricted to scp only) into ssh-agent
         ssh-agent -a $SSH_AUTH_SOCK > /dev/null
         ssh-add - <<< "${{ secrets.SSH_KEY }}"
-        # 'make install' doesn't install faq, so instead just deploy from build directory
-        scp -pr build/*/winsup/doc/{cygwin-api,cygwin-ug-net,faq} cygwin-admin@cygwin.com:/sourceware/www/sourceware/htdocs/cygwin/doc/${DEST}/
+        # deploy documentation files from install directory
+        scp -pr install/share/doc/{cygwin-api,cygwin-ug-net,faq}* cygwin-admin@cygwin.com:/sourceware/www/sourceware/htdocs/cygwin/doc/${DEST}/
       if: env.HAS_SSH_KEY == 'true'
 
   windows-build:
