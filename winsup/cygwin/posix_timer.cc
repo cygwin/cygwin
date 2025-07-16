@@ -349,7 +349,9 @@ timer_tracker::settime (int flags, const itimerspec *new_value,
 		 / (NSPERSEC / NS100PERSEC);
 	  if (flags & TIMER_ABSTIME)
 	    {
-	      if (clock_id == CLOCK_REALTIME)
+	      if (clock_id == CLOCK_REALTIME_COARSE
+		  || clock_id == CLOCK_REALTIME
+		  || clock_id == CLOCK_REALTIME_ALARM)
 		DueTime.QuadPart = ts + FACTOR;
 	      else /* non-REALTIME clocks require relative DueTime. */
 		{
