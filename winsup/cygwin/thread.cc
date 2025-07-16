@@ -2361,7 +2361,12 @@ pthread_convert_abstime (clockid_t clock_id, const struct timespec *abstime,
     {
     case CLOCK_REALTIME_COARSE:
     case CLOCK_REALTIME:
+    case CLOCK_TAI:
       timeout->QuadPart += FACTOR;
+      /* TAI time is realtime + leap secs.  NT timers are on realtime.
+	 Subtract leap secs to get the corresponding real due time.
+	 Leap secs are always 0 unless CLOCK_TAI. */
+      timeout->QuadPart -= get_clock (clock_id)->get_leap_secs () * NS100PERSEC;
       break;
     default:
       /* other clocks must be handled as relative timeout */

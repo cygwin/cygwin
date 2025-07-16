@@ -3,6 +3,7 @@
 #include "pinfo.h"
 #include "clock.h"
 #include "miscfuncs.h"
+#include <stdio.h>
 
 static inline LONGLONG
 system_qpc_tickspersec ()
@@ -41,6 +42,52 @@ clk_realtime_t::init ()
   InterlockedCompareExchange64 (&ticks_per_sec, system_qpc_tickspersec (), 0);
 }
 
+uint16_t clk_tai_t::leap_secs = 0;
+SRWLOCK clk_tai_t::leap_lock = SRWLOCK_INIT;
+
+void inline
+clk_tai_t::init ()
+{
+  if (leap_secs)
+    return;
+
+  AcquireSRWLockExclusive (&leap_lock);
+  if (!leap_secs)
+    {
+      FILE *fp = fopen ("/usr/share/zoneinfo/leapseconds", "r");
+      if (!fp)
+	leap_secs = 37; /* Leap secs since 2017 */
+      else
+	{
+	  char buf[256];
+
+	  leap_secs = 10; /* Leap secs 1972 */
+	  while (fgets (buf, sizeof buf, fp))
+	    {
+	      if (buf[0] != 'L')
+		continue;
+	      if (strlen (buf) < 30)
+		continue;
+	      switch (buf[26])
+		{
+		case '+':
+		  ++leap_secs;
+		  break;
+		case '-':
+		  --leap_secs;
+		  break;
+		default:
+		  break;
+		}
+	    }
+	  fclose (fp);
+	}
+    }
+  ReleaseSRWLockExclusive (&leap_lock);
+
+  InterlockedCompareExchange64 (&ticks_per_sec, system_qpc_tickspersec (), 0);
+}
+
 void inline
 clk_monotonic_t::init ()
 {
@@ -70,6 +117,15 @@ clk_realtime_t::now (clockid_t clockid, struct timespec *ts)
   now.QuadPart -= FACTOR;
   ts->tv_sec = now.QuadPart / NS100PERSEC;
   ts->tv_nsec = (now.QuadPart % NS100PERSEC) * (NSPERSEC/NS100PERSEC);
+  return 0;
+}
+
+int
+clk_tai_t::now (clockid_t clockid, struct timespec *ts)
+{
+  init ();
+  clk_realtime_t::now (clockid, ts);
+  ts->tv_sec += leap_secs;
   return 0;
 }
 
@@ -238,6 +294,7 @@ clk_monotonic_t::resolution (struct timespec *ts)
 
 static clk_realtime_coarse_t clk_realtime_coarse;
 static clk_realtime_t clk_realtime;
+static clk_tai_t clk_tai;
 static clk_process_t clk_process;
 static clk_thread_t clk_thread;
 static clk_monotonic_t clk_monotonic;
@@ -259,6 +316,8 @@ clk_t *cyg_clock[MAX_CLOCKS] =
   &clk_boottime,
   &clk_realtime_alarm,
   &clk_boottime_alarm,
+  NULL,
+  &clk_tai,
 };
 
 clk_t *

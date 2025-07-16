@@ -99,6 +99,7 @@ class clk_t
     now (0, &ts);
     return ts.tv_sec * MSPERSEC + ts.tv_nsec / (NSPERSEC/MSPERSEC);
   }
+  virtual uint16_t get_leap_secs () { return 0; }
 };
 
 class clk_realtime_coarse_t : public clk_t
@@ -109,9 +110,21 @@ class clk_realtime_coarse_t : public clk_t
 class clk_realtime_t : public clk_t
 {
   void init ();
+ protected:
   virtual int now (clockid_t, struct timespec *);
  public:
   virtual void resolution (struct timespec *);
+};
+
+class clk_tai_t : public clk_realtime_t
+{
+  static uint16_t leap_secs;
+  static SRWLOCK leap_lock;
+
+  void init ();
+  virtual int now (clockid_t, struct timespec *);
+public:
+  virtual uint16_t get_leap_secs () { init (); return leap_secs; }
 };
 
 class clk_process_t : public clk_t
