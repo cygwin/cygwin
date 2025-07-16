@@ -361,6 +361,12 @@ the information between <filename>/proc/partitions</filename> and the
 <command>df</command> output, you should be able to figure out which
 external drive corresponds to which raw disk device name.</para>
 
+<para>Raw devices of partitions protected by BitLocker provide access to the
+<emphasis>decrypted</emphasis> NTFS image.  If the partition is locked, read
+attempts fail with <literal>Permission denied</literal>.  The corresponding
+block range from the raw device of the full disk provides access to the
+<emphasis>encrypted</emphasis> image as stored on the disk.</para>
+
 <note><para>Apart from tape devices which are not block devices and are
 by default accessed directly, accessing mass storage devices raw
 is something you should only do if you know what you're doing and know how to
