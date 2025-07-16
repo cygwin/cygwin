@@ -293,6 +293,12 @@ extern "C" {
 
 #endif
 
+#if _BSD_VISIBLE || __GNU_VISIBLE
+
+#define CLOCK_TAI		(11)
+
+#endif
+
 #if defined(_POSIX_CPUTIME)
 
 /* Accessing a Process CPU-time CLock, P1003.4b/D8, p. 55 */
