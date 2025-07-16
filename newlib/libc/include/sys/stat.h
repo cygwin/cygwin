@@ -38,7 +38,7 @@ struct	stat
   time_t	st_atime;
   time_t	st_mtime;
   time_t	st_ctime;
-#elif defined(__mips__)
+#elif defined(__mips__) && !defined(__rtems__)
   time_t	st_atime;
   long		st_spare1;
   time_t	st_mtime;
@@ -60,7 +60,8 @@ struct	stat
 #endif
 };
 
-#if !((defined(__svr4__) && !defined(__PPC__) && !defined(__sun__)) || defined(__mips__))
+#if !((defined(__svr4__) && !defined(__PPC__) && !defined(__sun__)) || \
+    (defined(__mips__) && !defined(__rtems__)))
 #define st_atime st_atim.tv_sec
 #define st_ctime st_ctim.tv_sec
 #define st_mtime st_mtim.tv_sec
