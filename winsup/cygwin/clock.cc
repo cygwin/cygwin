@@ -32,22 +32,19 @@ system_tickcount_period ()
 void inline
 clk_t::init ()
 {
-  if (!period)
-    InterlockedExchange64 (&period, system_tickcount_period ());
+  InterlockedCompareExchange64 (&period, system_tickcount_period (), 0);
 }
 
 void inline
 clk_realtime_t::init ()
 {
-  if (!ticks_per_sec)
-    InterlockedExchange64 (&ticks_per_sec, system_qpc_tickspersec ());
+  InterlockedCompareExchange64 (&ticks_per_sec, system_qpc_tickspersec (), 0);
 }
 
 void inline
 clk_monotonic_t::init ()
 {
-  if (!ticks_per_sec)
-    InterlockedExchange64 (&ticks_per_sec, system_qpc_tickspersec ());
+  InterlockedCompareExchange64 (&ticks_per_sec, system_qpc_tickspersec (), 0);
 }
 
 int
