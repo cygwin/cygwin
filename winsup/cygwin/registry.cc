@@ -189,6 +189,45 @@ reg_key::get_string (PCWSTR name, PWCHAR dst, size_t max, PCWSTR def)
   return status;
 }
 
+/* Given the current registry key, return the specific binary value
+   requested.  Return zero on success, non-zero on failure.
+
+   max is the size of the incoming buffer.
+   The actual size of the binary data read from the registry is returned
+   in size_ret.  */
+
+NTSTATUS
+reg_key::get_binary (PCWSTR name, void *dst, size_t max, size_t &size_ret)
+{
+  NTSTATUS status;
+
+  if (key_is_invalid)
+    {
+      status = key_is_invalid;
+      size_ret = 0;
+    }
+  else
+    {
+      UNICODE_STRING uname;
+      ULONG size = sizeof (KEY_VALUE_PARTIAL_INFORMATION) + max * sizeof (WCHAR);
+      ULONG rsize;
+      PKEY_VALUE_PARTIAL_INFORMATION vbuf = (PKEY_VALUE_PARTIAL_INFORMATION)
+					  alloca (size);
+
+      RtlInitUnicodeString (&uname, name);
+      status = NtQueryValueKey (key, &uname, KeyValuePartialInformation, vbuf,
+				size, &rsize);
+      if (status != STATUS_SUCCESS || vbuf->Type != REG_BINARY)
+	size_ret = 0;
+      else
+	{
+	  size_ret = MIN (max, vbuf->DataLength);
+	  memcpy (dst, vbuf->Data, size_ret);
+	}
+    }
+  return status;
+}
+
 /* Given the current registry key, set a specific string value. */
 
 NTSTATUS

@@ -30,6 +30,8 @@ public:
   NTSTATUS set_dword (PCWSTR, DWORD);
   NTSTATUS set_string (PCWSTR, PCWSTR);
 
+  NTSTATUS get_binary (PCWSTR, void *, size_t, size_t &);
+
   bool created () const {return _disposition & REG_CREATED_NEW_KEY;}
 
   ~reg_key ();
