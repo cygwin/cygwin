@@ -62,7 +62,7 @@ open (const char *pathname, int flags, ...) {
   return -1;
 }
 
-int
+ssize_t
 read(int fd, void *buf, size_t count) {
   return 0;
 }

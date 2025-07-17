@@ -12,6 +12,11 @@
 #define __DYNAMIC_REENT__
 #endif
 
+#ifdef __nvptx__
+#define _READ_WRITE_RETURN_TYPE _ssize_t
+#define _READ_WRITE_BUFSIZE_TYPE __size_t
+#endif
+
 /* exceptions first */
 #if defined(__H8500__) || defined(__W65__)
 #define __SMALL_BITFIELDS
