@@ -1,10 +1,11 @@
 #include "winsup.h"
+#include <unistd.h>
+#include <fcntl.h>
 #include <realtimeapiset.h>
 #include "pinfo.h"
 #include "clock.h"
 #include "miscfuncs.h"
 #include "registry.h"
-#include <stdio.h>
 
 static inline LONGLONG
 system_qpc_tickspersec ()
@@ -66,6 +67,8 @@ struct reg_leap_secs_t
 void inline
 clk_tai_t::init ()
 {
+  size_t size = 0;
+
   /* Avoid a lock/unlock sequence */
   if (leap_secs)
     return;
@@ -91,66 +94,53 @@ clk_tai_t::init ()
      we always ignore the file! */
   if (!reg.error ())
     {
-      size_t size = 0;
-
       if (!NT_SUCCESS (reg.get_binary (L"LeapSeconds", reg_leap_secs,
 				       sizeof reg_leap_secs, size)))
 	{
 	  ReleaseSRWLockExclusive (&leap_lock);
 	  return;
 	}
-
-      size /= sizeof reg_leap_secs[0];
-      for (size_t i = 0; i < size; ++i)
-	{
-	  struct tm tm = { tm_sec: 59,
-			   tm_min: 59,
-			   tm_hour: 23,
-			   tm_mday: reg_leap_secs[i].day,
-			   tm_mon: reg_leap_secs[i].month - 1,
-			   tm_year: reg_leap_secs[i].year - 1900,
-			   tm_wday: 0,
-			   tm_yday: 0,
-			   tm_isdst: 0,
-			   tm_gmtoff: 0,
-			   tm_zone: 0
-			 };
-	  /* Future timestamp?  We're done.  Note that the leap sec is
-	     second 60, therefore <=, not <! */
-	  if (time (NULL) <= timegm (&tm))
-	    break;
-	  leap_secs += reg_leap_secs[i].negative ? -1 : 1;
-	}
     }
+  /* Windows 8.1 and W10 prior to 1803.  When (if) IERS adds new leap secs,
+     we'll create a file /etc/leapsecs in the same format as the aforementioned
+     registry value used on newer OSes. */
   else
     {
-      FILE *fp = fopen ("/usr/share/zoneinfo/leapseconds", "r");
-      if (fp)
-	{
-	  char buf[256];
+      int fd = open ("/etc/leapsecs", O_RDONLY);
 
-	  leap_secs = 10; /* Leap secs 1972 */
-	  while (fgets (buf, sizeof buf, fp))
-	    {
-	      if (buf[0] != 'L')
-		continue;
-	      if (strlen (buf) < 30)
-		continue;
-	      switch (buf[26])
-		{
-		case '+':
-		  ++leap_secs;
-		  break;
-		case '-':
-		  --leap_secs;
-		  break;
-		default:
-		  break;
-		}
-	    }
-	  fclose (fp);
+      if (fd < 0)
+	{
+	  ReleaseSRWLockExclusive (&leap_lock);
+	  return;
 	}
+      size = (size_t) read (fd, reg_leap_secs, sizeof reg_leap_secs);
+      if ((ssize_t) size < 0)
+	size = 0;
+      close (fd);
     }
+
+  size /= sizeof reg_leap_secs[0];
+  for (size_t i = 0; i < size; ++i)
+    {
+      struct tm tm = { tm_sec: 59,
+		       tm_min: 59,
+		       tm_hour: 23,
+		       tm_mday: reg_leap_secs[i].day,
+		       tm_mon: reg_leap_secs[i].month - 1,
+		       tm_year: reg_leap_secs[i].year - 1900,
+		       tm_wday: 0,
+		       tm_yday: 0,
+		       tm_isdst: 0,
+		       tm_gmtoff: 0,
+		       tm_zone: 0
+		     };
+      /* Future timestamp?  We're done.  Note that the leap sec is
+	 second 60, therefore <=, not <! */
+      if (time (NULL) <= timegm (&tm))
+	break;
+      leap_secs += reg_leap_secs[i].negative ? -1 : 1;
+    }
+
   ReleaseSRWLockExclusive (&leap_lock);
 }
 
