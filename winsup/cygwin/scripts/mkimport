@@ -73,8 +73,11 @@ EOF
 	.extern	$imp_sym
 	.global	$glob_sym
 $glob_sym:
-	adr x16, $imp_sym
-	ldr x16, [x16]
+	# NOTE: Using instructions that are used by MSVC and LLVM. Binutils are
+	# using adrp/add/ldr-0-offset though. Please, keep it in sync with
+	# import_address implementation in winsup/cygwin/mm/malloc_wrapper.cc.
+	adrp x16, $imp_sym
+	ldr x16, [x16, #:lo12:$imp_sym]
 	br x16
 EOF
 	} else {
