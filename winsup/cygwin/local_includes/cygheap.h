@@ -498,6 +498,9 @@ struct threadlist_t
 
 struct init_cygheap: public mini_cygheap
 {
+private:
+  static SRWLOCK cygheap_protect;
+public:
   _cmalloc_entry *chain;
   char *buckets[NBUCKETS];
   UNICODE_STRING installation_root;
@@ -541,6 +544,8 @@ struct init_cygheap: public mini_cygheap
   threadlist_t *find_tls (int, bool&);
   sigset_t compute_sigblkmask ();
   void unlock_tls (threadlist_t *t) { if (t) ReleaseMutex (t->mutex); }
+  inline void lock () { AcquireSRWLockExclusive (&cygheap_protect); }
+  inline void unlock () { ReleaseSRWLockExclusive (&cygheap_protect); }
 };
 
 
