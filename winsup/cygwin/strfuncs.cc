@@ -1071,6 +1071,7 @@ _sys_mbstowcs (mbtowc_p f_mbtowc, wchar_t *dst, size_t dlen, const char *src,
 {
   wchar_t *ptr = dst;
   unsigned const char *pmbs = (unsigned const char *) src;
+  unsigned const char *got_high_surrogate = NULL;
   size_t count = 0;
   size_t len = dlen;
   int bytes;
@@ -1142,16 +1143,58 @@ _sys_mbstowcs (mbtowc_p f_mbtowc, wchar_t *dst, size_t dlen, const char *src,
 
 	     Invalid bytes in a multibyte sequence are converted to
 	     the private use area which is already used to store ASCII
-	     chars invalid in Windows filenames.  This technque allows
+	     chars invalid in Windows filenames.  This technique allows
 	     to store them in a symmetric way. */
-	  bytes = 1;
-	  if (dst)
-	    *ptr = L'\xf000' | *pmbs;
+
+	  /* Special case high surrogate: if we already converted the first
+	     3 bytes of a sequence to a high surrogate, and only then encounter
+	     a non-matching forth byte, the sequence is simply cut short.  In
+	     that case not the currently handled 4th byte is the invalid
+	     sequence, but the 3 bytes converted to the high surrogate.  So we
+	     have to backtrack to the high surrogate and convert it to a
+	     sequence of bytes in the private use area.  Next, reset the
+	     mbstate and retry to convert starting at the current byte. */
+	  if (got_high_surrogate)
+	    {
+	      if (dst)
+		{
+		  --ptr;
+		  *ptr++ = L'\xf000' | *got_high_surrogate++;
+		  /* we know len > 0 at this point */
+		  *ptr++ = L'\xf000' | *got_high_surrogate++;
+		}
+	      --len;
+	      if (len > 0)
+		{
+		  if (dst)
+		    *ptr++ = L'\xf000' | *got_high_surrogate++;
+		  --len;
+		}
+	      count += 2; /* Actually 3, but we already counted one when
+			     generating the high surrogate. */
+	      memset (&ps, 0, sizeof ps);
+	      continue;
+	    }
+	  /* Never convert ASCII NUL */
+	  if (*pmbs)
+	    {
+	      bytes = 1;
+	      if (dst)
+		*ptr = L'\xf000' | *pmbs;
+	    }
 	  memset (&ps, 0, sizeof ps);
 	}
 
+      got_high_surrogate = NULL;
       if (bytes > 0)
 	{
+	  /* Check if we got the high surrogate from a UTF-8 4 byte sequence.
+	     This is used above to handle an invalid 4 byte sequence cut short
+	     at byte 3. */
+	  /* FIXME: do we need an equivalent check for gb18030? */
+	  if (bytes == 3 && ps.__count == 4 && f_mbtowc == __utf8_mbtowc)
+	    got_high_surrogate = pmbs;
+
 	  pmbs += bytes;
 	  nms -= bytes;
 	  ++count;
