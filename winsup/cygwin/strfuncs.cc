@@ -965,8 +965,17 @@ _sys_wcstombs (char *dst, size_t len, const wchar_t *src, size_t nwc,
 
       /* Convert UNICODE private use area.  Reverse functionality for the
 	 ASCII area <= 0x7f (only for path names) is transform_chars above.
+
 	 Reverse functionality for invalid bytes in a multibyte sequence is
-	 in _sys_mbstowcs below. */
+	 in _sys_mbstowcs below.
+
+	 FIXME? The conversion of invalid bytes from the private use area
+	 like we do here is not actually necessary.  If we skip it, the
+	 generated multibyte string is not identical to the original multibyte
+	 string, but it's equivalent in the sense, that another mbstowcs will
+	 generate the same wide-char string.  It would also be identical to
+	 the same string converted by wcstombs.  And while the original
+	 multibyte string can't be converted by mbstowcs, this string can. */
       if (is_path && (pw & 0xff00) == 0xf000
 	  && (((cwc = (pw & 0xff)) <= 0x7f && tfx_rev_chars[cwc] >= 0xf000)
 	      || (cwc >= 0x80 && MB_CUR_MAX > 1)))
