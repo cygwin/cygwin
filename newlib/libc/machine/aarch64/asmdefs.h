@@ -30,18 +30,32 @@
 #define FEATURE_1_PAC 2
 
 /* Add a NT_GNU_PROPERTY_TYPE_0 note.  */
+#ifdef __ILP32__
 #define GNU_PROPERTY(type, value)	\
-  .section .note.gnu.property, "a"  SEP \
-  .p2align 3			    SEP \
-  .word 4			    SEP \
-  .word 16			    SEP \
-  .word 5			    SEP \
-  .asciz "GNU"			    SEP \
-  .word type			    SEP \
-  .word 4			    SEP \
-  .word value			    SEP \
-  .word 0			    SEP \
+  .section .note.gnu.property, "a";	\
+  .p2align 2;				\
+  .word 4;				\
+  .word 12;				\
+  .word 5;				\
+  .asciz "GNU";				\
+  .word type;				\
+  .word 4;				\
+  .word value;				\
   .text
+#else
+#define GNU_PROPERTY(type, value)	\
+  .section .note.gnu.property, "a";	\
+  .p2align 3;				\
+  .word 4;				\
+  .word 16;				\
+  .word 5;				\
+  .asciz "GNU";				\
+  .word type;				\
+  .word 4;				\
+  .word value;				\
+  .word 0;				\
+  .text
+#endif
 
 /* If set then the GNU Property Note section will be added to
    mark objects to support BTI and PAC-RET.  */
@@ -87,5 +101,19 @@ GNU_PROPERTY (FEATURE_1_AND, FEATURE_1_BTI|FEATURE_1_PAC)
 #endif
 
 #define L(l) .L ## l
+
+#ifdef __ILP32__
+  /* Sanitize padding bits of pointer arguments as per aapcs64 */
+#define PTR_ARG(n)  mov w##n, w##n
+#else
+#define PTR_ARG(n)
+#endif
+
+#ifdef __ILP32__
+  /* Sanitize padding bits of size arguments as per aapcs64 */
+#define SIZE_ARG(n)  mov w##n, w##n
+#else
+#define SIZE_ARG(n)
+#endif
 
 #endif

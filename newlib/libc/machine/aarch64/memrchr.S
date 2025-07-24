@@ -45,6 +45,7 @@
    exactly which byte matched.  */
 
 ENTRY (memrchr)
+	PTR_ARG (0)
 	add	end, srcin, cntin
 	sub	endm1, end, 1
 	bic	src, endm1, 15
