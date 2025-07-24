@@ -474,6 +474,9 @@ fhandler_base::open_with_arch (int flags, mode_t mode)
       if (!open_setup (flags))
 	api_fatal ("open_setup failed, %E");
     }
+  /* For pty and console, PATH_OPEN flag has not been set in open().
+     So set it here unconditionally. */
+  pc.set_isopen ();
 
   close_on_exec (flags & O_CLOEXEC);
   /* A unique ID is necessary to recognize fhandler entries which are

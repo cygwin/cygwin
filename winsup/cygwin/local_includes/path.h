@@ -244,6 +244,7 @@ class path_conv
   int isopen () const {return path_flags & PATH_OPEN;}
   int isctty_capable () const {return path_flags & PATH_CTTY;}
   int follow_fd_symlink () const {return path_flags & PATH_RESOLVE_PROCFD;}
+  void set_isopen () {path_flags |= PATH_OPEN;}
   void set_cygexec (bool isset)
   {
     if (isset)
