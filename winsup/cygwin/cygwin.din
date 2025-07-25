@@ -124,13 +124,25 @@ __swbuf_r SIGFE
 __vsnprintf_chk SIGFE
 __vsprintf_chk SIGFE
 __wrap__ZdaPv NOSIGFE               # void operator delete[](void *p) throw()
+__wrap__ZdaPvm NOSIGFE              # void operator delete[](void *p, std::size_t sz) throw()
+__wrap__ZdaPvmSt11align_val_t NOSIGFE # void operator delete[](void *p, std::size_t sz, std::align_val_t al) throw()
 __wrap__ZdaPvRKSt9nothrow_t NOSIGFE # void operator delete[](void *p, const std::nothrow_t &nt) throw()
+__wrap__ZdaPvSt11align_val_t NOSIGFE # void operator delete[](void *p, std::align_val_t al) throw()
+__wrap__ZdaPvSt11align_val_tRKSt9nothrow_t NOSIGFE # void operator delete[](void *p, std::align_val_t al, const std::nothrow_t &nt) throw()
 __wrap__ZdlPv NOSIGFE               # void operator delete(void *p) throw()
+__wrap__ZdlPvm NOSIGFE              # void operator delete(void *p, std::size_t sz) throw()
+__wrap__ZdlPvmSt11align_val_t NOSIGFE # void operator delete(void *p, std::size_t sz, std::align_val_t al) throw()
 __wrap__ZdlPvRKSt9nothrow_t NOSIGFE # void operator delete(void *p, const std::nothrow_t &nt) throw()
+__wrap__ZdlPvSt11align_val_t NOSIGFE # void operator delete(void *p, std::align_val_t al) throw()
+__wrap__ZdlPvSt11align_val_tRKSt9nothrow_t NOSIGFE # void operator delete(void *p, std::align_val_t al, const std::nothrow_t &nt) throw()
 __wrap__Znam NOSIGFE                # void *operator new[](std::size_t sz) throw (std::bad_alloc)
 __wrap__ZnamRKSt9nothrow_t NOSIGFE  # void *operator new[](std::size_t sz, const std::nothrow_t &nt) throw()
+__wrap__ZnamSt11align_val_t NOSIGFE # void *operator new[](std::size_t sz, std::align_val_t al) throw (std::bad_alloc)
+__wrap__ZnamSt11align_val_tRKSt9nothrow_t NOSIGFE # void *operator new[](std::size_t sz, std::align_val_t al, const std::nothrow_t &nt) throw()
 __wrap__Znwm NOSIGFE                # void *operator new(std::size_t sz) throw (std::bad_alloc)
 __wrap__ZnwmRKSt9nothrow_t NOSIGFE  # void *operator new(std::size_t sz, const std::nothrow_t &nt) throw()
+__wrap__ZnwmSt11align_val_t NOSIGFE # void *operator new(std::size_t sz, std::align_val_t al) throw (std::bad_alloc)
+__wrap__ZnwmSt11align_val_tRKSt9nothrow_t NOSIGFE # void *operator new(std::size_t sz, std::align_val al, const std::nothrow_t &nt) throw()
 __xdrrec_getrec SIGFE
 __xdrrec_setnonblock SIGFE
 __xpg_sigpause SIGFE

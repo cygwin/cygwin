@@ -27,6 +27,20 @@ struct per_process_cxx_malloc
   void *(*oper_new___nt) (std::size_t, const std::nothrow_t &);
   void (*oper_delete_nt) (void *, const std::nothrow_t &);
   void (*oper_delete___nt) (void *, const std::nothrow_t &);
+  /* New in C++14: sized delete */
+  void (*oper_delete_sz) (void *, std::size_t);
+  void (*oper_delete___sz) (void *, std::size_t);
+  /* New in C++17: aligned new/delete, and combinations with size and nothrow */
+  void *(*oper_new_al) (std::size_t, std::align_val_t);
+  void *(*oper_new___al) (std::size_t, std::align_val_t);
+  void (*oper_delete_al) (void *, std::align_val_t);
+  void (*oper_delete___al) (void *, std::align_val_t);
+  void (*oper_delete_sz_al) (void *, std::size_t, std::align_val_t);
+  void (*oper_delete___sz_al) (void *, std::size_t, std::align_val_t);
+  void *(*oper_new_al_nt) (std::size_t, std::align_val_t, const std::nothrow_t &);
+  void *(*oper_new___al_nt) (std::size_t, std::align_val_t, const std::nothrow_t &);
+  void (*oper_delete_al_nt) (void *, std::align_val_t, const std::nothrow_t &);
+  void (*oper_delete___al_nt) (void *, std::align_val_t, const std::nothrow_t &);
 };
 
 /* Defined in cxx.cc  */

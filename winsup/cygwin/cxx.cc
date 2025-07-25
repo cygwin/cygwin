@@ -28,15 +28,6 @@ operator delete (void *p)
   free (p);
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wc++14-compat"
-void
-operator delete (void *p, size_t)
-{
-  ::operator delete(p);
-}
-#pragma GCC diagnostic pop
-
 void *
 operator new[] (std::size_t s)
 {
@@ -48,6 +39,63 @@ operator delete[] (void *p)
 {
   ::operator delete (p);
 }
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wc++14-compat"
+void
+operator delete (void *p, size_t)
+{
+  ::operator delete (p);
+}
+
+void
+operator delete[] (void *p, size_t)
+{
+  ::operator delete (p);
+}
+#pragma GCC diagnostic pop
+
+/* Aligned versions, provided only for completeness in the fallback array. */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wc++17-compat"
+void *
+operator new (std::size_t sz, std::align_val_t al)
+{
+  void *ret;
+  /* is memset needed here, since the non-aligned version uses calloc? */
+  if (!posix_memalign (&ret, static_cast <std::size_t> (al), sz))
+    return ret;
+  return NULL;
+}
+
+void *
+operator new[] (std::size_t sz, std::align_val_t al)
+{
+  return ::operator new (sz, al);
+}
+
+void
+operator delete (void *p, std::align_val_t)
+{
+  free (p);
+}
+void
+operator delete[] (void *p, std::align_val_t al)
+{
+  ::operator delete (p, al);
+}
+
+void
+operator delete (void *p, std::size_t, std::align_val_t al)
+{
+  ::operator delete (p, al);
+}
+
+void operator delete[] (void *p, std::size_t, std::align_val_t al)
+{
+  ::operator delete (p, al);
+}
+#pragma GCC diagnostic pop
 
 /* Nothrow versions, provided only for completeness in the fallback array.  */
 
@@ -76,6 +124,51 @@ operator delete[] (void *p, const std::nothrow_t &nt)
   ::operator delete (p, nt);
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wc++14-compat"
+void
+operator delete (void *p, size_t, const std::nothrow_t &nt)
+{
+  ::operator delete (p, nt);
+}
+
+void
+operator delete[] (void *p, size_t, const std::nothrow_t &nt)
+{
+  ::operator delete (p, nt);
+}
+#pragma GCC diagnostic pop
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wc++17-compat"
+void *
+operator new (std::size_t sz, std::align_val_t al, const std::nothrow_t &)
+{
+
+  void *ret;
+  /* is memset needed here, since the non-aligned version uses calloc? */
+  if (!posix_memalign (&ret, static_cast <std::size_t> (al), sz))
+    return ret;
+  return NULL;
+}
+
+void *
+operator new[] (std::size_t sz, std::align_val_t al, const std::nothrow_t &nt)
+{
+  return ::operator new (sz, al, nt);
+}
+
+void
+operator delete (void *p, std::align_val_t, const std::nothrow_t &nt)
+{
+  ::operator delete (p, nt);
+}
+
+void operator delete[] (void *p, std::align_val_t, const std::nothrow_t &nt)
+{
+  ::operator delete (p, nt);
+}
+#pragma GCC diagnostic pop
 
 extern "C" void
 __cxa_pure_virtual (void)
@@ -95,10 +188,27 @@ struct per_process_cxx_malloc default_cygwin_cxx_malloc =
   &(operator new[]),
   &(operator delete),
   &(operator delete[]),
+  /* nothrow new/delete */
   &(operator new),
   &(operator new[]),
   &(operator delete),
   &(operator delete[]),
+  /* C++14 sized delete */
+  &(operator delete),
+  &(operator delete[]),
+  /* C++17 aligned new/delete */
+  &(operator new),
+  &(operator new[]),
+  &(operator delete),
+  &(operator delete[]),
+  /* aligned + sized delete */
+  &(operator delete),
+  &(operator delete[]),
+  /* aligned + nothrow new/delete */
+  &(operator new),
+  &(operator new[]),
+  &(operator delete),
+  &(operator delete[])
 };
 
 

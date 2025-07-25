@@ -22,6 +22,18 @@ details. */
 #define REAL_ZDAPV		_SYMSTR (__real__ZdaPv)
 #define REAL_ZDLPV_NOTHROW_T	_SYMSTR (__real__ZdlPvRKSt9nothrow_t)
 #define REAL_ZDAPV_NOTHROW_T	_SYMSTR (__real__ZdaPvRKSt9nothrow_t)
+#define REAL_ZDLPVM		_SYMSTR (__real__ZdlPvm)
+#define REAL_ZDAPVM		_SYMSTR (__real__ZdaPvm)
+#define REAL_ZNWX_ALIGN_VAL_T	"__real__ZnwmSt11align_val_t"
+#define REAL_ZNAX_ALIGN_VAL_T	"__real__ZnamSt11align_val_t"
+#define REAL_ZDLPV_ALIGN_VAL_T	_SYMSTR (__real__ZdlPvSt11align_val_t)
+#define REAL_ZDAPV_ALIGN_VAL_T	_SYMSTR (__real__ZdaPvSt11align_val_t)
+#define REAL_ZDLPVM_ALIGN_VAL_T	_SYMSTR (__real__ZdlPvmSt11align_val_t)
+#define REAL_ZDAPVM_ALIGN_VAL_T	_SYMSTR (__real__ZdaPvmSt11align_val_t)
+#define REAL_ZNWX_ALIGN_VAL_T_NOTHROW_T	"__real__ZnwmSt11align_val_tRKSt9nothrow_t"
+#define REAL_ZNAX_ALIGN_VAL_T_NOTHROW_T	"__real__ZnamSt11align_val_tRKSt9nothrow_t"
+#define REAL_ZDLPV_ALIGN_VAL_T_NOTHROW_T	_SYMSTR (__real__ZdlPvSt11align_val_tRKSt9nothrow_t)
+#define REAL_ZDAPV_ALIGN_VAL_T_NOTHROW_T	_SYMSTR (__real__ZdaPvSt11align_val_tRKSt9nothrow_t)
 
 /* Use asm names to bypass the --wrap that is being applied to redirect all other
    references to these operators toward the redirectors in the Cygwin DLL; this
@@ -43,6 +55,30 @@ extern WEAK void operator delete(void *p, const std::nothrow_t &nt) noexcept (tr
 			__asm__ (REAL_ZDLPV_NOTHROW_T);
 extern WEAK void operator delete[](void *p, const std::nothrow_t &nt) noexcept (true)
 			__asm__ (REAL_ZDAPV_NOTHROW_T);
+extern WEAK void operator delete(void *p, std::size_t sz) noexcept (true)
+			__asm__ (REAL_ZDLPVM);
+extern WEAK void operator delete[](void *p, std::size_t sz) noexcept (true)
+			__asm__ (REAL_ZDAPVM);
+extern WEAK void *operator new(std::size_t sz, std::align_val_t al) noexcept (false)
+			__asm__ (REAL_ZNWX_ALIGN_VAL_T);
+extern WEAK void *operator new[](std::size_t sz, std::align_val_t al) noexcept (false)
+			__asm__ (REAL_ZNAX_ALIGN_VAL_T);
+extern WEAK void operator delete(void *p, std::align_val_t al) noexcept (true)
+			__asm__ (REAL_ZDLPV_ALIGN_VAL_T);
+extern WEAK void operator delete[](void *p, std::align_val_t al) noexcept (true)
+			__asm__ (REAL_ZDAPV_ALIGN_VAL_T);
+extern WEAK void operator delete(void *p, std::size_t sz, std::align_val_t al) noexcept (true)
+			__asm__ (REAL_ZDLPVM_ALIGN_VAL_T);
+extern WEAK void operator delete[](void *p, std::size_t sz, std::align_val_t al) noexcept (true)
+			__asm__ (REAL_ZDAPVM_ALIGN_VAL_T);
+extern WEAK void *operator new(std::size_t sz, std::align_val_t al, const std::nothrow_t &nt) noexcept (true)
+			__asm__ (REAL_ZNWX_ALIGN_VAL_T_NOTHROW_T);
+extern WEAK void *operator new[](std::size_t sz, std::align_val_t al, const std::nothrow_t &nt) noexcept (true)
+			__asm__ (REAL_ZNAX_ALIGN_VAL_T_NOTHROW_T);
+extern WEAK void operator delete(void *p, std::align_val_t al, const std::nothrow_t &nt) noexcept (true)
+			__asm__ (REAL_ZDLPV_ALIGN_VAL_T_NOTHROW_T);
+extern WEAK void operator delete[](void *p, std::align_val_t al, const std::nothrow_t &nt) noexcept (true)
+			__asm__ (REAL_ZDAPV_ALIGN_VAL_T_NOTHROW_T);
 
 /* Avoid an info message from linker when linking applications.  */
 extern __declspec(dllimport) struct _reent *_impure_ptr;
@@ -65,6 +101,17 @@ struct per_process_cxx_malloc __cygwin_cxx_malloc =
 {
   &(operator new), &(operator new[]),
   &(operator delete), &(operator delete[]),
+  /* nothrow new/delete */
+  &(operator new), &(operator new[]),
+  &(operator delete), &(operator delete[]),
+  /* C++14 sized delete */
+  &(operator delete), &(operator delete[]),
+  /* C++17 aligned new/delete */
+  &(operator new), &(operator new[]),
+  &(operator delete), &(operator delete[]),
+  /* aligned + sized delete */
+  &(operator delete), &(operator delete[]),
+  /* aligned + nothrow new/delete */
   &(operator new), &(operator new[]),
   &(operator delete), &(operator delete[])
 };
@@ -143,6 +190,18 @@ _cygwin_crt0_common (MainFunc f, per_process *u)
       CONDITIONALLY_OVERRIDE(oper_new___nt);
       CONDITIONALLY_OVERRIDE(oper_delete_nt);
       CONDITIONALLY_OVERRIDE(oper_delete___nt);
+      CONDITIONALLY_OVERRIDE(oper_delete_sz);
+      CONDITIONALLY_OVERRIDE(oper_delete___sz);
+      CONDITIONALLY_OVERRIDE(oper_new_al);
+      CONDITIONALLY_OVERRIDE(oper_new___al);
+      CONDITIONALLY_OVERRIDE(oper_delete_al);
+      CONDITIONALLY_OVERRIDE(oper_delete___al);
+      CONDITIONALLY_OVERRIDE(oper_delete_sz_al);
+      CONDITIONALLY_OVERRIDE(oper_delete___sz_al);
+      CONDITIONALLY_OVERRIDE(oper_new_al_nt);
+      CONDITIONALLY_OVERRIDE(oper_new___al_nt);
+      CONDITIONALLY_OVERRIDE(oper_delete_al_nt);
+      CONDITIONALLY_OVERRIDE(oper_delete___al_nt);
       /* Now update the resulting set into the global redirectors.  */
       *newu->cxx_malloc = __cygwin_cxx_malloc;
     }
