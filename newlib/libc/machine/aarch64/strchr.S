@@ -54,7 +54,6 @@
 /* Locals and temporaries.  */
 
 ENTRY (strchr)
-	PTR_ARG (0)
 	/* Magic constant 0xc0300c03 to allow us to identify which lane
 	   matches the requested byte.  Even bits are set if the character
 	   matches, odd bits if either the char is NUL or matches.  */
