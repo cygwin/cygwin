@@ -495,12 +495,13 @@ details. */
   357: Export posix_close.
   358: Export acl_get_fd_np, acl_get_link_np, acl_get_perm_np,
        acl_is_trivial_np, acl_set_fd_np, acl_set_link_np, acl_strip_np.
+  359: Export wrappers for C++14 and C++17 new and delete overloads.
 
   Note that we forgot to bump the api for ualarm, strtoll, strtoull,
   sigaltstack, sethostname. */
 
 #define CYGWIN_VERSION_API_MAJOR 0
-#define CYGWIN_VERSION_API_MINOR 358
+#define CYGWIN_VERSION_API_MINOR 359
 
 /* There is also a compatibity version number associated with the shared memory
    regions.  It is incremented when incompatible changes are made to the shared
