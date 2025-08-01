@@ -124,6 +124,8 @@ _cygwin_crt0_common (MainFunc f, per_process *u)
 {
   per_process *newu = (per_process *) cygwin_internal (CW_USER_DATA);
   bool uwasnull;
+  bool new_dll_with_additional_operators =
+       CYGWIN_VERSION_CHECK_FOR_CXX17_OVERLOADS (newu);
 
   /* u is non-NULL if we are in a DLL, and NULL in the main exe.
      newu is the Cygwin DLL's internal per_process and never NULL.  */
@@ -176,12 +178,13 @@ _cygwin_crt0_common (MainFunc f, per_process *u)
   /* Likewise for the C++ memory operators, if any, but not if we
      were dlopen()'d, as we might get dlclose()'d and that would
      leave stale function pointers behind.    */
-  if (newu && newu->cxx_malloc && !__dynamically_loaded)
+  if (!__dynamically_loaded)
     {
       /* Inherit what we don't override.  */
 #define CONDITIONALLY_OVERRIDE(MEMBER) \
-      if (!__cygwin_cxx_malloc.MEMBER) \
-	__cygwin_cxx_malloc.MEMBER = newu->cxx_malloc->MEMBER;
+      if (__cygwin_cxx_malloc.MEMBER) \
+	newu->cxx_malloc->MEMBER = __cygwin_cxx_malloc.MEMBER;
+
       CONDITIONALLY_OVERRIDE(oper_new);
       CONDITIONALLY_OVERRIDE(oper_new__);
       CONDITIONALLY_OVERRIDE(oper_delete);
@@ -190,20 +193,21 @@ _cygwin_crt0_common (MainFunc f, per_process *u)
       CONDITIONALLY_OVERRIDE(oper_new___nt);
       CONDITIONALLY_OVERRIDE(oper_delete_nt);
       CONDITIONALLY_OVERRIDE(oper_delete___nt);
-      CONDITIONALLY_OVERRIDE(oper_delete_sz);
-      CONDITIONALLY_OVERRIDE(oper_delete___sz);
-      CONDITIONALLY_OVERRIDE(oper_new_al);
-      CONDITIONALLY_OVERRIDE(oper_new___al);
-      CONDITIONALLY_OVERRIDE(oper_delete_al);
-      CONDITIONALLY_OVERRIDE(oper_delete___al);
-      CONDITIONALLY_OVERRIDE(oper_delete_sz_al);
-      CONDITIONALLY_OVERRIDE(oper_delete___sz_al);
-      CONDITIONALLY_OVERRIDE(oper_new_al_nt);
-      CONDITIONALLY_OVERRIDE(oper_new___al_nt);
-      CONDITIONALLY_OVERRIDE(oper_delete_al_nt);
-      CONDITIONALLY_OVERRIDE(oper_delete___al_nt);
-      /* Now update the resulting set into the global redirectors.  */
-      *newu->cxx_malloc = __cygwin_cxx_malloc;
+      if (new_dll_with_additional_operators)
+	{
+	  CONDITIONALLY_OVERRIDE(oper_delete_sz);
+	  CONDITIONALLY_OVERRIDE(oper_delete___sz);
+	  CONDITIONALLY_OVERRIDE(oper_new_al);
+	  CONDITIONALLY_OVERRIDE(oper_new___al);
+	  CONDITIONALLY_OVERRIDE(oper_delete_al);
+	  CONDITIONALLY_OVERRIDE(oper_delete___al);
+	  CONDITIONALLY_OVERRIDE(oper_delete_sz_al);
+	  CONDITIONALLY_OVERRIDE(oper_delete___sz_al);
+	  CONDITIONALLY_OVERRIDE(oper_new_al_nt);
+	  CONDITIONALLY_OVERRIDE(oper_new___al_nt);
+	  CONDITIONALLY_OVERRIDE(oper_delete_al_nt);
+	  CONDITIONALLY_OVERRIDE(oper_delete___al_nt);
+	}
     }
 
   /* Setup the module handle so fork can get the path name.  */
