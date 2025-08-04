@@ -497,3 +497,7 @@ and need not follow the licensing terms described here, provided that
 the new terms are clearly indicated on the first page of each file where
 they apply.
 
+(26) - Atari 16/32 bit TOS (m68k-atari-elf target)
+
+Copyright (C) 2025 Mikael Hildenborg
+SPDX-License-Identifier: BSD-2-Clause

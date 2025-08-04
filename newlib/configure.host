@@ -252,7 +252,6 @@ case "${host_cpu}" in
   mips*)
 	machine_dir=mips
 	libm_machine_dir=mips
-	newlib_cflags="${newlib_cflags}"
 	;;
   mmix)
 	;;
@@ -767,6 +766,10 @@ newlib_cflags="${newlib_cflags} -DCLOCK_PROVIDED -DMALLOC_PROVIDED -DEXIT_PROVID
 	;;
   m68k-unknown-elf)
 	newlib_cflags="${newlib_cflags} -DHAVE_RENAME -DHAVE_SYSTEM -DMISSING_SYSCALL_NAMES"
+	syscall_dir=
+	;;
+  m68k-atari-elf)
+	newlib_cflags="${newlib_cflags} -DHAVE_RENAME -DMISSING_SYSCALL_NAMES"
 	syscall_dir=
 	;;
   mcore-*-*)

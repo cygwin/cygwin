@@ -1570,3 +1570,7 @@ Software.
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+(58) - Atari 16/32 bit TOS (m68k-atari-elf target)
+
+Copyright (C) 2025 Mikael Hildenborg
+SPDX-License-Identifier: BSD-2-Clause

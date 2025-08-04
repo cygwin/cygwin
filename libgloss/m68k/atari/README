@@ -1,0 +1,35 @@
+Copyright (C) 2025 Mikael Hildenborg
+SPDX-License-Identifier: BSD-2-Clause
+
+Atari 16/32 bit TOS (not MINT) target.
+Target name: m68k-atari-elf.
+
+Stack size:
+The default stack size is set at 2000 bytes.
+To change stack size, add the following line to your C/C++ code:
+unsigned int _STACK_SIZE = *WANTED_STACK_SIZE*;
+Where "*WANTED_STACK_SIZE*" is the size in bytes you want to allocate for stack space.
+Do not use odd size!
+
+Heap size:
+The default heap size is to use all available memory.
+If you want to leave memory for other programs to use, then add the following line to your C/C++ code:
+unsigned int _HEAP_SIZE = *WANTED_HEAP_SIZE*;
+Where "*WANTED_HEAP_SIZE*" is the size in bytes you want to allocate for heap space.
+Do not use odd size!
+
+Program base page:
+A pointer to the program base page is stored at: _BasePage
+
+ELF output:
+The executable elf output have four interesting segments:
+".text", ".data", ".bss" and ".prgheader" as described in "atari-tos.ld".
+All relevant code and data have been properly sorted into those segments, and the ".prgheader"
+contains a valid atari prg header pointing to relevant segments.
+Relocation data from the link switch "--emit-relocs" (defaultted by "atari-tos.specs") is
+included in the elf output so additional fixup information can be added to the prg file.
+Addresses in elf and prg files are the same and thus compatible for interchangeable symbol lookup.
+
+More information:
+Can be found at: https://github.com/hildenborg/m68k-atari-dev
+Where build scripts for complete toolchain, executables for converting elf to prg, and a remote debug server with full symbolic debugging are available.

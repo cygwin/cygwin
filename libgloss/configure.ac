@@ -79,6 +79,11 @@ case "${target}" in
   fido-*-* | m68*-*-*)
 	AC_CONFIG_FILES([m68k/Makefile])
 	subdirs="$subdirs m68k"
+	case "${target}" in
+		m68k-atari-*)
+			config_libnosys=false
+		;;
+	esac
 	;;
   hppa*-*-pro*)
 	AC_CONFIG_FILES([pa/Makefile])
