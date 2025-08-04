@@ -149,6 +149,11 @@ extern "C" {
 #if __POSIX_VISIBLE >= 200809
 #define	F_DUPFD_CLOEXEC	14	/* As F_DUPFD, but set close-on-exec flag */
 #endif
+#if __GNU_VISIBLE || __POSIX_VISIBLE >= 202405
+#define	F_OFD_GETLK	15	/* Get OFD record-locking information */
+#define	F_OFD_SETLK	16	/* Set or Clear OFD lock (Non-Blocking) */
+#define	F_OFD_SETLKW	17	/* Set or Clear OFD lock (Blocking) */
+#endif
 
 /* fcntl(2) flags (l_type field of flock structure) */
 #define	F_RDLCK		1	/* read lock */
