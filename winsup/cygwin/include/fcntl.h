@@ -14,6 +14,12 @@ details. */
 
 #define O_NDELAY	_FNDELAY
 
+#ifdef __INSIDE_CYGWIN__
+#define F_WAIT	0x10	/* Wait until lock is granted */
+#define F_FLOCK 0x20	/* Use flock(2) semantics for lock */
+#define F_POSIX	0x40	/* Use POSIX semantics for lock */
+#endif
+
 /* F_LCK_MANDATORY: Request mandatory locks for this file descriptor.
 
    Cygwin extension to fcntl file locking mechanism.  By default, fcntl file

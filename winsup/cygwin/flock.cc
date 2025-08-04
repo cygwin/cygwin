@@ -109,10 +109,6 @@
 #include <sys/queue.h>
 #include <wchar.h>
 
-#define F_WAIT 0x10	/* Wait until lock is granted */
-#define F_FLOCK 0x20	/* Use flock(2) semantics for lock */
-#define F_POSIX	0x40	/* Use POSIX semantics for lock */
-
 #ifndef OFF_MAX
 #define OFF_MAX LLONG_MAX
 #endif
