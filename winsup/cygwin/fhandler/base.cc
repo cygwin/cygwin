@@ -1499,6 +1499,7 @@ int fhandler_base::fcntl (int cmd, intptr_t arg)
 	{
 	  struct flock *fl = (struct flock *) arg;
 	  fl->l_type &= F_RDLCK | F_WRLCK | F_UNLCK;
+	  fl->l_type |= F_POSIX;
 	  res = mandatory_locking () ? mand_lock (cmd, fl) : lock (cmd, fl);
 	}
       break;

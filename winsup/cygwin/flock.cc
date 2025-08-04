@@ -951,7 +951,10 @@ fhandler_base::lock (int a_op, struct flock *fl)
   short type = fl->l_type & (F_RDLCK | F_WRLCK | F_UNLCK);
 
   if (!a_flags)
-    a_flags = F_POSIX; /* default */
+    {
+      set_errno (EINVAL);
+      return -1;
+    }
 
   /* FIXME: For BSD flock(2) we need a valid, per file table entry OS handle.
      Therefore we can't allow using flock(2) on nohandle devices. */
@@ -1859,8 +1862,7 @@ flock (int fd, int operation)
 	  set_errno (EINVAL);
 	  __leave;
 	}
-      if (!cfd->mandatory_locking ())
-	fl.l_type |= F_FLOCK;
+      fl.l_type |= F_FLOCK;
       res = cfd->mandatory_locking () ? cfd->mand_lock (cmd, &fl)
 				      : cfd->lock (cmd, &fl);
       if ((res == -1) && ((get_errno () == EAGAIN) || (get_errno () == EACCES)))
@@ -1906,7 +1908,7 @@ lockf (int filedes, int function, off_t size)
 	  fl.l_type = F_WRLCK;
 	  break;
 	case F_TEST:
-	  fl.l_type = F_WRLCK;
+	  fl.l_type = F_POSIX | F_WRLCK;
 	  if (cfd->lock (F_GETLK, &fl) == -1)
 	    __leave;
 	  if (fl.l_type == F_UNLCK || fl.l_pid == getpid ())
@@ -1920,6 +1922,7 @@ lockf (int filedes, int function, off_t size)
 	  __leave;
 	  /* NOTREACHED */
 	}
+      fl.l_type |= F_POSIX;
       res = cfd->mandatory_locking () ? cfd->mand_lock (cmd, &fl)
 				      : cfd->lock (cmd, &fl);
     }
@@ -2022,6 +2025,8 @@ fhandler_disk_file::mand_lock (int a_op, struct flock *fl)
      the entire file, even when file grows later. */
   if (length.QuadPart == 0)
     length.QuadPart = UINT64_MAX;
+  /* Filter lock types */
+  fl->l_type &= (F_RDLCK | F_WRLCK | F_UNLCK);
   /* Action! */
   if (fl->l_type == F_UNLCK)
     {
