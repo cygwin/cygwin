@@ -18,6 +18,7 @@ details. */
 #define F_WAIT	0x10	/* Wait until lock is granted */
 #define F_FLOCK 0x20	/* Use flock(2) semantics for lock */
 #define F_POSIX	0x40	/* Use POSIX semantics for lock */
+#define F_OFD	0x80	/* Use OFD semantics for lock */
 #endif
 
 /* F_LCK_MANDATORY: Request mandatory locks for this file descriptor.
