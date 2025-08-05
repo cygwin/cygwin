@@ -4,3 +4,6 @@ What's new:
 - Support for CLOCK_TAI clock and timer.
 
 - Support for Open File Description (OFD) locks.
+
+- Support for cross-module overriding of additional new/delete overloads
+  introduced in C++14 and C++17.
