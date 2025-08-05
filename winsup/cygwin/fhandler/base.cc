@@ -1503,6 +1503,17 @@ int fhandler_base::fcntl (int cmd, intptr_t arg)
 	  res = mandatory_locking () ? mand_lock (cmd, fl) : lock (cmd, fl);
 	}
       break;
+    case F_OFD_GETLK:
+    case F_OFD_SETLK:
+    case F_OFD_SETLKW:
+	{
+	  struct flock *fl = (struct flock *) arg;
+	  fl->l_type &= F_RDLCK | F_WRLCK | F_UNLCK;
+	  fl->l_type |= F_OFD;
+	  /* No mandatory locking support for OFD locks. */
+	  res = lock (cmd, fl);
+	}
+      break;
     default:
       set_errno (EINVAL);
       res = -1;

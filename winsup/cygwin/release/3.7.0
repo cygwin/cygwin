@@ -2,3 +2,5 @@ What's new:
 -----------
 
 - Support for CLOCK_TAI clock and timer.
+
+- Support for Open File Description (OFD) locks.
