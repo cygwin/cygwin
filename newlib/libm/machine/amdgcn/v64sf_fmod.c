@@ -70,8 +70,11 @@ DEF_VS_MATH_FUNC (v64sf, fmodf, v64sf x, v64sf y)
   v64si iy;
   VECTOR_IF (hy < 0x00800000, cond)	// subnormal y
     iy = VECTOR_INIT (-126);
-    for (v64si i = (hy << 8); !ALL_ZEROES_P (cond & (i >= 0)); i <<= 1)
-      VECTOR_COND_MOVE (iy, iy - 1, cond & (i >= 0));
+    for (v64si i = (hy << 8); !ALL_ZEROES_P (cond & (i >= 0)); /* i <<= 1 */)
+      {
+	VECTOR_COND_MOVE (iy, iy - 1, cond & (i >= 0));
+	VECTOR_COND_MOVE (i, i << 1, cond & (i >= 0));
+      }
   VECTOR_ELSE (cond)
     VECTOR_COND_MOVE (iy, (hy >> 23) - 127, cond);
   VECTOR_ENDIF
