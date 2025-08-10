@@ -14,8 +14,8 @@
 	The code below uses that limitation to simplify the code.
 */
 
-#define SEC_1900_TO_1980 2524521600
-#define SEC_1900_TO_MAX 0x7fffffff
+#define SEC_1970_TO_1980 315529200
+#define SEC_1970_TO_MAX 0x7fffffff
 #define SECONDS_IN_A_DAY (24 * 60 * 60)
 #define SEC_JAN_AND_FEB ((31 + 29) * SECONDS_IN_A_DAY)	// In a leap year
 #define SECONDS_IN_A_YEAR (365 * SECONDS_IN_A_DAY)
@@ -59,7 +59,7 @@ int gettimeofday(struct timeval* tv, void* __tz)
 		}
 
 		// Add it all together
-		tv->tv_sec = (((((days * 24) + hour) * 60) + min) * 60) + sec + SEC_1900_TO_1980;
+		tv->tv_sec = (((((days * 24) + hour) * 60) + min) * 60) + sec + SEC_1970_TO_1980;
 		tv->tv_usec = 0;
 	}
 	return 0;
@@ -70,14 +70,14 @@ int settimeofday(const struct timeval* tv, const struct timezone* tz)
 	// Support for timezone have been removed from linux glibc, so we just ignore it.
 	if (tv != 0)
 	{
-		if (tv->tv_sec < SEC_1900_TO_1980 || tv->tv_sec >= SEC_1900_TO_MAX)
+		if (tv->tv_sec < SEC_1970_TO_1980 || tv->tv_sec >= SEC_1970_TO_MAX)
 		{
 			// Outside the ranges we can handle.
 			gem_error_to_errno(GEM_EBADRQ);
 			return -1;
 		}
 
-		time_t seconds = tv->tv_sec - SEC_1900_TO_1980;
+		time_t seconds = tv->tv_sec - SEC_1970_TO_1980;
 		int year = 0;
 		time_t ysec = SECONDS_IN_A_YEAR;
 		do
