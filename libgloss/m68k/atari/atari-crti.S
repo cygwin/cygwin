@@ -8,14 +8,12 @@
 #define _fini	__libc_fini_array
 #endif
 
-	.equ	DEFAULT_STACK, 2000
+	.equ	MINKEEP, 0x10000
 
 	.global _BasePage
-	.weak 	_STACK_SIZE
-	.weak 	_HEAP_SIZE
+	.weak 	_stksize
 	.global _HeapPtr
-	.global _HeapBottom
-	.global _HeapTop
+	.global _heapbase
 	.global _atari_4ba_at_prg_start
 	.global __BSS_SEGMENT_END
 
@@ -26,32 +24,62 @@ _init:
 	move.l	4(a7),a0
 	move.l	a0, _BasePage
 
-	| Init stack
+/*
+	Init stack and heap.
+	The size of the stack and heap together is specified in _stksize.
+	The stack is set to point at the top of the reserved memory.
+	The heap is set to point at the bottom of the reserved memory.
+	Usage of _stksize (mintlib functionally compatible):
+		if _stksize is undefined, then all available memory is used.
+		if _stksize is 0, then MINKEEP memory is used.
+		if _stksize > 0 && < 4, then _stksize/4 of all memory is used.
+		if _stksize >= 4, then use that much memory.
+		if _stksize == -1, then all available memory is used.
+		if _stksize < -1, then use -_stksize memory.
+*/
 	lea		__BSS_SEGMENT_END, a2
-	lea		_STACK_SIZE, a1
+	move.l	a2, _heapbase
+	move.l	a2, _HeapPtr
+
+	move.l	4(a0), d1		| mem top
+	sub.l	a2, d1			| free mem
+	lea		_stksize, a1
 	cmpa.w	#0, a1
-	jeq		default_stack_size
-	add.l	(a1), a2
-	jra		stack_size_selected
-default_stack_size:
-	lea		DEFAULT_STACK(a2), a2
-stack_size_selected:
-	move.l	a2, a7
+	jeq		stksize_selected
+	move.l	(a1), d0
+	jeq		stksize_zero
+	jmi		stksize_negative
+stksize_positive:
+	moveq	#4, d2
+	cmp.l	d2, d0
+	jpl		stksize_above_three
+stksize_one_to_three:
+	lsr.l	#2, d1
+	move.l	d1, d2
+1:
+	subq.w	#1, d0
+	jeq		stksize_selected
+	add.l	d2, d1
+	jra		1b
+stksize_zero:
+	move.l	#MINKEEP, d1
+	jra		stksize_selected
+stksize_negative:
+	not.l	d0
+	jeq		stksize_selected	| -1
+	addq.l	#1, d0				| d0 = -_stksize
+stksize_above_three:
+	move.l	d0, d1
+stksize_selected:
 
-	| Init heap
-	move.l	a7, d0
-	move.l	d0, _HeapBottom
-	move.l	d0, _HeapPtr
-	move.l	4(a0), _HeapTop
+	add.l	a2, d1
+	bclr	#0, d1		| even address.
+	move.l	d1, a7
 
-	lea		_HEAP_SIZE, a1
-	cmpa.w	#0, a1
-	jeq		heap_setup_done
-	add.l	(a1), d0
-	sub.l	(a0), d0			| d0 is now the TPA size
+	sub.l	a0, d1		| mem from basepage to top.
 
-	| Program do not want all memory, so we shrink it.
-	move.l	d0, -(a7)
+	| Shrink mem.
+	move.l	d1, -(a7)
 	move.l	a0, -(a7)
 	clr.w	-(a7)
 	move.w	#0x4a, -(a7)	| Mshrink()
@@ -84,7 +112,6 @@ heap_setup_done:
 	.bss
 	.lcomm 	_BasePage, 4
 	.lcomm 	_HeapPtr, 4
-	.lcomm 	_HeapBottom, 4
-	.lcomm 	_HeapTop, 4
+	.lcomm 	_heapbase, 4
 	.lcomm	_atari_4ba_at_prg_start, 4
 	.even
