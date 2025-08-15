@@ -950,7 +950,7 @@ spawnve (int mode, const char *path, const char *const *argv,
   if (!envp)
     envp = empty_env;
 
-  child_info_spawn ch_spawn_local (_CH_NADA, false);
+  child_info_spawn ch_spawn_local (_CH_NADA);
   switch (_P_MODE (mode))
     {
     case _P_OVERLAY:
