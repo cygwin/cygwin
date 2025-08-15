@@ -895,7 +895,8 @@ child_info::child_info (unsigned in_cb, child_info_types chtype,
   msv_count (0), cb (in_cb), intro (PROC_MAGIC_GENERIC),
   magic (CHILD_INFO_MAGIC), type (chtype), cygheap (::cygheap),
   cygheap_max (::cygheap_max), flag (0), retry (child_info::retry_count),
-  rd_proc_pipe (NULL), wr_proc_pipe (NULL), sigmask (_my_tls.sigmask)
+  rd_proc_pipe (NULL), wr_proc_pipe (NULL), subproc_ready (NULL),
+  sigmask (_my_tls.sigmask)
 {
   fhandler_union_cb = sizeof (fhandler_union);
   user_h = cygwin_user_h;
@@ -943,6 +944,12 @@ child_info::~child_info ()
 child_info_fork::child_info_fork () :
   child_info (sizeof *this, _CH_FORK, true),
   forker_finished (NULL)
+{
+}
+
+child_info_spawn::child_info_spawn (child_info_types chtype) :
+  child_info (sizeof *this, chtype, false), hExeced (NULL), ev (NULL),
+  sem (NULL), moreinfo (NULL)
 {
 }
 

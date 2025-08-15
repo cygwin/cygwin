@@ -33,7 +33,7 @@ enum child_status
 #define EXEC_MAGIC_SIZE sizeof(child_info)
 
 /* Change this value if you get a message indicating that it is out-of-sync. */
-#define CURR_CHILD_INFO_MAGIC 0xacbf4682U
+#define CURR_CHILD_INFO_MAGIC 0x77f25a01U
 
 #include "pinfo.h"
 struct cchildren
@@ -149,6 +149,7 @@ public:
 
   void cleanup ();
   child_info_spawn () {};
+  child_info_spawn (child_info_types);
   child_info_spawn (child_info_types, bool);
   void record_children ();
   void reattach_children ();
