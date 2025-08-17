@@ -60,8 +60,13 @@ ctors_loop:
 	jmp	ctors_loop
 ctors_done:
 
-	/* Just in case main() tries to access argc, argv[] and envp. */
-	zero	r14, 3 * 4
+	/* Just in case main() tries to access argc, argv[] and envp.
+	   Do not use "zero" instruction because it is not available on
+	   older cores.  Increased code size is not a concern - real
+	   firmware projects should use crt0-minrt anyway.  */
+	ldi	r14, 0
+	ldi	r15, 0
+	ldi	r16, 0
 
 	.weak __c_args__
 	ldi32	r5, __c_args__

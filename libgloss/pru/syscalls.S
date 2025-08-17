@@ -45,8 +45,12 @@ __SC_ret:
 	ldi32	r1, _impure_ptr
 	lbbo	r1, r1, 0, 4
 	sbbo	r14, r1, 0, 4
-	/* Return -1 (for both int32_t or int64_t).  */
-	fill	r14, 8
+	/* Return -1 (for both int32_t or int64_t).
+	   Do not use "fill" instruction because it is not available on
+	   older cores.  Increased code size is not a concern - syscalls
+	   are used only by the simulator.  */
+	ldi32	r14, -1
+	ldi32	r15, -1
 
 __SC_ret_skip_errno_set:
 	ret
