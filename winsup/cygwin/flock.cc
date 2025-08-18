@@ -1162,6 +1162,7 @@ restart:	/* Entry point after a restartable signal came in. */
       clean = lock;
       break;
 
+    case F_GETLK:
     case F_OFD_GETLK:
       error = lf_getlock (lock, node, fl);
       lock->lf_next = clean;
