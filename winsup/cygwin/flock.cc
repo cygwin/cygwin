@@ -1722,7 +1722,7 @@ lf_findoverlap (lockf_t *lf, lockf_t *lock, int type, lockf_t ***prev,
       /* We're "self" only if the semantics and the id matches.  OFD and POSIX
          locks potentially block each other.  This is true even for OFD and
 	 POSIX locks created by the same process. */
-      bool self = (lf->lf_flags == lock->lf_flags)
+      bool self = ((lf->lf_flags & ~F_WAIT) == (lock->lf_flags & ~F_WAIT))
 		  && (lf->lf_id == lock->lf_id);
 
       if (bsd_flock || ((type & SELF) && !self) || ((type & OTHERS) && self))
