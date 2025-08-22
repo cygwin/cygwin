@@ -15,6 +15,7 @@
 	.global _HeapPtr
 	.global _heapbase
 	.global _atari_4ba_at_prg_start
+	.global _atari_4be_at_prg_start
 	.global __BSS_SEGMENT_END
 
 	.section	".init"
@@ -24,6 +25,21 @@ _init:
 	move.l	4(a7),a0
 	move.l	a0, _BasePage
 
+/*
+	First do a quick jump into supervisor mode to get some needed pointers.
+*/
+	move.l	#super_init, -(a7)
+	move.w	#0x26, -(a7)
+	trap	#14
+	addq.l	#6, a7
+
+/*
+	Make an estimate for how much memory we need to reserve for environment and arguments.
+*/
+	jsr		estimate_env_and_args_memory				| in atari-environ.c
+	| d0 contains the number of bytes we need to reserve for environment and arguments.
+	move.l	d0, d7
+	
 /*
 	Init stack and heap.
 	The size of the stack and heap together is specified in _stksize.
@@ -38,11 +54,14 @@ _init:
 		if _stksize < -1, then use -_stksize memory.
 */
 	lea		__BSS_SEGMENT_END, a2
+	add.l	d7, a2			| environment and arguments
 	move.l	a2, _heapbase
 	move.l	a2, _HeapPtr
 
+	move.l	_BasePage, a0
 	move.l	4(a0), d1		| mem top
 	sub.l	a2, d1			| free mem
+	move.l	d1, d6
 	lea		_stksize, a1
 	cmpa.w	#0, a1
 	jeq		stksize_selected
@@ -72,6 +91,13 @@ stksize_above_three:
 	move.l	d0, d1
 stksize_selected:
 
+	| adjust for memory needed for environment and arguments
+	add.l	d7, d1
+	cmp.l	d1, d6
+	jpl		1f
+	move.l	d6, d1
+1:
+
 	add.l	a2, d1
 	bclr	#0, d1		| even address.
 	move.l	d1, a7
@@ -94,12 +120,13 @@ stksize_selected:
 super_init:
 	| Init stuff that needs supervisor mode set.
 	move.l	0x4ba, _atari_4ba_at_prg_start
+	move.l	0x4be, _atari_4be_at_prg_start
 	rts
 heap_setup_done:
-	move.l	#super_init, -(a7)
-	move.w	#0x26, -(a7)
-	trap	#14
-	addq.l	#6, a7
+
+	pea		__BSS_SEGMENT_END				| storage space for environment and arguments
+	jsr		setup_env_and_args				| in atari-environ.c
+
     | crtbegin.o follows here with global constructors etc. init.
 
 
@@ -114,4 +141,5 @@ heap_setup_done:
 	.lcomm 	_HeapPtr, 4
 	.lcomm 	_heapbase, 4
 	.lcomm	_atari_4ba_at_prg_start, 4
+	.lcomm	_atari_4be_at_prg_start, 4
 	.even
