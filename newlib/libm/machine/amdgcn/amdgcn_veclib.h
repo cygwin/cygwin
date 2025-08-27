@@ -267,7 +267,15 @@ do { \
   __tmp; \
 })
 
-#define VECTOR_WHILE(cond, cond_var, prev_cond_var) \
+#define VECTOR_WHILE(cond, cond_var) \
+{ \
+  __auto_type cond_var = __mask; \
+  for (;;) { \
+    cond_var &= __builtin_convertvector (cond, __typeof (cond_var)); \
+    if (ALL_ZEROES_P (cond_var)) \
+      break;
+
+#define VECTOR_WHILE2(cond, cond_var, prev_cond_var) \
 { \
   __auto_type cond_var = prev_cond_var; \
   for (;;) { \

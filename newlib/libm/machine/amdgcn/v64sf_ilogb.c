@@ -38,11 +38,12 @@ DEF_VS_MATH_FUNC (v64si, ilogbf, v64sf x)
     VECTOR_RETURN (VECTOR_INIT (-__INT_MAX__), cond);  // FP_ILOGB0
   VECTOR_ENDIF
   VECTOR_IF (FLT_UWORD_IS_SUBNORMAL (hx), cond)
-    ix = VECTOR_INIT (-126);
-    for (v64si i = (hx << 8);
-       !ALL_ZEROES_P (cond & (i > 0));
-       i <<= 1)
-      VECTOR_COND_MOVE (ix, ix - 1, cond & (i > 0));
+    VECTOR_COND_MOVE (ix, VECTOR_INIT (-126), cond);
+    v64si i = (hx << 8);
+    VECTOR_WHILE2 (i > 0, cond2, cond)
+      VECTOR_COND_MOVE (ix, ix - 1, cond2);
+      VECTOR_COND_MOVE (i, i << 1, cond2);
+    VECTOR_ENDWHILE
     VECTOR_RETURN (ix, cond);
   VECTOR_ELSEIF (~FLT_UWORD_IS_FINITE (hx), cond)
     VECTOR_RETURN (VECTOR_INIT (__INT_MAX__), cond);

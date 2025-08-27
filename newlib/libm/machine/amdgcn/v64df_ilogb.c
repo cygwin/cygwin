@@ -36,17 +36,19 @@ DEF_VD_MATH_PRED (v64si, ilogb, v64df x)
   VECTOR_IF (hx < 0x00100000, cond)
     VECTOR_RETURN (VECTOR_INIT (-__INT_MAX__), cond & ((hx | lx) == 0));  // FP_ILOGB0
     VECTOR_IF2 (hx == 0, cond2, cond)
-      ix = VECTOR_INIT (-1043);
-      for (v64si i = lx;
-            !ALL_ZEROES_P (cond2 & (i > 0));
-            i <<= 1)
-        VECTOR_COND_MOVE (ix, ix - 1, cond2 & (i > 0));
+      VECTOR_COND_MOVE (ix, VECTOR_INIT (-1043), cond2);
+      v64si i = lx;
+      VECTOR_WHILE2 (i > 0, cond3, cond2)
+	VECTOR_COND_MOVE (ix, ix - 1, cond3);
+	VECTOR_COND_MOVE (i, i << 1, cond3);
+      VECTOR_ENDWHILE
     VECTOR_ELSE2 (cond2, cond)
-      ix = VECTOR_INIT (-1022);
-      for (v64si i = (hx << 11);
-            !ALL_ZEROES_P (cond2 & (i > 0));
-            i <<= 1)
-        VECTOR_COND_MOVE (ix, ix - 1, cond2 & (i > 0));
+      VECTOR_COND_MOVE (ix, VECTOR_INIT (-1022), cond2);
+      v64si i = (hx << 11);
+      VECTOR_WHILE2 (i > 0, cond3, cond2)
+	VECTOR_COND_MOVE (ix, ix - 1, cond3);
+	VECTOR_COND_MOVE (i, i << 1, cond3);
+      VECTOR_ENDWHILE
     VECTOR_ENDIF
     VECTOR_RETURN (ix, cond);
   VECTOR_ENDIF
