@@ -139,7 +139,6 @@ private:
   bool master_is_running_as_service;
   bool req_xfer_input;
   xfer_dir pty_input_state;
-  bool mask_flusho;
   bool discard_input;
   bool stop_fwd_thread;
 

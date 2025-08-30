@@ -689,6 +689,8 @@ pipe_data_available (int fd, fhandler_base *fh, HANDLE h, int mode)
   return 0;
 }
 
+SRWLOCK ptym_peek_lock = SRWLOCK_INIT;
+
 static int
 peek_pipe (select_record *s, bool from_select)
 {
@@ -730,10 +732,19 @@ peek_pipe (select_record *s, bool from_select)
 	  gotone = s->read_ready = true;
 	  goto out;
 	}
+      if (fh->get_major () == DEV_PTYM_MAJOR)
+	AcquireSRWLockExclusive (&ptym_peek_lock);
       ssize_t n = pipe_data_available (s->fd, fh, h, PDA_READ);
       /* On PTY masters, check if input from the echo pipe is available. */
       if (n == 0 && fh->get_echo_handle ())
 	n = pipe_data_available (s->fd, fh, fh->get_echo_handle (), PDA_READ);
+      if (fh->get_major () == DEV_PTYM_MAJOR)
+	{
+	  fhandler_pty_master *fhm = (fhandler_pty_master *) fh;
+	  while (n > 0 && (fhm->tc ()->ti.c_lflag & FLUSHO))
+	    n = fhm->process_slave_output (NULL, n, 0); /* Discard pipe data */
+	  ReleaseSRWLockExclusive (&ptym_peek_lock);
+	}
 
       if (n == PDA_ERROR)
 	{
@@ -759,11 +770,6 @@ peek_pipe (select_record *s, bool from_select)
     }
 
 out:
-  if (fh->get_major () == DEV_PTYM_MAJOR)
-    {
-      fhandler_pty_master *fhm = (fhandler_pty_master *) fh;
-      fhm->set_mask_flusho (s->read_ready);
-    }
   h = fh->get_output_handle ();
   if (s->write_selected && dev != FH_PIPER)
     {
