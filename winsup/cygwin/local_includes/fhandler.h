@@ -2622,7 +2622,6 @@ public:
   }
   void get_master_thread_param (master_thread_param_t *p);
   void get_master_fwd_thread_param (master_fwd_thread_param_t *p);
-  void set_mask_flusho (bool m) { get_ttyp ()->mask_flusho = m; }
   bool need_send_ctrl_c_event ();
 };
 

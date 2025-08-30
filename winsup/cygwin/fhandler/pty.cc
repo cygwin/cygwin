@@ -693,8 +693,7 @@ fhandler_pty_master::process_slave_output (char *buf, size_t len, int pktmode_on
 
       termios_printf ("bytes read %u", n);
 
-      if (!buf || ((get_ttyp ()->ti.c_lflag & FLUSHO)
-		   && !get_ttyp ()->mask_flusho))
+      if (!buf || (get_ttyp ()->ti.c_lflag & FLUSHO))
 	continue; /* Discard read data */
 
       memcpy (optr, outbuf, n);
@@ -714,8 +713,6 @@ fhandler_pty_master::process_slave_output (char *buf, size_t len, int pktmode_on
     }
 
 out:
-  if (buf)
-    set_mask_flusho (false);
   termios_printf ("returning %d", rc);
   return rc;
 }
@@ -2240,7 +2237,6 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 	      nlen--;
 	      i--;
 	    }
-	  process_stop_start (buf[i], get_ttyp ());
 	}
 
       DWORD n;
