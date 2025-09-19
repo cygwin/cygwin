@@ -329,6 +329,7 @@ frok::parent (volatile char * volatile stack_here)
   /* NEVER, EVER, call a function which in turn calls malloc&friends while this
      malloc lock is active! */
   __malloc_lock ();
+  cygheap->lock ();
   bool locked = true;
 
   /* Remove impersonation */
@@ -483,6 +484,7 @@ frok::parent (volatile char * volatile stack_here)
 		   impure, impure_beg, impure_end,
 		   NULL);
 
+  cygheap->unlock ();
   __malloc_unlock ();
   locked = false;
   if (!rc)
@@ -568,7 +570,10 @@ cleanup:
   if (fix_impersonation)
     cygheap->user.reimpersonate ();
   if (locked)
-    __malloc_unlock ();
+    {
+      cygheap->unlock ();
+      __malloc_unlock ();
+    }
 
   /* Remember to de-allocate the fd table. */
   if (hchild)
