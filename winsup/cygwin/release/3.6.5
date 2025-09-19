@@ -25,3 +25,7 @@ Fixes:
 
 - Fix Ctrl-O (FLUSHO) handling.
   Addresses: https://cygwin.com/pipermail/cygwin/2025-August/258717.html
+
+- Fix multi-thread safety of fork()/exec() by adding the same locking as was
+  done for spawn.
+  Addresses: https://cygwin.com/pipermail/cygwin/2025-September/258801.html
