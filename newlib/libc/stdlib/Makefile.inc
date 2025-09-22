@@ -83,6 +83,7 @@ if HAVE_LONG_DOUBLE
 libc_a_SOURCES += \
 	%D%/strtodg.c \
 	%D%/strtold.c \
+	%D%/strtorQ.c \
 	%D%/strtorx.c \
 	%D%/wcstold.c
 endif # HAVE_LONG_DOUBLE
