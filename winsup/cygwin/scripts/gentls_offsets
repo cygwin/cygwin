@@ -6,6 +6,12 @@ tmp_file=/tmp/${output_file}.$$
 
 trap "rm -f ${tmp_file}" 0 1 2 15
 
+# Check if gawk is available
+if ! command -v gawk &> /dev/null; then
+    echo "$0: gawk not found." >&2
+    exit 1
+fi
+
 # Preprocess cygtls.h and filter out only the member lines from
 # class _cygtls to generate an input file for the cross compiler
 # to generate the member offsets for tlsoffsets-$(target_cpu).h.
