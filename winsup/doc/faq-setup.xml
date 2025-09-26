@@ -668,7 +668,7 @@ That's all there is to it.
 this purpose.  See <ulink url="http://rsync.samba.org/"/>,
 <ulink url="http://www.gnu.org/software/wget/"/> for utilities that can do this for you.
 For more information on setting up a custom Cygwin package server, see
-the <ulink url="https://cygwin.com/package-server.html.html">Cygwin Package Server page</ulink>.
+the <ulink url="https://cygwin.com/package-server.html">Cygwin Package Server page</ulink>.
 
 </para>
 </answer></qandaentry>
