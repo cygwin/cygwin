@@ -4,7 +4,7 @@
 # Atari gcc specs
 
 *link:
-+ --emit-relocs --no-warn-rwx-segments -static --no-warn-execstack --undefined=__errno -T atari-tos.ld
++ --emit-relocs --no-warn-rwx-segments -static --no-warn-execstack --undefined=environ --undefined=__errno -T atari-tos.ld
 
 *lib:
 + -latari-tos
