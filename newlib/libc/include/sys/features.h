@@ -366,18 +366,21 @@ extern "C" {
 #  define __SSP_FORTIFY_LEVEL 0
 #endif
 
-/* RTEMS adheres to POSIX -- 1003.1b with some features from annexes.  */
+/*
+ * RTEMS adheres to POSIX -- 1003.1b with some features from annexes.
+ * Unsupported features are commented out.
+ */
 
 #ifdef __rtems__
-#define _POSIX_JOB_CONTROL		1
-#define _POSIX_SAVED_IDS		1
+/* #define _POSIX_JOB_CONTROL		1 */
+/* #define _POSIX_SAVED_IDS		1 */
 #define _POSIX_VERSION			199309L
 #define _POSIX_ASYNCHRONOUS_IO		1
 #define _POSIX_FSYNC			1
 #define _POSIX_MAPPED_FILES		1
-#define _POSIX_MEMLOCK			1
-#define _POSIX_MEMLOCK_RANGE		1
-#define _POSIX_MEMORY_PROTECTION	1
+/* #define _POSIX_MEMLOCK			1 */
+/* #define _POSIX_MEMLOCK_RANGE		1 */
+/* #define _POSIX_MEMORY_PROTECTION	1 */
 #define _POSIX_MESSAGE_PASSING		1
 #define _POSIX_MONOTONIC_CLOCK		200112L
 #define _POSIX_CLOCK_SELECTION		200112L
