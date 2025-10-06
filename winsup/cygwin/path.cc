@@ -1895,7 +1895,10 @@ symlink_native (const char *oldpath, path_conv &win32_newpath)
 	    e_old = wcpcpy (e_old, L"..\\"), num--;
 	  if (num > 0)
 	    e_old = wcpcpy (e_old, L"..");
-	  wcpcpy (e_old, c_old);
+	  if (e_old == final_oldpath->Buffer && c_old[0] == L'\0')
+	    wcpcpy (e_old, L".");
+	  else
+	    wcpcpy (e_old, c_old);
 	}
     }
   /* If the symlink target doesn't exist, don't create native symlink.
