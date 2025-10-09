@@ -91,7 +91,7 @@ jobs:
       if: env.HAS_SSH_KEY == 'true'
 
   windows-build:
-    runs-on: windows-latest
+    runs-on: windows-2022
     strategy:
       fail-fast: false
       matrix:
