@@ -618,9 +618,10 @@ dll_list::init ()
   /* Walk the dll chain, initializing each dll */
   dll *d = &start;
   dll_global_dtors_recorded = d->next != NULL;
-  /* Init linked and early loaded Cygwin DLLs. */
+  /* Init linked Cygwin DLLs. As for loaded DLLs, dll::init() is already
+     called via _cygwin_dll_entry called from LoadLibrary(). */
   while ((d = d->next))
-    if (d->type == DLL_LINK || d->type == DLL_LOAD)
+    if (d->type == DLL_LINK)
       d->init ();
 }
 
