@@ -92,6 +92,31 @@ static int	s_scale;
 
 extern int errno;
 
+/*
+ * Control profiling
+ *	profiling is what mcount checks to see if
+ *	all the data structures are ready.
+ */
+void
+moncontrol(int mode)
+{
+  if (mode)
+    {
+      /* start */
+      profil((unsigned short *)(sbuf + sizeof(struct phdr)),
+	     ssiz - sizeof(struct phdr),
+	     (int)s_lowpc, s_scale);
+
+      profiling = 0;
+    }
+  else
+    {
+      /* stop */
+      profil((unsigned short *)0, 0, 0, 0);
+      profiling = 3;
+    }
+}
+
 int
 monstartup(lowpc, highpc)
      char	*lowpc;
@@ -337,29 +362,4 @@ overflow:
 #   define	TOLIMIT	"mcount: tos overflow\n"
   write (2, TOLIMIT, sizeof(TOLIMIT));
   goto out;
-}
-
-/*
- * Control profiling
- *	profiling is what mcount checks to see if
- *	all the data structures are ready.
- */
-moncontrol(mode)
-    int mode;
-{
-  if (mode)
-    {
-      /* start */
-      profil((unsigned short *)(sbuf + sizeof(struct phdr)),
-	     ssiz - sizeof(struct phdr),
-	     (int)s_lowpc, s_scale);
-      
-      profiling = 0;
-    }
-  else 
-    {
-      /* stop */
-      profil((unsigned short *)0, 0, 0, 0);
-      profiling = 3;
-    }
 }
