@@ -118,7 +118,7 @@ moncontrol(int mode)
     }
 }
 
-int
+void
 monstartup(lowpc, highpc)
      char	*lowpc;
      char	*highpc;
