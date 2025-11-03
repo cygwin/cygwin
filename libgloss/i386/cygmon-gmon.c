@@ -62,6 +62,10 @@ static char sccsid[] = "@(#)gmon.c	5.3 (Berkeley) 5/22/91";
 #include <stdio.h>
 #endif
 
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
 #include "cygmon-gmon.h"
 
 /*
