@@ -161,22 +161,3 @@ __do_global_dtors ()
     }
 }
 #endif
-
-void
-profil_write (int type, char *buffer, int len)
-{
-  static int des = -1;
-
-  if (des < 0)
-    {
-      des = open ("gmon.out", O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    }
-  if (len == 0)
-    {
-      close (des);
-    }
-  else
-    {
-      write (des, buffer, len);
-    }
-}

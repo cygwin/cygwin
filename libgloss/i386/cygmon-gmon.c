@@ -62,6 +62,7 @@ static char sccsid[] = "@(#)gmon.c	5.3 (Berkeley) 5/22/91";
 #include <stdio.h>
 #endif
 
+#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -191,6 +192,25 @@ monstartup(lowpc, highpc)
   else
     s_scale = SCALE_1_TO_1;
   moncontrol (1);
+}
+
+static void
+profil_write (int type, void *buffer, int len)
+{
+  static int des = -1;
+
+  if (des < 0)
+    {
+      des = open ("gmon.out", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    }
+  if (len == 0)
+    {
+      close (des);
+    }
+  else
+    {
+      write (des, buffer, len);
+    }
 }
 
 void
