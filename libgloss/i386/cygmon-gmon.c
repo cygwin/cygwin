@@ -247,6 +247,7 @@ _mcleanup()
 
 static char already_setup = 0;
 
+void
 _mcount()
 {
   register char			*selfpc;
@@ -269,8 +270,8 @@ _mcount()
 
   if (! already_setup) 
     {
-      extern _etext();
-      extern _ftext();
+      extern char _etext();
+      extern char _ftext();
       already_setup = 1;
       monstartup(_ftext, _etext);
       atexit(_mcleanup);
