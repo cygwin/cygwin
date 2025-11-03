@@ -68,6 +68,9 @@ static char sccsid[] = "@(#)gmon.c	5.3 (Berkeley) 5/22/91";
 
 #include "cygmon-gmon.h"
 
+int profil(unsigned short *tampon, size_t taille_tampon,
+	   size_t offset, unsigned int echelle);
+
 /*
  *	froms is actually a bunch of unsigned shorts indexing tos
  */
