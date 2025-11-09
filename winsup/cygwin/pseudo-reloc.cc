@@ -313,7 +313,7 @@ do_pseudo_reloc (void * start, void * end, void * base)
 #ifdef __aarch64__
 	case 12:
 	case 21:
-	  opcode = (*((unsigned int *) reloc_target));
+	  opcode = (*((unsigned int *)reloc_target));
 	  reldata = 0;
 	  break;
 #endif
@@ -354,9 +354,9 @@ do_pseudo_reloc (void * start, void * end, void * base)
 	  /* Replace add Xn, Xn, :lo12:label with ldr Xn, [Xn, :lo12:__imp__func].
 	     That loads the address of _func into Xn.  */
 	  opcode = 0xf9400000 | (opcode & 0x3ff); // ldr
-	  reldata = ((ptrdiff_t) base + r->sym) & ((1 &lt;&lt; 12) - 1);
+	  reldata = ((ptrdiff_t) base + r->sym) & ((1 << 12) - 1);
 	  reldata >>= 3;
-	  opcode |= reldata &lt;&lt; 10;
+	  opcode |= reldata << 10;
 	  __write_memory ((void *) reloc_target, &opcode, 4);
 	  break;
 	case 21:
@@ -364,10 +364,10 @@ do_pseudo_reloc (void * start, void * end, void * base)
 	  opcode &= 0x9f00001f;
 	  reldata = (((ptrdiff_t) base + r->sym) >> 12)
 		    - (((ptrdiff_t) base + r->target) >> 12);
-	  reldata &= (1 &lt;&lt; 21) - 1;
-	  opcode |= (reldata & 3) &lt;&lt; 29;
+	  reldata &= (1 << 21) - 1;
+	  opcode |= (reldata & 3) << 29;
 	  reldata >>= 2;
-	  opcode |= reldata &lt;&lt; 5;
+	  opcode |= reldata << 5;
 	  __write_memory ((void *) reloc_target, &opcode, 4);
 	  break;
 	/* A note regarding 26 bits relocation.
