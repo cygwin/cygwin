@@ -105,7 +105,7 @@ extern "C" {
  * _BSD_SOURCE (deprecated by _DEFAULT_SOURCE)
  * _SVID_SOURCE (deprecated by _DEFAULT_SOURCE)
  * _DEFAULT_SOURCE (or none of the above)
- *	POSIX-1.2008 with BSD and SVr4 extensions
+ *	POSIX.1-2024 with BSD and SVr4 extensions
  *
  * _FORTIFY_SOURCE = 1, 2 or 3
  *	Object Size Checking function wrappers
@@ -132,7 +132,7 @@ extern "C" {
 #undef _POSIX_SOURCE
 #define	_POSIX_SOURCE		1
 #undef _POSIX_C_SOURCE
-#define	_POSIX_C_SOURCE		200809L
+#define	_POSIX_C_SOURCE		202405L
 #undef _XOPEN_SOURCE
 #define	_XOPEN_SOURCE		700
 #undef _XOPEN_SOURCE_EXTENDED
