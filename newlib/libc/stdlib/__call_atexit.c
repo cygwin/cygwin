@@ -114,6 +114,11 @@ __call_exitprocs (int code, void *d)
 
 	  ind = p->_ind;
 
+#ifndef __SINGLE_THREAD__
+	  /* Unlock __atexit_recursive_mutex; otherwise, the function fn() may
+	     deadlock if it waits for another thread which calls atexit(). */
+	  __lock_release_recursive(__atexit_recursive_mutex);
+#endif
 	  /* Call the function.  */
 	  if (!args || (args->_fntypes & i) == 0)
 	    fn ();
@@ -121,6 +126,9 @@ __call_exitprocs (int code, void *d)
 	    (*((void (*)(int, void *)) fn))(code, args->_fnargs[n]);
 	  else
 	    (*((void (*)(void *)) fn))(args->_fnargs[n]);
+#ifndef __SINGLE_THREAD__
+	  __lock_acquire_recursive(__atexit_recursive_mutex);
+#endif
 
 	  /* The function we called call atexit and registered another
 	     function (or functions).  Call these new functions before
