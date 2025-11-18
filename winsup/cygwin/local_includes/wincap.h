@@ -33,6 +33,7 @@ struct wincaps
     unsigned has_tcp_maxrtms					: 1;
     unsigned has_con_broken_tabs				: 1;
     unsigned has_user_shstk					: 1;
+    unsigned has_alloc_console_with_options			: 1;
   };
 };
 
@@ -90,6 +91,7 @@ public:
   bool	IMPLEMENT (has_tcp_maxrtms)
   bool	IMPLEMENT (has_con_broken_tabs)
   bool	IMPLEMENT (has_user_shstk)
+  bool	IMPLEMENT (has_alloc_console_with_options)
 
   void disable_case_sensitive_dirs ()
   {
