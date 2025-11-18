@@ -4466,7 +4466,20 @@ hook_conemu_cygwin_connector()
   DO_HOOK (NULL, GetProcAddress);
 }
 
-/* Ugly workaround to create invisible console required since Windows 7.
+bool
+fhandler_console::create_invisible_console ()
+{
+  ALLOC_CONSOLE_OPTIONS options = { ALLOC_CONSOLE_MODE_NO_WINDOW, FALSE, 0 };
+  ALLOC_CONSOLE_RESULT res;
+
+  HRESULT ret = AllocConsoleWithOptions (&options, &res);
+  SetParent (GetConsoleWindow (), HWND_MESSAGE);
+  termios_printf ("%X = AllocConsoleWithOptions (), %u", ret, res);
+  invisible_console = (ret == S_OK);
+  return invisible_console;
+}
+
+/* Ugly workaround to create invisible console required prior to W11 24H2.
 
    First try to just attach to any console which may have started this
    app.  If that works use this as our "invisible console".
@@ -4611,12 +4624,14 @@ fhandler_console::need_invisible (bool force)
 	  || !GetUserObjectInformationW (h, UOI_FLAGS, &oi, sizeof (oi), &len)
 	  || !(oi.dwFlags & WSF_VISIBLE))
 	{
-	  b = true;
 	  debug_printf ("window station is not visible");
 	  AllocConsole ();
 	  invisible_console = true;
 	}
-      b = create_invisible_console_workaround (force);
+      if (wincap.has_alloc_console_with_options ())
+	b = create_invisible_console ();
+      else
+	b = create_invisible_console_workaround (force);
     }
 
   debug_printf ("invisible_console %d", invisible_console);
