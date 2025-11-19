@@ -57,6 +57,23 @@ AC_CHECK_TOOL(RANLIB, ranlib, ranlib)
 AC_CHECK_TOOL(STRIP, strip, strip)
 AC_CHECK_TOOL(WINDRES, windres, windres)
 
+required_w32api_version=13
+AC_MSG_CHECKING([w32api-headers version])
+AC_COMPILE_IFELSE([
+  AC_LANG_SOURCE([[
+    #include <_mingw.h>
+
+    #if __MINGW64_VERSION_MAJOR < $required_w32api_version
+    #error "w32api-headers version >= $required_w32api_version required"
+    #endif
+ ]])
+],[
+  AC_MSG_RESULT([yes])
+],[
+  AC_MSG_RESULT([no, >= $required_w32api_version required])
+  AC_MSG_ERROR([required w32api-headers version not met])
+])
+
 AC_ARG_ENABLE(debugging,
 [AS_HELP_STRING([--enable-debugging],[Build a cygwin DLL which has more consistency checking for debugging])],
 [case "${enableval}" in
