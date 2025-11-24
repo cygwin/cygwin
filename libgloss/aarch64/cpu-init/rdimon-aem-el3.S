@@ -68,7 +68,7 @@ lower_a32_fiq:
 lower_a32_serror:
 	mov	x0, 2
 	adr	x1, .LC3
-	mov	x2, 26
+	mov	x2, 25
 	bl	FUNCTION (write)
 	mov	x0,  126
 	b	FUNCTION (exit)		/* Cannot return.  */
