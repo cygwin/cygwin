@@ -267,7 +267,6 @@ class lockf_t
     /* Used to store own lock list in the cygheap. */
     void *operator new (size_t size)
     { return cmalloc (HEAP_FHANDLER, sizeof (lockf_t)); }
-    /* Never call on node->i_all_lf! */
     void operator delete (void *p)
     { cfree (p); }
 
@@ -280,6 +279,10 @@ class lockf_t
     void del_lock_obj (HANDLE fhdl, bool signal = false);
 };
 
+/* Number of lockf_t structs which fit in the temporary buffer. */
+#define MAX_LOCKF_CNT	((intptr_t)((NT_MAX_PATH * sizeof (WCHAR)) \
+				    / sizeof (lockf_t)) - 1)
+
 /* Per inode_t class */
 class inode_t
 {
@@ -288,7 +291,8 @@ class inode_t
   public:
     LIST_ENTRY (inode_t) i_next;
     lockf_t		*i_lockf;  /* List of locks of this process. */
-    lockf_t		*i_all_lf; /* Temp list of all locks for this file. */
+				   /* list of all locks for this file. */
+    lockf_t		*i_all_lf;
 
     dev_t		 i_dev;    /* Device ID */
     ino_t		 i_ino;    /* inode number */
@@ -298,6 +302,7 @@ class inode_t
     HANDLE		 i_mtx;
     uint32_t		 i_cnt;    /* # of threads referencing this instance. */
     uint32_t		 i_lock_cnt; /* # of locks for this file */
+    lockf_t		 i_all[MAX_LOCKF_CNT];
 
   public:
     inode_t (dev_t dev, ino_t ino);
@@ -506,7 +511,7 @@ inode_t::get (dev_t dev, ino_t ino, bool create_if_missing, bool lock)
 }
 
 inode_t::inode_t (dev_t dev, ino_t ino)
-: i_lockf (NULL), i_all_lf (NULL), i_dev (dev), i_ino (ino), i_cnt (0L),
+: i_lockf (NULL), i_all_lf (i_all), i_dev (dev), i_ino (ino), i_cnt (0L),
   i_lock_cnt (0)
 {
   HANDLE parent_dir;
@@ -537,10 +542,6 @@ inode_t::inode_t (dev_t dev, ino_t ino)
 /* Enumerate all lock event objects for this file and create a lockf_t
    list in the i_all_lf member.  This list is searched in lf_getblock
    for locks which potentially block our lock request. */
-
-/* Number of lockf_t structs which fit in the temporary buffer. */
-#define MAX_LOCKF_CNT	((intptr_t)((NT_MAX_PATH * sizeof (WCHAR)) \
-				    / sizeof (lockf_t)))
 
 bool
 lockf_t::from_obj_name (inode_t *node, lockf_t **head, const wchar_t *name)
@@ -1149,6 +1150,11 @@ restart:	/* Entry point after a restartable signal came in. */
       break;
 
     case F_UNLCK:
+      /* lf_clearlock() is called from here as well as from lf_setlock().
+	 lf_setlock() already calls get_all_locks_list(), so we don't call it
+	 from lf_clearlock() but rather here to avoid calling the (potentially
+	 timeconsuming) function twice if called through lf_setlock(). */
+      node->get_all_locks_list ();
       error = lf_clearlock (lock, &clean, get_handle ());
       lock->lf_next = clean;
       clean = lock;
@@ -1209,7 +1215,6 @@ lf_setlock (lockf_t *lock, inode_t *node, lockf_t **clean, HANDLE fhdl)
   lockf_t **head = lock->lf_head;
   lockf_t **prev, *overlap;
   int ovcase, priority, old_prio, needtolink;
-  tmp_pathbuf tp;
 
   /*
    * Set the priority
@@ -1220,8 +1225,6 @@ lf_setlock (lockf_t *lock, inode_t *node, lockf_t **clean, HANDLE fhdl)
   /*
    * Scan lock list for this file looking for locks that would block us.
    */
-  /* Create temporary space for the all locks list. */
-  node->i_all_lf = (lockf_t *) (void *) tp.w_get ();
   while ((block = lf_getblock(lock, node)))
     {
       HANDLE obj = block->lf_obj;
@@ -1272,6 +1275,10 @@ lf_setlock (lockf_t *lock, inode_t *node, lockf_t **clean, HANDLE fhdl)
 	  lock->lf_type = F_WRLCK;
 	}
 
+      /* Copy Windows PID to local var so we don't access the all locks
+	 list outside of locking. */
+      DWORD lf_wid = block->lf_wid;
+
       /*
        * Add our lock to the blocked list and sleep until we're free.
        * Remember who blocked us (for deadlock detection).
@@ -1288,7 +1295,7 @@ lf_setlock (lockf_t *lock, inode_t *node, lockf_t **clean, HANDLE fhdl)
       HANDLE proc = NULL;
       if (lock->lf_flags & F_POSIX)
 	{
-	  proc = OpenProcess (SYNCHRONIZE, FALSE, block->lf_wid);
+	  proc = OpenProcess (SYNCHRONIZE, FALSE, lf_wid);
 	  if (!proc)
 	    timeout = 0L;
 	  else
@@ -1533,9 +1540,6 @@ lf_clearlock (lockf_t *unlock, lockf_t **clean, HANDLE fhdl)
     return 0;
 
   inode_t *node = lf->lf_inode;
-  tmp_pathbuf tp;
-  node->i_all_lf = (lockf_t *) tp.w_get ();
-  node->get_all_locks_list (); /* Update lock count */
   uint32_t lock_cnt = node->get_lock_count ();
   bool first_loop = true;
 
@@ -1621,10 +1625,7 @@ static int
 lf_getlock (lockf_t *lock, inode_t *node, struct flock *fl)
 {
   lockf_t *block;
-  tmp_pathbuf tp;
 
-  /* Create temporary space for the all locks list. */
-  node->i_all_lf = (lockf_t *) (void * ) tp.w_get ();
   if ((block = lf_getblock (lock, node)))
     {
       if (block->lf_obj)
