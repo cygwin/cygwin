@@ -276,7 +276,8 @@ class lockf_t
     void del_lock_obj (HANDLE fhdl, bool signal = false);
 };
 
-/* Number of lockf_t structs which fit in the temporary buffer. */
+/* Max. number of lockf_t structs in the __i_all buffer so that an inode_t
+   fits into a 64K cygheap chunk. */
 #define MAX_LOCKF_CNT	((intptr_t)((NT_MAX_PATH * sizeof (WCHAR)) \
 				    / sizeof (lockf_t)) - 1)
 
@@ -287,19 +288,22 @@ class inode_t
 
   public:
     LIST_ENTRY (inode_t) i_next;
-    lockf_t		*i_lockf;  /* List of locks of this process. */
-				   /* list of all locks for this file. */
-    lockf_t		*i_all_lf;
+    lockf_t		*i_lockf;  /* List of locks held by this process. */
+    lockf_t		*i_all_lf; /* List of all locks on this file.  Always
+				      points to __i_all below.  The indirection
+				      is required by list handling. */
 
     dev_t		 i_dev;    /* Device ID */
     ino_t		 i_ino;    /* inode number */
 
   private:
-    HANDLE		 i_dir;
-    HANDLE		 i_mtx;
+    HANDLE		 i_dir;    /* Directory in NT namespace holding symlinks
+				      representing locks on this file. */
+    HANDLE		 i_mtx;	   /* Mutex controlling access to locks on
+				      this file. */
     uint32_t		 i_cnt;    /* # of threads referencing this instance. */
-    uint32_t		 i_lock_cnt; /* # of locks for this file */
-    lockf_t		 i_all[MAX_LOCKF_CNT];
+    uint32_t		 i_lock_cnt; /* # of locks on this file */
+    lockf_t		 __i_all[MAX_LOCKF_CNT];
 
   public:
     inode_t (dev_t dev, ino_t ino);
@@ -508,7 +512,7 @@ inode_t::get (dev_t dev, ino_t ino, bool create_if_missing, bool lock)
 }
 
 inode_t::inode_t (dev_t dev, ino_t ino)
-: i_lockf (NULL), i_all_lf (i_all), i_dev (dev), i_ino (ino), i_cnt (0L),
+: i_lockf (NULL), i_all_lf (__i_all), i_dev (dev), i_ino (ino), i_cnt (0L),
   i_lock_cnt (0)
 {
   HANDLE parent_dir;
