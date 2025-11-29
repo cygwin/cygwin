@@ -156,15 +156,15 @@ extern "C" {
 
 #if !defined(_POSIX_SOURCE) && !defined(_POSIX_C_SOURCE) && \
   ((!defined(__STRICT_ANSI__) && !defined(_ANSI_SOURCE)) || \
-   (_XOPEN_SOURCE - 0) >= 500)
+  (defined(_XOPEN_SOURCE) && (_XOPEN_SOURCE - 0) >= 500))
 #define	_POSIX_SOURCE		1
 #if !defined(_XOPEN_SOURCE) || (_XOPEN_SOURCE - 0) >= 700
 #define	_POSIX_C_SOURCE		200809L
-#elif (_XOPEN_SOURCE - 0) >= 600
+#elif defined(_XOPEN_SOURCE) && (_XOPEN_SOURCE - 0) >= 600
 #define	_POSIX_C_SOURCE		200112L
-#elif (_XOPEN_SOURCE - 0) >= 500
+#elif defined(_XOPEN_SOURCE) && (_XOPEN_SOURCE - 0) >= 500
 #define	_POSIX_C_SOURCE		199506L
-#elif (_XOPEN_SOURCE - 0) < 500
+#elif defined(_XOPEN_SOURCE) && (_XOPEN_SOURCE - 0) < 500
 #define	_POSIX_C_SOURCE		2
 #endif
 #endif
@@ -286,19 +286,24 @@ extern "C" {
 #endif
 
 #if defined(_ISOC23_SOURCE) || \
-  (__STDC_VERSION__ - 0) > 201710L || (__cplusplus - 0) >= 202002L
+    (defined(__STDC_VERSION__) && (__STDC_VERSION__ - 0) > 201710L) || \
+    (defined(__cplusplus) && (__cplusplus - 0) >= 202002L)
 #define __ISO_C_VISIBLE		2020
 #elif defined(_ISOC11_SOURCE) || \
-  (__STDC_VERSION__ - 0) >= 201112L || (__cplusplus - 0) >= 201103L
+    (defined(__STDC_VERSION__) && (__STDC_VERSION__ - 0) >= 201112L) || \
+    (defined(__cplusplus) && (__cplusplus - 0) >= 201103L)
 #define	__ISO_C_VISIBLE		2011
-#elif defined(_ISOC99_SOURCE) || (_POSIX_C_SOURCE - 0) >= 200112L || \
-  (__STDC_VERSION__ - 0) >= 199901L || defined(__cplusplus)
+#elif defined(_ISOC99_SOURCE) || \
+    (defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE - 0) >= 200112L) || \
+    (defined(__STDC_VERSION__) && (__STDC_VERSION__ - 0) >= 199901L) || \
+    defined(__cplusplus)
 #define	__ISO_C_VISIBLE		1999
 #else
 #define	__ISO_C_VISIBLE		1990
 #endif
 
-#if defined(_LARGEFILE_SOURCE) || (_XOPEN_SOURCE - 0) >= 500
+#if defined(_LARGEFILE_SOURCE) || \
+    (defined(_XOPEN_SOURCE) && (_XOPEN_SOURCE - 0) >= 500)
 #define	__LARGEFILE_VISIBLE	1
 #else
 #define	__LARGEFILE_VISIBLE	0
@@ -310,17 +315,18 @@ extern "C" {
 #define	__MISC_VISIBLE		0
 #endif
 
-#if (_POSIX_C_SOURCE - 0) >= 202405L
+#if defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE - 0) >= 202405L
 #define	__POSIX_VISIBLE		202405
-#elif (_POSIX_C_SOURCE - 0) >= 200809L
+#elif defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE - 0) >= 200809L
 #define	__POSIX_VISIBLE		200809
-#elif (_POSIX_C_SOURCE - 0) >= 200112L
+#elif defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE - 0) >= 200112L
 #define	__POSIX_VISIBLE		200112
-#elif (_POSIX_C_SOURCE - 0) >= 199506L
+#elif defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE - 0) >= 199506L
 #define	__POSIX_VISIBLE		199506
-#elif (_POSIX_C_SOURCE - 0) >= 199309L
+#elif defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE - 0) >= 199309L
 #define	__POSIX_VISIBLE		199309
-#elif (_POSIX_C_SOURCE - 0) >= 2 || defined(_XOPEN_SOURCE)
+#elif (defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE - 0) >= 2) || \
+    defined(_XOPEN_SOURCE)
 #define	__POSIX_VISIBLE		199209
 #elif defined(_POSIX_SOURCE) || defined(_POSIX_C_SOURCE)
 #define	__POSIX_VISIBLE		199009
@@ -334,11 +340,11 @@ extern "C" {
 #define	__SVID_VISIBLE		0
 #endif
 
-#if (_XOPEN_SOURCE - 0) >= 700
+#if defined(_XOPEN_SOURCE) && (_XOPEN_SOURCE - 0) >= 700
 #define	__XSI_VISIBLE		700
-#elif (_XOPEN_SOURCE - 0) >= 600
+#elif defined(_XOPEN_SOURCE) && (_XOPEN_SOURCE - 0) >= 600
 #define	__XSI_VISIBLE		600
-#elif (_XOPEN_SOURCE - 0) >= 500
+#elif defined(_XOPEN_SOURCE) && (_XOPEN_SOURCE - 0) >= 500
 #define	__XSI_VISIBLE		500
 #elif defined(_XOPEN_SOURCE) && defined(_XOPEN_SOURCE_EXTENDED)
 #define	__XSI_VISIBLE		4
@@ -348,9 +354,10 @@ extern "C" {
 #define	__XSI_VISIBLE		0
 #endif
 
-#if _FORTIFY_SOURCE > 0 && !defined(__cplusplus) && !defined(__lint__) && \
-   (__OPTIMIZE__ > 0 || defined(__clang__)) && __GNUC_PREREQ__(4, 1) && \
-   !defined(_LIBC)
+#if defined(_FORTIFY_SOURCE) && (_FORTIFY_SOURCE - 0) > 0 && \
+    !defined(__cplusplus) && !defined(__lint__) && \
+   (defined(__OPTIMIZE__) && (__OPTIMIZE__ - 0) > 0 || defined(__clang__)) && \
+   __GNUC_PREREQ__(4, 1) && !defined(_LIBC)
 #  if _FORTIFY_SOURCE > 2 && defined(__has_builtin)
 #    if __has_builtin(__builtin_dynamic_object_size)
 #      define __SSP_FORTIFY_LEVEL 3
