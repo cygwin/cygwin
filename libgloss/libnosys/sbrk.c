@@ -4,8 +4,7 @@
 #include <_syslist.h>
 
 void *
-_sbrk (incr)
-     int incr;
+_sbrk (int incr)
 {
    extern char   end; /* Set by linker.  */
    static char * heap_end;

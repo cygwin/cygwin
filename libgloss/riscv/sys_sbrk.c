@@ -10,8 +10,7 @@ char *heap_ptr;
  *         left of memory on the board.
  */
 char *
-_sbrk (nbytes)
-     int nbytes;
+_sbrk (int nbytes)
 {
   char        *base;
 
