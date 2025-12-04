@@ -1,0 +1,16 @@
+Fixes:
+------
+
+- Fix the problem that the destructor of dlopen()'ed DLL may be called
+  after dlclose(). This fixes the crash on exiting SDL2.
+  Addresses: https://cygwin.com/pipermail/cygwin/2025-October/258877.html
+
+- Fix the problem that the constructor of dlopen()'ed DLL may be called
+  twice.
+
+- Fix deadlock regarding atexit()'ed function, that waits for another
+  thread which calls atexit().
+  Addresses: https://cygwin.com/pipermail/cygwin/2025-October/258930.html
+
+- Fix the problem that tmp_pathbuf area is destroyed regarding flock().
+  Addresses: https://cygwin.com/pipermail/cygwin/2025-October/258914.html
