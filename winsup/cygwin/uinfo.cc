@@ -174,7 +174,7 @@ internal_getlogin (cygheap_user &user)
       gsid = cygheap->dom.account_sid ();
       gsid.append (DOMAIN_GROUP_RID_USERS);
       if (!pgrp
-	  || (myself->gid != pgrp->gr_gid
+	  || (pwd->pw_gid != pgrp->gr_gid
 	      && cygheap->dom.account_sid () != cygheap->dom.primary_sid ()
 	      && RtlEqualSid (gsid, user.groups.pgsid)))
 	{
@@ -209,7 +209,10 @@ internal_getlogin (cygheap_user &user)
 			myself->gid = pwd->pw_gid = pgrp->gr_gid;
 		    }
 		  else
-		    user.groups.pgsid = gsid;
+		    {
+		      user.groups.pgsid = gsid;
+		      myself->gid = pwd->pw_gid;
+		    }
 		  clear_procimptoken ();
 		}
 	    }
