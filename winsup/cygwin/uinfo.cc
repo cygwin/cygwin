@@ -170,13 +170,17 @@ internal_getlogin (cygheap_user &user)
 	 group of a local user ("None", localized), we have to find the SID
 	 of that group and try to override the token primary group.  Also
 	 makes sure we're not on a domain controller, where account_sid ()
-	 == primary_sid (). */
+	 == primary_sid ().
+	 CV 2025-12-05: Microsoft Accounts as well as AzureAD accounts have
+	 the primary group SID in their user token set to their own user SID.
+	 Allow to override them as well. */
       gsid = cygheap->dom.account_sid ();
       gsid.append (DOMAIN_GROUP_RID_USERS);
       if (!pgrp
 	  || (pwd->pw_gid != pgrp->gr_gid
 	      && cygheap->dom.account_sid () != cygheap->dom.primary_sid ()
-	      && RtlEqualSid (gsid, user.groups.pgsid)))
+	      && (gsid == user.groups.pgsid
+		  || user.sid () == user.groups.pgsid)))
 	{
 	  if (gsid.getfromgr (grp = internal_getgrgid (pwd->pw_gid, &cldap)))
 	    {
