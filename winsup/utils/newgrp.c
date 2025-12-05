@@ -140,16 +140,18 @@ main (int argc, const char **argv)
 
   setlocale (LC_ALL, "");
 
-  if (argc < 2 || (argv[1][0] == '-' && argv[1][1]))
-    {
-      fprintf (stderr, "Usage: %s [-] [group] [command [args...]]\n",
-	       program_invocation_short_name);
-      return 1;
-    }
-
   /* Check if we have to regenerate a stock environment */
-  if (argv[1][0] == '-')
+  if (argc > 1 && argv[1][0] == '-')
     {
+      if (argv[1][1] != '\0' && strcmp (argv[1], "-l") != 0)
+	{
+	  /* Advertise POSIX compatibility in the first place.  Do not
+	     advertise the single dash as valid option (per Linux) and
+	     do not advertise the ability to run an arbitrary command. */
+	  fprintf (stderr, "Usage: %s [-l] [group]\n",
+		   program_invocation_short_name);
+	  return 1;
+	}
       new_child_env = true;
       --argc;
       ++argv;
@@ -165,8 +167,16 @@ main (int argc, const char **argv)
     }
   else
     {
-      gr = getgrnam (argv[1]);
-      if (!gr)
+      char *eptr;
+
+      if ((gr = getgrnam (argv[1])) != NULL)
+	/*valid*/;
+      else if (isdigit ((int) argv[1][0])
+	       && (gid = strtoul (argv[1], &eptr, 10)) != ULONG_MAX
+	       && *eptr == '\0'
+	       && (gr = getgrgid (gid)) != NULL)
+	/*valid*/;
+      else
 	{
 	  fprintf (stderr, "%s: group '%s' does not exist\n",
 		   program_invocation_short_name, argv[1]);
