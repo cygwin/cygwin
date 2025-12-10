@@ -2036,7 +2036,7 @@ class fhandler_termios: public fhandler_base
     spawn_worker () :
       ptys_need_cleanup (false), cons_need_cleanup (false),
       stdin_is_ptys (false), ptys_ttyp (NULL) {}
-    void setup (bool iscygwin, HANDLE h_stdin, const WCHAR *runpath,
+    void setup (bool iscygwin, HANDLE h_stdin, path_conv &pc,
 		bool nopcon, bool reset_sendsig, const WCHAR *envblock);
     bool need_cleanup () { return ptys_need_cleanup || cons_need_cleanup; }
     void cleanup ();

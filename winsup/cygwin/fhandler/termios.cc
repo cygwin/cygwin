@@ -702,13 +702,17 @@ fhandler_termios::fstat (struct stat *buf)
 }
 
 static bool
-is_console_app (const WCHAR *filename)
+is_console_app (path_conv &pc)
 {
-  wchar_t *e = wcsrchr (filename, L'.');
+  tmp_pathbuf tp;
+  WCHAR *native_path = tp.w_get ();
+  pc.get_wide_win32_path (native_path);
+
+  wchar_t *e = wcsrchr (native_path, L'.');
   if (e && (wcscasecmp (e, L".bat") == 0 || wcscasecmp (e, L".cmd") == 0))
     return true;
   HANDLE h;
-  h = CreateFileW (filename, GENERIC_READ, FILE_SHARE_READ,
+  h = CreateFileW (native_path, GENERIC_READ, FILE_SHARE_READ,
 		   NULL, OPEN_EXISTING, 0, NULL);
   if (h == INVALID_HANDLE_VALUE)
     return true;
@@ -761,7 +765,7 @@ fhandler_termios::ioctl (unsigned int cmd, void *varg)
 
 void
 fhandler_termios::spawn_worker::setup (bool iscygwin, HANDLE h_stdin,
-				       const WCHAR *runpath, bool nopcon,
+				       path_conv &pc, bool nopcon,
 				       bool reset_sendsig,
 				       const WCHAR *envblock)
 {
@@ -800,7 +804,7 @@ fhandler_termios::spawn_worker::setup (bool iscygwin, HANDLE h_stdin,
 	    ptys->setup_locale ();
 	  }
     }
-  if (!iscygwin && ptys_primary && is_console_app (runpath))
+  if (!iscygwin && ptys_primary && is_console_app (pc))
     {
       if (h_stdin == ptys_primary->get_handle_nat ())
 	stdin_is_ptys = true;
