@@ -33,6 +33,7 @@ static const wincaps wincap_8_1 = {
     has_con_broken_tabs:false,
     has_user_shstk:false,
     has_alloc_console_with_options:false,
+    has_pcon_omit_nl_before_cursor_move:false,
   },
 };
 
@@ -56,6 +57,7 @@ static const wincaps  wincap_10_1507 = {
     has_con_broken_tabs:false,
     has_user_shstk:false,
     has_alloc_console_with_options:false,
+    has_pcon_omit_nl_before_cursor_move:false,
   },
 };
 
@@ -79,6 +81,7 @@ static const wincaps  wincap_10_1607 = {
     has_con_broken_tabs:false,
     has_user_shstk:false,
     has_alloc_console_with_options:false,
+    has_pcon_omit_nl_before_cursor_move:false,
   },
 };
 
@@ -102,6 +105,7 @@ static const wincaps wincap_10_1703 = {
     has_con_broken_tabs:true,
     has_user_shstk:false,
     has_alloc_console_with_options:false,
+    has_pcon_omit_nl_before_cursor_move:false,
   },
 };
 
@@ -125,6 +129,7 @@ static const wincaps wincap_10_1709 = {
     has_con_broken_tabs:true,
     has_user_shstk:false,
     has_alloc_console_with_options:false,
+    has_pcon_omit_nl_before_cursor_move:false,
   },
 };
 
@@ -148,6 +153,7 @@ static const wincaps wincap_10_1803 = {
     has_con_broken_tabs:true,
     has_user_shstk:false,
     has_alloc_console_with_options:false,
+    has_pcon_omit_nl_before_cursor_move:false,
   },
 };
 
@@ -171,6 +177,7 @@ static const wincaps wincap_10_1809 = {
     has_con_broken_tabs:true,
     has_user_shstk:false,
     has_alloc_console_with_options:false,
+    has_pcon_omit_nl_before_cursor_move:false,
   },
 };
 
@@ -194,6 +201,7 @@ static const wincaps wincap_10_1903 = {
     has_con_broken_tabs:true,
     has_user_shstk:false,
     has_alloc_console_with_options:false,
+    has_pcon_omit_nl_before_cursor_move:false,
   },
 };
 
@@ -217,6 +225,7 @@ static const wincaps wincap_10_2004 = {
     has_con_broken_tabs:true,
     has_user_shstk:true,
     has_alloc_console_with_options:false,
+    has_pcon_omit_nl_before_cursor_move:false,
   },
 };
 
@@ -240,6 +249,7 @@ static const wincaps wincap_11 = {
     has_con_broken_tabs:false,
     has_user_shstk:true,
     has_alloc_console_with_options:false,
+    has_pcon_omit_nl_before_cursor_move:true,
   },
 };
 
@@ -263,6 +273,7 @@ static const wincaps wincap_11_24h2 = {
     has_con_broken_tabs:false,
     has_user_shstk:true,
     has_alloc_console_with_options:true,
+    has_pcon_omit_nl_before_cursor_move:true,
   },
 };
 
