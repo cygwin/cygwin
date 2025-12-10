@@ -2680,7 +2680,7 @@ fhandler_pty_master::pty_master_fwd_thread (const master_fwd_thread_param_t *p)
 	  int state = 0;
 	  int start_at = 0;
 	  for (DWORD i=0; i<rlen; i++)
-	    if (outbuf[i] == '\033')
+	    if (state == 0 && outbuf[i] == '\033')
 	      {
 		start_at = i;
 		state = 1;
@@ -2688,12 +2688,14 @@ fhandler_pty_master::pty_master_fwd_thread (const master_fwd_thread_param_t *p)
 	      }
 	    else if ((state == 1 && outbuf[i] == ']') ||
 		     (state == 2 && outbuf[i] == '0') ||
-		     (state == 3 && outbuf[i] == ';'))
+		     (state == 3 && outbuf[i] == ';') ||
+		     (state == 4 && outbuf[i] == '\033'))
 	      {
 		state ++;
 		continue;
 	      }
-	    else if (state == 4 && outbuf[i] == '\a')
+	    else if ((state == 4 && outbuf[i] == '\a')
+		     || (state == 5 && outbuf[i] == '\\'))
 	      {
 		const char *helper_str = "\\bin\\cygwin-console-helper.exe";
 		if (memmem (&outbuf[start_at], i + 1 - start_at,
@@ -2706,7 +2708,9 @@ fhandler_pty_master::pty_master_fwd_thread (const master_fwd_thread_param_t *p)
 		state = 0;
 		continue;
 	      }
-	    else if (outbuf[i] == '\a')
+	    else if (state == 4)
+	      continue;
+	    else
 	      {
 		state = 0;
 		continue;
