@@ -2766,6 +2766,50 @@ fhandler_pty_master::pty_master_fwd_thread (const master_fwd_thread_param_t *p)
 	    else
 	      state = 0;
 
+	  /* Workaround for rlwrap in Win11. rlwrap treats text between
+	     NLs as a line, however, pseudo console in Win11 somtimes
+	     omits NL before "CSIm;nH". This does not happen in Win10. */
+	  if (wincap.has_pcon_omit_nl_before_cursor_move ())
+	    {
+	      state = 0;
+	      for (DWORD i = 0; i < rlen; i++)
+		if (state == 0 && outbuf[i] == '\033')
+		  {
+		    start_at = i;
+		    state++;
+		    continue;
+		  }
+		else if (state == 1 && outbuf[i] == '[')
+		  {
+		    state++;
+		    continue;
+		  }
+		else if (state == 2
+			 && (isdigit (outbuf[i]) || outbuf[i] == ';'))
+		  continue;
+		else if (state == 2 && outbuf[i] == 'H')
+		  {
+		    /* Add omitted CR NL before "CSIm;nH". However, when the
+		       cusor is on the bottom-most line, adding NL might cause
+		       unexpected scrolling. To avoid this, add "CSI H" before
+		       CR NL. */
+		    const char *ins = "\033[H\r\n";
+		    const int ins_len = strlen (ins);
+		    if (rlen + ins_len <= NT_MAX_PATH)
+		      {
+			memmove (&outbuf[start_at + ins_len],
+				 &outbuf[start_at], rlen - start_at);
+			memcpy (&outbuf[start_at], ins, ins_len);
+			rlen += ins_len;
+			i += ins_len;
+		      }
+		    state = 0;
+		    continue;
+		  }
+		else
+		  state = 0;
+	    }
+
 	  if (p->ttyp->term_code_page != CP_UTF8)
 	    {
 	      size_t nlen = NT_MAX_PATH;

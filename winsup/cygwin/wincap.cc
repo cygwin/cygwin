@@ -32,6 +32,7 @@ static const wincaps wincap_8_1 = {
     has_tcp_maxrtms:false,
     has_con_broken_tabs:false,
     has_user_shstk:false,
+    has_pcon_omit_nl_before_cursor_move:false,
   },
 };
 
@@ -54,6 +55,7 @@ static const wincaps  wincap_10_1507 = {
     has_tcp_maxrtms:false,
     has_con_broken_tabs:false,
     has_user_shstk:false,
+    has_pcon_omit_nl_before_cursor_move:false,
   },
 };
 
@@ -76,6 +78,7 @@ static const wincaps  wincap_10_1607 = {
     has_tcp_maxrtms:true,
     has_con_broken_tabs:false,
     has_user_shstk:false,
+    has_pcon_omit_nl_before_cursor_move:false,
   },
 };
 
@@ -98,6 +101,7 @@ static const wincaps wincap_10_1703 = {
     has_tcp_maxrtms:true,
     has_con_broken_tabs:true,
     has_user_shstk:false,
+    has_pcon_omit_nl_before_cursor_move:false,
   },
 };
 
@@ -120,6 +124,7 @@ static const wincaps wincap_10_1709 = {
     has_tcp_maxrtms:true,
     has_con_broken_tabs:true,
     has_user_shstk:false,
+    has_pcon_omit_nl_before_cursor_move:false,
   },
 };
 
@@ -142,6 +147,7 @@ static const wincaps wincap_10_1803 = {
     has_tcp_maxrtms:true,
     has_con_broken_tabs:true,
     has_user_shstk:false,
+    has_pcon_omit_nl_before_cursor_move:false,
   },
 };
 
@@ -164,6 +170,7 @@ static const wincaps wincap_10_1809 = {
     has_tcp_maxrtms:true,
     has_con_broken_tabs:true,
     has_user_shstk:false,
+    has_pcon_omit_nl_before_cursor_move:false,
   },
 };
 
@@ -186,6 +193,7 @@ static const wincaps wincap_10_1903 = {
     has_tcp_maxrtms:true,
     has_con_broken_tabs:true,
     has_user_shstk:false,
+    has_pcon_omit_nl_before_cursor_move:false,
   },
 };
 
@@ -208,6 +216,7 @@ static const wincaps wincap_10_2004 = {
     has_tcp_maxrtms:true,
     has_con_broken_tabs:true,
     has_user_shstk:true,
+    has_pcon_omit_nl_before_cursor_move:false,
   },
 };
 
@@ -230,6 +239,7 @@ static const wincaps wincap_11 = {
     has_tcp_maxrtms:true,
     has_con_broken_tabs:false,
     has_user_shstk:true,
+    has_pcon_omit_nl_before_cursor_move:true,
   },
 };
 
