@@ -707,10 +707,14 @@ is_console_app (const WCHAR *filename)
   HANDLE h;
   h = CreateFileW (filename, GENERIC_READ, FILE_SHARE_READ,
 		   NULL, OPEN_EXISTING, 0, NULL);
+  if (h == INVALID_HANDLE_VALUE)
+    return true;
   char buf[1024];
   DWORD n;
-  ReadFile (h, buf, sizeof (buf), &n, 0);
+  BOOL res = ReadFile (h, buf, sizeof (buf), &n, 0);
   CloseHandle (h);
+  if (!res)
+    return true;
   /* The offset of Subsystem is the same for both IMAGE_NT_HEADERS32 and
      IMAGE_NT_HEADERS64, so only IMAGE_NT_HEADERS32 is used here. */
   IMAGE_NT_HEADERS32 *p = (IMAGE_NT_HEADERS32 *) memmem (buf, n, "PE\0\0", 4);
