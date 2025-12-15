@@ -2563,7 +2563,11 @@ pwdgrp::fetch_account_from_windows (fetch_user_arg_t &arg, cyg_ldap *pldap)
 	      if (pgrp)
 		{
 		  /* Set primary group from the "Description" field.  Prepend
-		     account domain if this is a domain member machine. */
+		     account domain if this is a domain member machine.  Do
+		     this first, to find a local group even if a domain
+		     group with this name exists.  Only if that doesn't
+		     result in a valid group, try the group name without prefix
+		     to catch builtin and alias groups. */
 		  char gname[2 * DNLEN + strlen (pgrp) + 1], *gp = gname;
 		  struct group *gr;
 
@@ -2575,7 +2579,9 @@ pwdgrp::fetch_account_from_windows (fetch_user_arg_t &arg, cyg_ldap *pldap)
 		      *gp++ = NSS_SEPARATOR_CHAR;
 		    }
 		  stpcpy (gp, pgrp);
-		  if ((gr = internal_getgrnam (gname, cldap)))
+		  if ((gr = internal_getgrnam (gname, cldap)) ||
+		      (cygheap->dom.member_machine ()
+		       && (gr = internal_getgrnam (pgrp, cldap))))
 		    gid = gr->gr_gid;
 		}
 	      char *e;
