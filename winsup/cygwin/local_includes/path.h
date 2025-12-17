@@ -79,6 +79,7 @@ enum path_types
   PATH_SOCKET		= _BIT ( 5),	/* AF_UNIX socket file */
   PATH_RESOLVE_PROCFD	= _BIT ( 6),	/* fd symlink via /proc */
   PATH_REP_NOAPI	= _BIT ( 7),	/* rep. point unknown to WinAPI */
+  PATH_APPEXECLINK	= _BIT ( 8),	/* rep. point app execution alias */
   PATH_DONT_USE		= _BIT (31)	/* conversion to signed happens. */
 };
 
@@ -213,6 +214,10 @@ class path_conv
   int is_winapi_reparse_point () const
   {
     return (path_flags & (PATH_REP | PATH_REP_NOAPI)) == PATH_REP;
+  }
+  int is_app_execution_alias () const
+  {
+    return path_flags & PATH_APPEXECLINK;
   }
 
   int isfifo () const {return dev.is_device (FH_FIFO);}

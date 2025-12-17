@@ -2661,7 +2661,7 @@ check_reparse_point_target (HANDLE h, bool remote, PREPARSE_DATA_BUFFER rp,
 	  if (i == 2 && n > 0 && n < size)
 	    {
 	      RtlInitCountedUnicodeString (psymbuf, buf, n * sizeof (WCHAR));
-	      return PATH_SYMLINK | PATH_REP;
+	      return PATH_SYMLINK | PATH_REP | PATH_APPEXECLINK;
 	    }
 	  if (i == 2)
 	    break;
