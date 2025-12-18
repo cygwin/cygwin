@@ -719,7 +719,9 @@ is_console_app (const WCHAR *filename)
   wchar_t *e = wcsrchr (filename, L'.');
   if (e && (wcscasecmp (e, L".bat") == 0 || wcscasecmp (e, L".cmd") == 0))
     return true;
-  return false;
+  /* Return true for unknown to avoid standard handles from being unset.
+     Setting-up standard handles for GUI apps is pointless, but not unsafe. */
+  return true;
 }
 
 int
