@@ -225,10 +225,21 @@ init:
 	beq	t9,zero,1f
 	jalr	t9
 1:
+#ifdef _LITE_EXIT
+	# Make reference to atexit weak to avoid unconditionally pulling in
+	# support code.  Refer to comments in __atexit.c for more details.
+	.weak	atexit
+	LA	t9, atexit
+	beq	t9,zero,.Lweak_atexit
+	.weak	_fini
+#endif
 	/* Register exit handlers */
 	LA	a0, _fini
 	jal	atexit
 
+#ifdef _LITE_EXIT
+.Lweak_atexit:
+#endif
 	/* run global constructors */
 	jal	_init
 
