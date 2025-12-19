@@ -2724,7 +2724,6 @@ fhandler_pty_master::pty_master_fwd_thread (const master_fwd_thread_param_t *p)
 
 	  /* Remove CSI > Pm m */
 	  state = 0;
-	  start_at = 0;
 	  for (DWORD i = 0; i < rlen; i++)
 	    if (outbuf[i] == '\033')
 	      {
@@ -2752,6 +2751,7 @@ fhandler_pty_master::pty_master_fwd_thread (const master_fwd_thread_param_t *p)
 	      state = 0;
 
 	  /* Remove OSC Ps ; ? BEL/ST */
+	  state = 0;
 	  for (DWORD i = 0; i < rlen; i++)
 	    if (state == 0 && outbuf[i] == '\033')
 	      {
