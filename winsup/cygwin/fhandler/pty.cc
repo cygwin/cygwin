@@ -28,6 +28,7 @@ details. */
 #include "registry.h"
 #include "tls_pbuf.h"
 #include "winf.h"
+#include <assert.h>
 
 #ifndef PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE
 #define PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE 0x00020016
@@ -2642,6 +2643,152 @@ pty_master_thread (VOID *arg)
   return fhandler_pty_master::pty_master_thread (&p);
 }
 
+#define CSIH_INSERT "\033[H\r\n"
+#define CSIH_INSLEN (sizeof (CSIH_INSERT) - 1)
+#define CONSOLE_HELPER "\\bin\\cygwin-console-helper.exe"
+#define CONSOLE_HELPER_LEN (sizeof (CONSOLE_HELPER) - 1)
+
+inline static DWORD
+workarounds_for_pseudo_console_output (char *outbuf, DWORD rlen)
+{
+  int state = 0;
+  int start_at = 0;
+  bool is_csi = false;
+  bool is_osc = false;
+  int arg = 0;
+  bool saw_greater_than_sign = false;
+  bool saw_question_mark = false;
+  for (DWORD i=0; i<rlen; i++)
+    if (state == 0 && outbuf[i] == '\033')
+      {
+	start_at = i;
+	state = 1;
+	continue;
+      }
+    else if (state == 1)
+      {
+	switch (outbuf[i])
+	  {
+	  case '[':
+	    is_csi = true;
+	    state = 2;
+	    break;
+	  case ']':
+	    is_osc = true;
+	    state = 2;
+	    break;
+	  case '\033':
+	    start_at = i;
+	    state = 1;
+	    break;
+	  default:
+	    state = 0;
+	  }
+	continue;
+      }
+    else if (is_csi)
+      {
+	assert (state == 2);
+	if (outbuf[i-1] == '[' && outbuf[i] == '>')
+	  saw_greater_than_sign = true;
+	else if (isdigit (outbuf[i]) || outbuf[i] == ';')
+	  continue;
+	else if (saw_greater_than_sign && outbuf[i] == 'm')
+	  {
+	    /* Remove CSI > Pm m */
+	    memmove (&outbuf[start_at], &outbuf[i+1], rlen-i-1);
+	    rlen = start_at + rlen - i - 1;
+	    i = start_at - 1;
+	    state = 0;
+	  }
+	else if (wincap.has_pcon_omit_nl_before_cursor_move ()
+		 && !saw_greater_than_sign && outbuf[i] == 'H')
+	  /* Workaround for rlwrap in Win11. rlwrap treats text between
+	     NLs as a line, however, pseudo console in Win11 sometimes
+	     omits NL before "CSIm;nH". This does not happen in Win10. */
+	  {
+	    /* Add omitted CR NL before "CSIm;nH". However, when the
+	       cusor is on the bottom-most line, adding NL might cause
+	       unexpected scrolling. To avoid this, add "CSI H" before
+	       CR NL. */
+	    if (rlen + CSIH_INSLEN <= NT_MAX_PATH)
+	      {
+		memmove (&outbuf[start_at + CSIH_INSLEN], &outbuf[start_at],
+			 rlen - start_at);
+		memcpy (&outbuf[start_at], CSIH_INSERT, CSIH_INSLEN);
+		rlen += CSIH_INSLEN;
+		i += CSIH_INSLEN;
+	      }
+	    state = 0;
+	  }
+	else if (outbuf[i] == '\033')
+	  {
+	    start_at = i;
+	    state = 1;
+	  }
+	else
+	  state = 0;
+
+	if (state < 2)
+	  {
+	    is_csi = false;
+	    saw_greater_than_sign = false;
+	  }
+      }
+    else if (is_osc)
+      {
+	if (state == 2 && isdigit (outbuf[i]))
+	  arg = arg * 10 + (outbuf[i] - '0');
+	else if (state == 2 && outbuf[i] == ';')
+	  state = 3;
+	else if (state == 3 && outbuf[i-1] == ';' && outbuf[i] == '?')
+	  saw_question_mark = true;
+	else if (state == 3 && outbuf[i] == '\033')
+	  state = 4;
+	else if ((state == 3 && outbuf[i] == '\a')
+		 || (state == 4 && outbuf[i] == '\\'))
+	  {
+	    if (saw_question_mark /* OSC Ps; ? BEL/ST */
+		/* Suppress stray set title at start up of pcon */
+		|| (arg == 0 && memmem (&outbuf[start_at], i + 1 - start_at,
+					CONSOLE_HELPER, CONSOLE_HELPER_LEN)))
+	      {
+		/* Remove this ESC sequence */
+		memmove (&outbuf[start_at], &outbuf[i+1], rlen-i-1);
+		rlen = start_at + rlen - i - 1;
+		i = start_at - 1;
+	      }
+	    state = 0;
+	  }
+	else if (state == 3)
+	  continue;
+	else if (outbuf[i] == '\033')
+	  {
+	    start_at = i;
+	    state = 1;
+	  }
+	else
+	  state = 0;
+
+	if (state < 2)
+	  {
+	    is_osc = false;
+	    saw_question_mark = false;
+	    arg = 0;
+	  }
+      }
+    else
+      { /* Never reached */
+	is_csi = false;
+	is_osc = false;
+	saw_greater_than_sign = false;
+	saw_question_mark = false;
+	arg = 0;
+	state = 0;
+      }
+  return rlen;
+}
+
 /* The function pty_master_fwd_thread() should be static because the
    instance is deleted if the master is dup()'ed and the original is
    closed. In this case, dup()'ed instance still exists, therefore,
@@ -2676,160 +2823,7 @@ fhandler_pty_master::pty_master_fwd_thread (const master_fwd_thread_param_t *p)
       char *ptr = outbuf;
       if (p->ttyp->pcon_activated)
 	{
-	  /* Avoid setting window title to "cygwin-console-helper.exe" */
-	  int state = 0;
-	  int start_at = 0;
-	  for (DWORD i=0; i<rlen; i++)
-	    if (state == 0 && outbuf[i] == '\033')
-	      {
-		start_at = i;
-		state = 1;
-		continue;
-	      }
-	    else if ((state == 1 && outbuf[i] == ']') ||
-		     (state == 2 && outbuf[i] == '0') ||
-		     (state == 3 && outbuf[i] == ';') ||
-		     (state == 4 && outbuf[i] == '\033'))
-	      {
-		state ++;
-		continue;
-	      }
-	    else if ((state == 4 && outbuf[i] == '\a')
-		     || (state == 5 && outbuf[i] == '\\'))
-	      {
-		const char *helper_str = "\\bin\\cygwin-console-helper.exe";
-		if (memmem (&outbuf[start_at], i + 1 - start_at,
-			    helper_str, strlen (helper_str)))
-		  {
-		    memmove (&outbuf[start_at], &outbuf[i+1], rlen-i-1);
-		    rlen = wlen = start_at + rlen - i - 1;
-		    i = start_at - 1;
-		  }
-		state = 0;
-		continue;
-	      }
-	    else if (state == 4)
-	      continue;
-	    else if (outbuf[i] == '\033')
-	      {
-		start_at = i;
-		state = 1;
-		continue;
-	      }
-	    else
-	      {
-		state = 0;
-		continue;
-	      }
-
-	  /* Remove CSI > Pm m */
-	  state = 0;
-	  for (DWORD i = 0; i < rlen; i++)
-	    if (outbuf[i] == '\033')
-	      {
-		start_at = i;
-		state = 1;
-		continue;
-	      }
-	    else if ((state == 1 && outbuf[i] == '[')
-		     || (state == 2 && outbuf[i] == '>'))
-	      {
-		state ++;
-		continue;
-	      }
-	    else if (state == 3 && (isdigit (outbuf[i]) || outbuf[i] == ';'))
-	      continue;
-	    else if (state == 3 && outbuf[i] == 'm')
-	      {
-		memmove (&outbuf[start_at], &outbuf[i+1], rlen-i-1);
-		rlen = wlen = start_at + rlen - i - 1;
-		state = 0;
-		i = start_at - 1;
-		continue;
-	      }
-	    else
-	      state = 0;
-
-	  /* Remove OSC Ps ; ? BEL/ST */
-	  state = 0;
-	  for (DWORD i = 0; i < rlen; i++)
-	    if (state == 0 && outbuf[i] == '\033')
-	      {
-		start_at = i;
-		state = 1;
-		continue;
-	      }
-	    else if ((state == 1 && outbuf[i] == ']')
-		     || (state == 2 && outbuf[i] == ';')
-		     || (state == 3 && outbuf[i] == '?')
-		     || (state == 4 && outbuf[i] == '\033'))
-	      {
-		state ++;
-		continue;
-	      }
-	    else if (state == 2 && isdigit (outbuf[i]))
-	      continue;
-	    else if ((state == 4 && outbuf[i] == '\a')
-		     || (state == 5 && outbuf[i] == '\\'))
-	      {
-		memmove (&outbuf[start_at], &outbuf[i+1], rlen-i-1);
-		rlen = wlen = start_at + rlen - i - 1;
-		state = 0;
-		i = start_at - 1;
-		continue;
-	      }
-	    else if (outbuf[i] == '\033')
-	      {
-		start_at = i;
-		state = 1;
-		continue;
-	      }
-	    else
-	      state = 0;
-
-	  /* Workaround for rlwrap in Win11. rlwrap treats text between
-	     NLs as a line, however, pseudo console in Win11 somtimes
-	     omits NL before "CSIm;nH". This does not happen in Win10. */
-	  if (wincap.has_pcon_omit_nl_before_cursor_move ())
-	    {
-	      state = 0;
-	      for (DWORD i = 0; i < rlen; i++)
-		if (state == 0 && outbuf[i] == '\033')
-		  {
-		    start_at = i;
-		    state++;
-		    continue;
-		  }
-		else if (state == 1 && outbuf[i] == '[')
-		  {
-		    state++;
-		    continue;
-		  }
-		else if (state == 2
-			 && (isdigit (outbuf[i]) || outbuf[i] == ';'))
-		  continue;
-		else if (state == 2 && outbuf[i] == 'H')
-		  {
-		    /* Add omitted CR NL before "CSIm;nH". However, when the
-		       cusor is on the bottom-most line, adding NL might cause
-		       unexpected scrolling. To avoid this, add "CSI H" before
-		       CR NL. */
-		    const char *ins = "\033[H\r\n";
-		    const int ins_len = strlen (ins);
-		    if (rlen + ins_len <= NT_MAX_PATH)
-		      {
-			memmove (&outbuf[start_at + ins_len],
-				 &outbuf[start_at], rlen - start_at);
-			memcpy (&outbuf[start_at], ins, ins_len);
-			rlen += ins_len;
-			i += ins_len;
-		      }
-		    state = 0;
-		    continue;
-		  }
-		else
-		  state = 0;
-	    }
+	  wlen = rlen = workarounds_for_pseudo_console_output (outbuf, rlen);
 
 	  if (p->ttyp->term_code_page != CP_UTF8)
 	    {
