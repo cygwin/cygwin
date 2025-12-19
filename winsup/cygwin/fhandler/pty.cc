@@ -2689,6 +2689,12 @@ fhandler_pty_master::pty_master_fwd_thread (const master_fwd_thread_param_t *p)
 	      }
 	    else if (state == 4)
 	      continue;
+	    else if (outbuf[i] == '\033')
+	      {
+		start_at = i;
+		state = 1;
+		continue;
+	      }
 	    else
 	      {
 		state = 0;
@@ -2749,6 +2755,12 @@ fhandler_pty_master::pty_master_fwd_thread (const master_fwd_thread_param_t *p)
 		rlen = wlen = start_at + rlen - i - 1;
 		state = 0;
 		i = start_at - 1;
+		continue;
+	      }
+	    else if (outbuf[i] == '\033')
+	      {
+		start_at = i;
+		state = 1;
 		continue;
 	      }
 	    else
