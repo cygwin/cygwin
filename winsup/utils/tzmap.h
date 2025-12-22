@@ -3,7 +3,7 @@
    a Makefile rule.  To regenerate the file, just call 'make tzmap'.  It
    fetches the file
 
-     https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml
+     https://raw.githubusercontent.com/unicode-org/cldr/main/common/supplemental/windowsZones.xml
 
    using wget and converts it into the tzmap table required by tzget.c.
    Regenerating might be necessary on a regular basis...
@@ -135,7 +135,6 @@ struct
   { L"Central Standard Time", L"CA", L"America/Winnipeg America/Rankin_Inlet America/Resolute" },
   { L"Central Standard Time", L"MX", L"America/Matamoros America/Ojinaga" },
   { L"Central Standard Time", L"US", L"America/Chicago America/Indiana/Knox America/Indiana/Tell_City America/Menominee America/North_Dakota/Beulah America/North_Dakota/Center America/North_Dakota/New_Salem" },
-  { L"Central Standard Time", L"ZZ", L"CST6CDT" },
   { L"Central Standard Time (Mexico)", L"", L"America/Mexico_City" },
   { L"Central Standard Time (Mexico)", L"MX", L"America/Mexico_City America/Bahia_Banderas America/Merida America/Monterrey America/Chihuahua " },
   { L"Chatham Islands Standard Time", L"", L"Pacific/Chatham" },
@@ -175,7 +174,6 @@ struct
   { L"Eastern Standard Time", L"CA", L"America/Toronto America/Iqaluit" },
   { L"Eastern Standard Time", L"TC", L"America/Grand_Turk" },
   { L"Eastern Standard Time", L"US", L"America/New_York America/Detroit America/Indiana/Petersburg America/Indiana/Vincennes America/Indiana/Winamac America/Kentucky/Monticello America/Louisville" },
-  { L"Eastern Standard Time", L"ZZ", L"EST5EDT" },
   { L"Eastern Standard Time (Mexico)", L"", L"America/Cancun" },
   { L"Eastern Standard Time (Mexico)", L"MX", L"America/Cancun" },
   { L"Egypt Standard Time", L"", L"Africa/Cairo" },
@@ -259,7 +257,7 @@ struct
   { L"Magadan Standard Time", L"", L"Asia/Magadan" },
   { L"Magadan Standard Time", L"RU", L"Asia/Magadan" },
   { L"Magallanes Standard Time", L"", L"America/Punta_Arenas" },
-  { L"Magallanes Standard Time", L"CL", L"America/Punta_Arenas" },
+  { L"Magallanes Standard Time", L"CL", L"America/Punta_Arenas America/Coyhaique" },
   { L"Marquesas Standard Time", L"", L"Pacific/Marquesas" },
   { L"Marquesas Standard Time", L"PF", L"Pacific/Marquesas" },
   { L"Mauritius Standard Time", L"", L"Indian/Mauritius" },
@@ -278,7 +276,6 @@ struct
   { L"Mountain Standard Time", L"CA", L"America/Edmonton America/Cambridge_Bay America/Inuvik" },
   { L"Mountain Standard Time", L"MX", L"America/Ciudad_Juarez" },
   { L"Mountain Standard Time", L"US", L"America/Denver America/Boise" },
-  { L"Mountain Standard Time", L"ZZ", L"MST7MDT" },
   { L"Mountain Standard Time (Mexico)", L"", L"America/Mazatlan" },
   { L"Mountain Standard Time (Mexico)", L"MX", L"America/Mazatlan" },
   { L"Myanmar Standard Time", L"", L"Asia/Rangoon" },
@@ -310,7 +307,6 @@ struct
   { L"Pacific Standard Time", L"", L"America/Los_Angeles" },
   { L"Pacific Standard Time", L"CA", L"America/Vancouver" },
   { L"Pacific Standard Time", L"US", L"America/Los_Angeles" },
-  { L"Pacific Standard Time", L"ZZ", L"PST8PDT" },
   { L"Pacific Standard Time (Mexico)", L"", L"America/Tijuana" },
   { L"Pacific Standard Time (Mexico)", L"MX", L"America/Tijuana" },
   { L"Pakistan Standard Time", L"", L"Asia/Karachi" },
@@ -486,7 +482,7 @@ struct
   { L"UTC+13", L"TK", L"Pacific/Fakaofo" },
   { L"UTC+13", L"ZZ", L"Etc/GMT-13" },
   { L"Ulaanbaatar Standard Time", L"", L"Asia/Ulaanbaatar" },
-  { L"Ulaanbaatar Standard Time", L"MN", L"Asia/Ulaanbaatar Asia/Choibalsan" },
+  { L"Ulaanbaatar Standard Time", L"MN", L"Asia/Ulaanbaatar" },
   { L"Venezuela Standard Time", L"", L"America/Caracas" },
   { L"Venezuela Standard Time", L"VE", L"America/Caracas" },
   { L"Vladivostok Standard Time", L"", L"Asia/Vladivostok" },
