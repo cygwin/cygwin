@@ -630,6 +630,31 @@ pthread::cancel ()
       threadlist_t *tl_entry = cygheap->find_tls (cygtls);
       if (!cygtls->inside_kernel (&context))
 	{
+#if defined(__x86_64__)
+	  /* Need to maintain the alignment of the stack pointer.
+	     https://learn.microsoft.com/en-us/cpp/build/stack-usage?view=msvc-170
+	     states,
+	       "The stack will always be maintained 16-byte aligned,
+		except within the prolog (for example, after the return
+		address is pushed),",
+	     that is, we need 16n + 8 byte alignment here because the stack
+	     pointer must be maintaiined to the same alignment required by
+	     the function prologue. Since the call instruction pushes the
+	     return address (rip) onto the stack, which is 8 bytes,
+	     an additional 8 bytes is required to emulate this behaviour.
+	     However, we do not need to push return address itself, because
+	     pthread::static_cancel_self() must not return. */
+	  context._CX_stackPtr &= ~0x07UL;
+	  if ((context._CX_stackPtr & 8) == 0)
+	    context._CX_stackPtr -= 8;
+#elif defined(__aarch64__)
+	  /* 16 bytes alignment required. Trim stack pointer just in case.
+	     https://learn.microsoft.com/en-us/cpp/build/arm64-windows-abi-conventions?view=msvc-170
+	  */
+	  context._CX_stackPtr &= ~0x0fUL;
+#else
+#error unimplemented for this target
+#endif
 	  context._CX_instPtr = (ULONG_PTR) pthread::static_cancel_self;
 	  SetThreadContext (win32_obj_id, &context);
 	}
