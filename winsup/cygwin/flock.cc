@@ -694,7 +694,7 @@ create_lock_in_parent (PVOID param)
   /* Check if we have an open file handle with the same unique id. */
   {
     cnt = 0;
-    cygheap_fdenum cfd (true);
+    cygheap_fdenum cfd (false);
     while (cfd.next () >= 0)
       if (cfd->get_unique_id () == newlock.lf_id && ++cnt > 0)
 	break;
