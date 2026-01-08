@@ -379,7 +379,7 @@ inode_t::del_my_locks (long long id, HANDLE fhdl)
       else if (id && lock->lf_id == id)
 	{
 	  int cnt = 0;
-	  cygheap_fdenum cfd (true);
+	  cygheap_fdenum cfd (false);
 	  while (cfd.next () >= 0)
 	    if (cfd->get_unique_id () == lock->lf_id && ++cnt > 1)
 	      break;
@@ -441,7 +441,7 @@ fixup_lockf_after_exec (bool exec)
     {
       node->notused ();
       int cnt = 0;
-      cygheap_fdenum cfd (true);
+      cygheap_fdenum cfd (false);
       while (cfd.next () >= 0)
 	if (cfd->get_dev () == node->i_dev
 	    && cfd->get_ino () == node->i_ino
