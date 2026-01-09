@@ -28,8 +28,10 @@ __ntohl(__uint32_t _x)
 {
 #if defined(__x86_64__)
 	__asm__("bswap %0" : "=r" (_x) : "0" (_x));
-#elif defined(__aarch64__)
+#elif defined(__aarch64__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	__asm__("rev %w0, %w0" : "=r" (_x) : "0" (_x));
+#else
+#error "unsupported architecture"
 #endif
 	return _x;
 }
@@ -41,10 +43,12 @@ __ntohs(__uint16_t _x)
 	__asm__("xchgb %b0,%h0"		/* swap bytes		*/
 		: "=Q" (_x)
 		:  "0" (_x));
-#elif defined(__aarch64__)
+#elif defined(__aarch64__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	__asm__("uxth %w0, %w0\n\t"
 		"rev16 %w0, %w0"
 		: "+r" (_x));
+#else
+#error "unsupported architecture"
 #endif
 	return _x;
 }
