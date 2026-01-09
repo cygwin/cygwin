@@ -382,6 +382,6 @@ clean-local:
 	rm -f *.stackdump
 	rm -rf ${builddir}/testinst/tmp
 
-if CROSS_BOOTSTRAP
+if MINGW_PROGS
 SUBDIRS = mingw
 endif

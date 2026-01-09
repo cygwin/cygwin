@@ -40,7 +40,11 @@ AM_PROG_AS
 AC_LANG(C)
 AC_LANG(C++)
 
-AC_ARG_WITH([cross-bootstrap],[AS_HELP_STRING([--with-cross-bootstrap],[do not build programs using the MinGW toolchain or check for MinGW libraries (useful for bootstrapping a cross-compiler)])],[],[with_cross_bootstrap=no])
+AC_ARG_WITH([mingw-progs],
+  [AS_HELP_STRING([--without-mingw-progs],
+    [do not build programs using the MinGW toolchain])],
+  [],
+  [with_mingw_progs=yes])
 
 AC_CYGWIN_INCLUDES
 
@@ -132,13 +136,13 @@ if test -z "$XMLTO"; then
     fi
 fi
 
-if test "x$with_cross_bootstrap" != "xyes"; then
+if test "x$with_mingw_progs" != "xno"; then
     AC_CHECK_PROGS(MINGW_CXX, ${target_cpu}-w64-mingw32-g++)
     test -n "$MINGW_CXX" || AC_MSG_ERROR([no acceptable MinGW g++ found in \$PATH])
     AC_CHECK_PROGS(MINGW_CC, ${target_cpu}-w64-mingw32-gcc)
     test -n "$MINGW_CC" || AC_MSG_ERROR([no acceptable MinGW gcc found in \$PATH])
 fi
-AM_CONDITIONAL(CROSS_BOOTSTRAP, [test "x$with_cross_bootstrap" != "xyes"])
+AM_CONDITIONAL(MINGW_PROGS, [test "x$with_mingw_progs" != "xno"])
 
 AC_EXEEXT
 
