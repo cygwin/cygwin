@@ -24,7 +24,7 @@ XMLTO_HTML_CHUNK_QUIET=$(XMLTO_HTML_CHUNK_QUIET_$(V))
 XMLTO_MAN_QUIET_=--stringparam man.output.quietly=1
 XMLTO_MAN_QUIET=$(XMLTO_MAN_QUIET_$(V))
 
-DOCBOOK2XTEXI=@DOCBOOK2XTEXI@ --xinclude --info --utf8trans-map=charmap
+DOCBOOK2XTEXI=@DOCBOOK2XTEXI@ --xinclude --info --utf8trans-map=charmap --to-stdout
 
 -include Makefile.dep
 
@@ -142,7 +142,7 @@ utils2man.stamp: $(cygwin-ug-net_SOURCES) man.xsl
 	@touch $@
 
 cygwin-ug-net.info: $(cygwin-ug-net_SOURCES) charmap
-	$(AM_V_GEN)$(DOCBOOK2XTEXI) $(srcdir)/cygwin-ug-net.xml --string-param output-file=cygwin-ug-net
+	$(AM_V_GEN)$(DOCBOOK2XTEXI) $(srcdir)/cygwin-ug-net.xml --string-param output-file=cygwin-ug-net >$@
 
 cygwin-api/cygwin-api.html: $(cygwin-api_SOURCES) html.xsl
 	$(AM_V_GEN)$(XMLTO) html -o cygwin-api/ -m $(srcdir)/html.xsl $(XMLTO_HTML_CHUNK_QUIET) $<
@@ -155,7 +155,7 @@ api2man.stamp: $(cygwin-api_SOURCES) man.xsl
 	@touch $@
 
 cygwin-api.info: $(cygwin-api_SOURCES) charmap
-	$(AM_V_GEN)$(DOCBOOK2XTEXI) $(srcdir)/cygwin-api.xml --string-param output-file=cygwin-api
+	$(AM_V_GEN)$(DOCBOOK2XTEXI) $(srcdir)/cygwin-api.xml --string-param output-file=cygwin-api >$@
 
 # this generates a custom charmap for docbook2x-texi which has a mapping for &reg;
 charmap:
