@@ -146,6 +146,13 @@ c32rtomb (char *s, char32_t wc, mbstate_t *ps)
     if (wc <= 0xffff || !s)
       return wcrtomb (s, (wchar_t) wc, ps);
 
+    /* Check for character outside valid UNICODE planes */
+    if (wc > 0x10ffff)
+      {
+	_REENT_ERRNO(_REENT) = EILSEQ;
+	return (size_t)(-1);
+      }
+
     wchar_t wc_arr[2];
     const wchar_t *wcp = wc_arr;
 
