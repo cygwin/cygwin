@@ -153,8 +153,7 @@ internal_getlogin (cygheap_user &user)
      and the primary group in the token. */
   pwd = internal_getpwsid (user.sid (), &cldap);
   pgrp = internal_getgrsid (user.groups.pgsid, &cldap);
-  if (!cygheap->pg.nss_cygserver_caching ())
-    internal_getgroups (0, NULL, &cldap);
+  internal_getgroups (0, NULL, &cldap);
   if (!pwd)
     debug_printf ("user not found in passwd DB");
   else
