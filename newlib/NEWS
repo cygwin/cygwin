@@ -1,3 +1,21 @@
+*** Major changes in newlib version 4.6.0:
+
+- multiple updates for POSIX-1.2024
+- fixed problem when REENTRANT_SYSCALLS_PROVIDED and
+  MISSING_SYSCALL_NAMES are defined together
+- improved performance for mem[p]cpy/memmove optimized code
+- new --enable-newlib-hw-misaligned-access option added
+- mips libgloss support fixed
+- optimized mem and str functions for riscv
+- locale code rework to drop global_locale_string and adding
+  locale_string to every locale_t
+- new m68k-atari-elf target support added
+- strtorQ method created based on FreeBSD's gdtoa library
+  and used for strtold to support 128-bit long double
+- old PRU core libgloss support added
+- data tables updated to Unicode 17.0
+- various fixes
+
 *** Major changes in newlib version 4.5.0:
 
 - major clean-up of libgloss build including merging a number of platforms
