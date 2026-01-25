@@ -152,6 +152,7 @@ frok::child (volatile char * volatile here)
   clear_procimptoken ();
   cygheap->user.reimpersonate ();
 
+  setup_user_rlimits ();
   ch.inherit_process_rlimits ();
 
 #ifdef DEBUGGING

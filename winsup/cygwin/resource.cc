@@ -308,6 +308,54 @@ __set_rlimit_as (const struct rlimit *rlp)
   return ret;
 }
 
+static int
+__set_rlimit_nproc_single (rlim_t val, int flags)
+{
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION jobinfo = { 0 };
+
+  __get_os_limits (jobinfo, PER_USER | flags);
+  /* ActiveProcessLimit is a DWORD */
+  if (val == RLIM_INFINITY || val > UINT_MAX)
+    {
+      jobinfo.BasicLimitInformation.LimitFlags
+	&= ~JOB_OBJECT_LIMIT_ACTIVE_PROCESS;
+      jobinfo.BasicLimitInformation.ActiveProcessLimit = 0;
+    }
+  else
+    {
+      jobinfo.BasicLimitInformation.LimitFlags
+	|= JOB_OBJECT_LIMIT_ACTIVE_PROCESS;
+      jobinfo.BasicLimitInformation.ActiveProcessLimit = val;
+    }
+  return __set_os_limits (jobinfo, PER_USER | flags);
+}
+
+int
+__set_rlimit_nproc (const struct rlimit *rlp)
+{
+  int ret = __set_rlimit_nproc_single (rlp->rlim_max, HARD_LIMIT);
+  if (ret == 0)
+    ret = __set_rlimit_nproc_single (rlp->rlim_cur, SOFT_LIMIT);
+  return ret;
+}
+
+void
+__get_rlimit_nproc (struct rlimit *rlp)
+{
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION jobinfo;
+
+  rlp->rlim_cur = RLIM_INFINITY;
+  rlp->rlim_max = RLIM_INFINITY;
+  if (__get_os_limits (jobinfo, PER_USER | HARD_LIMIT)
+      && (jobinfo.BasicLimitInformation.LimitFlags
+	  & JOB_OBJECT_LIMIT_ACTIVE_PROCESS))
+    rlp->rlim_max = jobinfo.BasicLimitInformation.ActiveProcessLimit;
+  if (__get_os_limits (jobinfo, PER_USER | SOFT_LIMIT)
+      && (jobinfo.BasicLimitInformation.LimitFlags
+	  & JOB_OBJECT_LIMIT_ACTIVE_PROCESS))
+    rlp->rlim_cur = jobinfo.BasicLimitInformation.ActiveProcessLimit;
+}
+
 /* Called during fork/exec in the parent to collect the per-process rlimits. */
 void
 child_info::collect_process_rlimits ()
@@ -328,6 +376,51 @@ child_info::inherit_process_rlimits ()
 		rlimit_as.rlim_max, rlimit_as.rlim_cur);
 }
 
+static void
+__setup_user_rlimits_single (int flags)
+{
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION jobinfo = { 0 };
+  NTSTATUS status = STATUS_SUCCESS;
+  OBJECT_ATTRIBUTES attr;
+  UNICODE_STRING uname;
+  WCHAR jobname[32];
+  HANDLE job = NULL;
+
+  RtlInitUnicodeString (&uname, job_shared_name (jobname, PER_USER | flags));
+  InitializeObjectAttributes (&attr, &uname, OBJ_OPENIF,
+			      get_shared_parent_dir (), NULL);
+  status = NtCreateJobObject (&job, JOB_OBJECT_ALL_ACCESS, &attr);
+  if (!NT_SUCCESS (status))
+    {
+      debug_printf ("NtCreateJobObject (%S): status %y", &uname, status);
+      return;
+    }
+  /* Did we just create the job? */
+  if (status != STATUS_OBJECT_NAME_EXISTS)
+    {
+      jobinfo.BasicLimitInformation.LimitFlags |= JOB_OBJECT_LIMIT_BREAKAWAY_OK;
+      status = NtSetInformationJobObject (job,
+					  JobObjectExtendedLimitInformation,
+					  &jobinfo, sizeof jobinfo);
+    }
+  NTSTATUS in_job = NtIsProcessInJob (NtCurrentProcess (), job);
+  /* Assign the process to the job if it's not already assigned. */
+  if (NT_SUCCESS (status) && in_job == STATUS_PROCESS_NOT_IN_JOB)
+    {
+      status = NtAssignProcessToJobObject (job, NtCurrentProcess ());
+      if (!NT_SUCCESS (status))
+	debug_printf ("NtAssignProcessToJobObject: %y\r", status);
+    }
+  /* Never close the handle. */
+}
+
+void
+setup_user_rlimits ()
+{
+  __setup_user_rlimits_single (HARD_LIMIT);
+  __setup_user_rlimits_single (SOFT_LIMIT);
+}
+
 extern "C" int
 getrlimit (int resource, struct rlimit *rlp)
 {
@@ -344,6 +437,9 @@ getrlimit (int resource, struct rlimit *rlp)
 	  break;
 	case RLIMIT_AS:
 	  __get_rlimit_as (rlp);
+	  break;
+	case RLIMIT_NPROC:
+	  __get_rlimit_nproc (rlp);
 	  break;
 	case RLIMIT_STACK:
 	  __get_rlimit_stack (rlp);
@@ -400,6 +496,9 @@ setrlimit (int resource, const struct rlimit *rlp)
 	{
 	case RLIMIT_AS:
 	  return __set_rlimit_as (rlp);
+	  break;
+	case RLIMIT_NPROC:
+	  return __set_rlimit_nproc (rlp);
 	  break;
 	case RLIMIT_CORE:
 	  cygheap->rlim_core = rlp->rlim_cur;

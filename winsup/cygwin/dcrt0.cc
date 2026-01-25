@@ -894,6 +894,7 @@ dll_crt0_1 (void *)
 
   uinfo_init ();	/* initialize user info */
 
+  setup_user_rlimits ();
   if (child_proc_info)
     child_proc_info->inherit_process_rlimits ();
 

@@ -676,6 +676,8 @@ child_info_spawn::worker (const char *prog_arg, const char *const *argv,
 		}
 	    }
 
+	  c_flags |= CREATE_BREAKAWAY_FROM_JOB;
+
 	  rc = CreateProcessAsUserW (::cygheap->user.primary_token (),
 			       runpath,		/* image name w/ full path */
 			       cmd.wcs (wcmd),	/* what was passed to exec */

@@ -202,6 +202,9 @@ extern child_info_spawn ch_spawn;
 #define have_execed ch_spawn.has_execed ()
 #define have_execed_cygwin ch_spawn.has_execed_cygwin ()
 
+/* resource.cc */
+extern void setup_user_rlimits ();
+
 extern "C" {
 extern child_info *child_proc_info;
 extern child_info_spawn *spawn_info asm (_SYMSTR (child_proc_info));

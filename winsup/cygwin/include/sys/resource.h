@@ -28,8 +28,9 @@ extern "C" {
 #define RLIMIT_NOFILE	5		/* max number of open files */
 #define RLIMIT_OFILE	RLIMIT_NOFILE	/* BSD name */
 #define RLIMIT_AS	6		/* address space (virt. memory) limit */
+#define RLIMIT_NPROC	7		/* max processes for this user */
 
-#define RLIMIT_NLIMITS  7		/* upper bound of RLIMIT_* defines */
+#define RLIMIT_NLIMITS  8		/* upper bound of RLIMIT_* defines */
 #define RLIM_NLIMITS    RLIMIT_NLIMITS
 
 #define RLIM_INFINITY	(~0UL)
