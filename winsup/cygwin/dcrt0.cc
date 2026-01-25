@@ -894,6 +894,9 @@ dll_crt0_1 (void *)
 
   uinfo_init ();	/* initialize user info */
 
+  if (child_proc_info)
+    child_proc_info->inherit_process_rlimits ();
+
   /* Connect to tty. */
   tty::init_session ();
 

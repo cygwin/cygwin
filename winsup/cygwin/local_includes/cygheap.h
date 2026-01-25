@@ -517,7 +517,6 @@ public:
   user_heap_info user_heap;
   shared_region_info shared_regions;
   mode_t umask;
-  LONG rlim_as_id;
   unsigned long rlim_core;
   HANDLE console_h;
   cwdstuff cwd;

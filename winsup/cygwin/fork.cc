@@ -152,6 +152,8 @@ frok::child (volatile char * volatile here)
   clear_procimptoken ();
   cygheap->user.reimpersonate ();
 
+  ch.inherit_process_rlimits ();
+
 #ifdef DEBUGGING
   if (GetEnvironmentVariableA ("FORKDEBUG", NULL, 0))
     try_to_debug ();
@@ -316,6 +318,8 @@ frok::parent (volatile char * volatile stack_here)
     }
   debug_printf ("stack - bottom %p, top %p, addr %p, guardsize %ly",
 		ch.stackbase, ch.stacklimit, ch.stackaddr, ch.guardsize);
+
+  ch.collect_process_rlimits ();
 
   PROCESS_INFORMATION pi;
   STARTUPINFOW si;
