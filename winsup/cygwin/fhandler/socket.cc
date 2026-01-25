@@ -258,7 +258,7 @@ fhandler_socket::fchmod (mode_t newmode)
 int
 fhandler_socket::fchown (uid_t newuid, gid_t newgid)
 {
-  bool perms = check_token_membership (&well_known_admins_sid);
+  bool perms = check_token_membership (well_known_admins_sid);
 
   /* Admin rulez */
   if (!perms)
