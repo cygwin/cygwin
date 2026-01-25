@@ -152,7 +152,7 @@ frok::child (volatile char * volatile here)
   clear_procimptoken ();
   cygheap->user.reimpersonate ();
 
-  setup_user_rlimits ();
+  setup_user_rlimits (false);
   ch.inherit_process_rlimits ();
 
 #ifdef DEBUGGING
@@ -252,6 +252,17 @@ frok::parent (volatile char * volatile stack_here)
      correctly to the child.  Omitting it may scramble %PATH% on non-English
      systems. */
   c_flags |= CREATE_UNICODE_ENVIRONMENT;
+
+  /* Despite all our executables having a valid manifest, "mintty" still
+     triggers the "Program Compatibility Assistant (PCA) Service" for
+     some reason, maybe due to some heuristics in PCA.
+     We use job objects for rlimits extensively, so we still have to let
+     child processes breakaway from job.  Otherwise we can't add processes
+     running in different terminals to an already existing per-user job.
+     The check for this situation is now done in setup_user_rlimits()
+     called from dll_crt0_1(). */
+  if (enforce_breakaway_from_job)
+    c_flags |= CREATE_BREAKAWAY_FROM_JOB;
 
   errmsg = NULL;
   hchild = NULL;

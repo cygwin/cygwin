@@ -376,8 +376,8 @@ child_info::inherit_process_rlimits ()
 		rlimit_as.rlim_max, rlimit_as.rlim_cur);
 }
 
-static void
-__setup_user_rlimits_single (int flags)
+static bool
+__setup_user_rlimits_single (int flags, bool root_process)
 {
   JOBOBJECT_EXTENDED_LIMIT_INFORMATION jobinfo = { 0 };
   NTSTATUS status = STATUS_SUCCESS;
@@ -385,6 +385,7 @@ __setup_user_rlimits_single (int flags)
   UNICODE_STRING uname;
   WCHAR jobname[32];
   HANDLE job = NULL;
+  bool ret = false;
 
   RtlInitUnicodeString (&uname, job_shared_name (jobname, PER_USER | flags));
   InitializeObjectAttributes (&attr, &uname, OBJ_OPENIF,
@@ -393,7 +394,7 @@ __setup_user_rlimits_single (int flags)
   if (!NT_SUCCESS (status))
     {
       debug_printf ("NtCreateJobObject (%S): status %y", &uname, status);
-      return;
+      return false;
     }
   /* Did we just create the job? */
   if (status != STATUS_OBJECT_NAME_EXISTS)
@@ -404,6 +405,28 @@ __setup_user_rlimits_single (int flags)
 					  &jobinfo, sizeof jobinfo);
     }
   NTSTATUS in_job = NtIsProcessInJob (NtCurrentProcess (), job);
+
+  /* Check if we're already running in a job, even though we're not
+     running in one of our own user-specific jobs.  If so, this process
+     is doomed, but we can try to create child processes with
+     CREATE_BREAKAWAY_FROM_JOB, so at least the next process in the
+     process tree will be happy.
+     We're only checking processes which have been started from non-Cygwin
+     processes (root processes of a Cygwin process tree).
+     Given that breaking away also requires that the foreign job allows
+     JOB_OBJECT_LIMIT_BREAKAWAY_OK, we're testing this right here, too. */
+  if ((flags & HARD_LIMIT) && root_process
+      && in_job == STATUS_PROCESS_NOT_IN_JOB)
+    {
+      status = NtQueryInformationJobObject (NULL,
+					    JobObjectExtendedLimitInformation,
+					    &jobinfo, sizeof jobinfo, NULL);
+      if (NT_SUCCESS (status)
+	  && (jobinfo.BasicLimitInformation.LimitFlags
+	      & JOB_OBJECT_LIMIT_BREAKAWAY_OK))
+	ret = true;
+    }
+
   /* Assign the process to the job if it's not already assigned. */
   if (NT_SUCCESS (status) && in_job == STATUS_PROCESS_NOT_IN_JOB)
     {
@@ -412,13 +435,17 @@ __setup_user_rlimits_single (int flags)
 	debug_printf ("NtAssignProcessToJobObject: %y\r", status);
     }
   /* Never close the handle. */
+  return ret;
 }
 
-void
-setup_user_rlimits ()
+bool
+setup_user_rlimits (bool root_process)
 {
-  __setup_user_rlimits_single (HARD_LIMIT);
-  __setup_user_rlimits_single (SOFT_LIMIT);
+  bool in_a_foreign_job;
+
+  in_a_foreign_job = __setup_user_rlimits_single (HARD_LIMIT, root_process);
+  __setup_user_rlimits_single (SOFT_LIMIT, false);
+  return in_a_foreign_job;
 }
 
 extern "C" int

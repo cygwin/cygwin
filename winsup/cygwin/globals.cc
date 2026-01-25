@@ -28,6 +28,7 @@ PWCHAR windows_directory = windows_directory_buf + 4;
 UINT windows_directory_length;
 UNICODE_STRING windows_directory_path;
 WCHAR global_progname[NT_MAX_PATH];
+bool NO_COPY enforce_breakaway_from_job;
 
 /* program exit the program */
 

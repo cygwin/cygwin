@@ -894,7 +894,7 @@ dll_crt0_1 (void *)
 
   uinfo_init ();	/* initialize user info */
 
-  setup_user_rlimits ();
+  enforce_breakaway_from_job = setup_user_rlimits (!child_proc_info);
   if (child_proc_info)
     child_proc_info->inherit_process_rlimits ();
 
