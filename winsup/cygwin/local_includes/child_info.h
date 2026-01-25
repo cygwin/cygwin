@@ -33,7 +33,7 @@ enum child_status
 #define EXEC_MAGIC_SIZE sizeof(child_info)
 
 /* Change this value if you get a message indicating that it is out-of-sync. */
-#define CURR_CHILD_INFO_MAGIC 0x77f25a01U
+#define CURR_CHILD_INFO_MAGIC 0x3c5c4429U
 
 #include "pinfo.h"
 struct cchildren
@@ -111,7 +111,6 @@ public:
   void *stackbase;	// StackBase of parent thread
   size_t guardsize;     // size of POSIX guard region or (size_t) -1 if
 			// user stack
-  char filler[4];
   child_info_fork ();
   void handle_fork ();
   bool abort (const char *fmt = NULL, ...);
@@ -145,7 +144,6 @@ public:
   cygheap_exec_info *moreinfo;
   int __stdin;
   int __stdout;
-  char filler[4];
 
   void cleanup ();
   child_info_spawn () {};
