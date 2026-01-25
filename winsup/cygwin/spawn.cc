@@ -401,7 +401,11 @@ child_info_spawn::worker (const char *prog_arg, const char *const *argv,
       c_flags = GetPriorityClass (GetCurrentProcess ());
       sigproc_printf ("priority class %d", c_flags);
 
-      c_flags |= CREATE_SEPARATE_WOW_VDM | CREATE_UNICODE_ENVIRONMENT;
+      /* Per MSDN, this must be specified even if lpEnvironment is set to NULL,
+	 otherwise UNICODE characters in the parent environment are not copied
+	 correctly to the child.  Omitting it may scramble %PATH% on non-English
+	 systems. */
+      c_flags |= CREATE_UNICODE_ENVIRONMENT;
 
       /* Add CREATE_DEFAULT_ERROR_MODE flag for non-Cygwin processes so they
 	 get the default error mode instead of inheriting the mode Cygwin
