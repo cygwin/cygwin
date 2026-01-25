@@ -314,7 +314,8 @@ setrlimit (int resource, const struct rlimit *rlp)
 	  __leave;
 	}
 
-      if (rlp->rlim_cur > oldlimits.rlim_max)
+      if (rlp->rlim_max > oldlimits.rlim_max
+	  && !check_token_membership (well_known_admins_sid))
 	{
 	  set_errno (EPERM);
 	  __leave;
