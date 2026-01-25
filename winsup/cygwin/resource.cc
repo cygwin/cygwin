@@ -296,24 +296,25 @@ setrlimit (int resource, const struct rlimit *rlp)
 {
   struct rlimit oldlimits;
 
-  /* Check if the request is to actually change the resource settings.
-     If it does not result in a change, take no action and do not fail. */
   if (getrlimit (resource, &oldlimits) < 0)
     return -1;
 
   __try
     {
+      /* Check if the request is to actually change the resource settings.
+	 If it does not result in a change, take no action and do not fail. */
       if (oldlimits.rlim_cur == rlp->rlim_cur &&
 	  oldlimits.rlim_max == rlp->rlim_max)
-	/* No change in resource requirements, succeed immediately */
 	return 0;
 
+      /* soft limit > hard limit ? EINVAL */
       if (rlp->rlim_cur > rlp->rlim_max)
 	{
 	  set_errno (EINVAL);
 	  __leave;
 	}
 
+      /* hard limit > current hard limit ? EPERM if not admin */
       if (rlp->rlim_max > oldlimits.rlim_max
 	  && !check_token_membership (well_known_admins_sid))
 	{
