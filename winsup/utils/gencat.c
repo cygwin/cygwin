@@ -96,6 +96,10 @@ up-to-date.  Many thanks.
 #define NL_MSGMAX 2048
 #endif
 
+#ifndef __dead
+#define __dead __attribute__((__noreturn__))
+#endif
+
 struct _msgT {
 	long    msgId;
 	char   *str;
