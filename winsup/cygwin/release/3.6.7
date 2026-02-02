@@ -7,3 +7,6 @@ Fixes:
 - Allow changing primary group even when running with cygserver account
   caching.
   Addresses: https://cygwin.com/pipermail/cygwin/2026-January/259250.html
+
+- Correctly handle i->İ, I->ı conversion in turk lnd azerbaijani languages
+  (LC_CTYPE=tr_TR, tr_CY, az_AZ).
