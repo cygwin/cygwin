@@ -627,7 +627,7 @@ pg_ent::enumerate_ad ()
 	    full.acc_type = SidTypeAlias;
 	  else
 	    full.acc_type = group ? SidTypeGroup : SidTypeUser;
-	  char *line = pg.fetch_account_from_windows (arg, &cldap);
+	  char *line = pg.fetch_account_from_windows (arg, false, &cldap);
 	  if (line)
 	    return pg.add_account_post_fetch (line, false);
 	  ret = EIO;
