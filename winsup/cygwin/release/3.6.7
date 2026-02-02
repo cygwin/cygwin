@@ -10,3 +10,6 @@ Fixes:
 
 - Correctly handle i->İ, I->ı conversion in turk lnd azerbaijani languages
   (LC_CTYPE=tr_TR, tr_CY, az_AZ).
+
+- Fix uid/gid mapping from unix id to Cygwin id in certain scenarios when
+  accessing Samba or NFS shares on unixoid OS.

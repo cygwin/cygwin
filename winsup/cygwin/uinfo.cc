@@ -1616,7 +1616,7 @@ pwdgrp::add_account_from_windows (cygpsid &sid, cyg_ldap *pldap)
   fetch_user_arg_t arg;
   arg.type = SID_arg;
   arg.sid = &sid;
-  char *line = fetch_account_from_windows (arg, pldap);
+  char *line = fetch_account_from_windows (arg, true, pldap);
   if (!line)
     return NULL;
   return add_account_post_fetch (line, true);
@@ -1628,7 +1628,7 @@ pwdgrp::add_account_from_windows (const char *name, cyg_ldap *pldap)
   fetch_user_arg_t arg;
   arg.type = NAME_arg;
   arg.name = name;
-  char *line = fetch_account_from_windows (arg, pldap);
+  char *line = fetch_account_from_windows (arg, true, pldap);
   if (!line)
     return NULL;
   return add_account_post_fetch (line, true);
@@ -1640,7 +1640,7 @@ pwdgrp::add_account_from_windows (uint32_t id, cyg_ldap *pldap)
   fetch_user_arg_t arg;
   arg.type = ID_arg;
   arg.id = id;
-  char *line = fetch_account_from_windows (arg, pldap);
+  char *line = fetch_account_from_windows (arg, true, pldap);
   if (!line)
     return NULL;
   return add_account_post_fetch (line, true);
@@ -1653,7 +1653,7 @@ pwdgrp::add_group_from_windows (fetch_acc_t &full_acc, cyg_ldap *pldap)
   fetch_user_arg_t arg;
   arg.type = FULL_acc_arg;
   arg.full_acc = &full_acc;
-  char *line = fetch_account_from_windows (arg, pldap);
+  char *line = fetch_account_from_windows (arg, true, pldap);
   if (!line)
     return NULL;
   return (struct group *) add_account_post_fetch (line, true);
@@ -1939,7 +1939,7 @@ pwdgrp::construct_sid_from_name (cygsid &sid, wchar_t *name, wchar_t *sep)
 }
 
 char *
-pwdgrp::fetch_account_from_windows (fetch_user_arg_t &arg, cyg_ldap *pldap)
+pwdgrp::fetch_account_from_windows (fetch_user_arg_t &arg, bool ugid_caching, cyg_ldap *pldap)
 {
   /* Used in LookupAccount calls. */
   WCHAR namebuf[DNLEN + 1 + UNLEN + 1], *name = namebuf;
@@ -2500,7 +2500,7 @@ pwdgrp::fetch_account_from_windows (fetch_user_arg_t &arg, cyg_ldap *pldap)
 					     name, fully_qualified_name);
 	      /* Check and, if necessary, add unix<->windows id mapping
 		 on the fly, unless we're called from getpwent. */
-	      if (!pldap && cldap->is_open ())
+	      if (ugid_caching && cldap->is_open ())
 		{
 		  id_val = cldap->get_unix_uid ();
 		  if (id_val != ILLEGAL_UID
@@ -2584,7 +2584,8 @@ pwdgrp::fetch_account_from_windows (fetch_user_arg_t &arg, cyg_ldap *pldap)
 		    gid = gr->gr_gid;
 		}
 	      char *e;
-	      if (!pldap && uxid && ((id_val = strtoul (uxid, &e, 10)), !*e))
+	      if (ugid_caching && uxid
+		  && ((id_val = strtoul (uxid, &e, 10)), !*e))
 		{
 		  if (acc_type == SidTypeUser)
 		    {

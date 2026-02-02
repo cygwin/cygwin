@@ -105,6 +105,7 @@ class pwdgrp
   char *fetch_account_from_line (fetch_user_arg_t &arg, const char *line);
   char *fetch_account_from_file (fetch_user_arg_t &arg);
   char *fetch_account_from_windows (fetch_user_arg_t &arg,
+				    bool ugid_caching = false,
 				    cyg_ldap *pldap = NULL);
   char *fetch_account_from_cygserver (fetch_user_arg_t &arg);
 
