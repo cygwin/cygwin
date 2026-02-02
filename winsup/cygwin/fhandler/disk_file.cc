@@ -2254,7 +2254,11 @@ fhandler_disk_file::opendir (int fd)
 	    {
 	      dir->__flags |= dirent_set_d_ino;
 	      if (pc.fs_is_nfs ())
-		dir->__flags |= dirent_nfs_d_ino;
+	        {
+		  dir->__flags |= dirent_nfs_d_ino;
+		  if (isdrive (pc.get_win32 ()))
+		    dir->__flags |= dirent_get_d_ino;
+		}
 	      else if (!pc.has_buggy_fileid_dirinfo ())
 		dir->__flags |= dirent_get_d_ino;
 	    }
@@ -2501,7 +2505,10 @@ fhandler_disk_file::readdir (DIR *dir, dirent *de)
 	{
 	  FileName = buf->FileName;
 	  FileNameLength = buf->FileNameLength;
-	  FileAttributes = buf->FileAttributes;
+	  /* Ignore FileAttributes on NFS.  The value is copied from
+	     the symlink target and thus wrong. */
+	  FileAttributes = (dir->__flags & dirent_nfs_d_ino)
+			   ? 0 : buf->FileAttributes;
 	  if ((dir->__flags & dirent_set_d_ino))
 	    de->d_ino = buf->FileId.QuadPart;
 	}
