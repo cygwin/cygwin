@@ -81,7 +81,7 @@ _towctrans_r (struct _reent *r,
 	wctrans_t w)
 {
   if (w == WCT_TOLOWER || w == WCT_TOUPPER)
-    return towctrans_l (c, w, 0);
+    return towctrans_l (c, w, LC_GLOBAL_LOCALE);
   else
     {
       // skipping this because it was causing trouble (cygwin crash)

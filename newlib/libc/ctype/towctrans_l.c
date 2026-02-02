@@ -69,9 +69,21 @@ bisearch (wint_t ucs, const struct caseconv_entry *table, int max)
   return 0;
 }
 
-static wint_t
-toulower (wint_t c)
+static int
+isturk (struct __locale_t *locale)
 {
+  const char * loc = getlocalename_l (LC_CTYPE, locale);
+  if (!loc)
+    return 0;
+  return 0 == strncmp (loc, "tr", 2) || 0 == strncmp (loc, "az", 2);
+}
+
+static wint_t
+toulower (wint_t c, struct __locale_t *locale)
+{
+  if (c == 'I' && isturk (locale))
+    return 0x131; // LATIN SMALL LETTER DOTLESS I
+
   const struct caseconv_entry * cce =
     bisearch(c, caseconv_table,
              sizeof(caseconv_table) / sizeof(*caseconv_table) - 1);
@@ -105,8 +117,11 @@ toulower (wint_t c)
 }
 
 static wint_t
-touupper (wint_t c)
+touupper (wint_t c, struct __locale_t *locale)
 {
+  if (c == 'i' && isturk (locale))
+    return 0x130; // LATIN CAPITAL LETTER I WITH DOT ABOVE
+
   const struct caseconv_entry * cce =
     bisearch(c, caseconv_table,
              sizeof(caseconv_table) / sizeof(*caseconv_table) - 1);
@@ -145,9 +160,9 @@ towctrans_l (wint_t c, wctrans_t w, struct __locale_t *locale)
   wint_t u = _jp2uc_l (c, locale);
   wint_t res;
   if (w == WCT_TOLOWER)
-    res = toulower (u);
+    res = toulower (u, locale);
   else if (w == WCT_TOUPPER)
-    res = touupper (u);
+    res = touupper (u, locale);
   else
     {
       // skipping the errno setting that was previously involved
