@@ -24,6 +24,11 @@ details. */
 #include "tls_pbuf.h"
 #include <aclapi.h>
 
+/* This is just here to make sure the DBGSID definition is in the
+   debug information of the DLL, so it can be used to inspect SIDs
+   when running under GDB. */
+PDBGSID dbgsid;
+
 #define ALL_SECURITY_INFORMATION (DACL_SECURITY_INFORMATION \
 				  | GROUP_SECURITY_INFORMATION \
 				  | OWNER_SECURITY_INFORMATION)
