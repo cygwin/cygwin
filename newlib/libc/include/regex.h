@@ -38,9 +38,10 @@
 #define	_REGEX_H_
 
 #include <sys/cdefs.h>
+#include <sys/_types.h>
 
 /* types */
-typedef off_t regoff_t;
+typedef _off_t regoff_t;
 
 typedef struct {
 	int re_magic;
