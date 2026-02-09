@@ -11,8 +11,8 @@ typedef unsigned char		char8_t;
 
 /* C++11 already defines those types. */
 #if !defined (__cplusplus) || (__cplusplus - 0 < 201103L)
-typedef	__uint_least16_t	char16_t;
-typedef	__uint_least32_t	char32_t;
+typedef	__char16_t	char16_t;
+typedef	__char32_t	char32_t;
 #endif
 
 __BEGIN_DECLS
