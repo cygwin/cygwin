@@ -241,6 +241,20 @@ typedef long __intptr_t;
 typedef unsigned long __uintptr_t;
 #endif
 
+/* clang already defines these types in C++ mode */
+#if !defined(__clang__) || !defined(__cplusplus)
+#ifdef __CHAR16_TYPE__
+typedef __CHAR16_TYPE__		__char16_t;
+#else
+typedef __uint_least16_t        __char16_t;
+#endif
+#ifdef __CHAR32_TYPE__
+typedef __CHAR32_TYPE__		__char32_t;
+#else
+typedef __uint_least32_t        __char32_t;
+#endif
+#endif
+
 #undef __EXP
 
 #ifdef __cplusplus
