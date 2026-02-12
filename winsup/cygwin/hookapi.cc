@@ -45,6 +45,8 @@ PEHeaderFromHModule (HMODULE hModule)
     {
     case IMAGE_FILE_MACHINE_AMD64:
       break;
+    case IMAGE_FILE_MACHINE_ARM64:
+      break;
     default:
       return NULL;
     }
