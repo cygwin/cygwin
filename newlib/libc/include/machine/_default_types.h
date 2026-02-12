@@ -321,6 +321,20 @@ typedef long __intptr_t;
 typedef unsigned long __uintptr_t;
 #endif
 
+#ifdef __PTRDIFF_TYPE__
+typedef __PTRDIFF_TYPE__ __ptrdiff_t;
+#else
+typedef long int __ptrdiff_t;
+#endif
+
+#ifdef __WCHAR_TYPE__
+typedef __WCHAR_TYPE__ __wchar_t;
+#elif defined (__WCHAR_MAX__) && __WCHAR_MAX__ == 0xffff
+typedef short unsigned int __wchar_t;
+#else
+typedef int __wchar_t;
+#endif
+
 /* clang already defines these types in C++ mode */
 #if !defined(__clang__) || !defined(__cplusplus)
 #ifdef __CHAR16_TYPE__
