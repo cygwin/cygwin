@@ -5,7 +5,7 @@
 #include <wchar.h>
 
 /* Either C23 or if C++ doesn't already define char8_t */
-#if __ISO_C_VISIBLE >= 2020 && !defined (__cpp_char8_t)
+#if __ISO_C_VISIBLE >= 2023 && !defined (__cpp_char8_t)
 typedef unsigned char		char8_t;
 #endif
 
@@ -18,7 +18,7 @@ typedef	__char32_t	char32_t;
 __BEGIN_DECLS
 
 /* Either C23 or if C++ defines char8_t */
-#if __ISO_C_VISIBLE >= 2020 || defined (__cpp_char8_t)
+#if __ISO_C_VISIBLE >= 2023 || defined (__cpp_char8_t)
 size_t  c8rtomb(char * __restrict, char8_t, mbstate_t * __restrict);
 size_t	mbrtoc8(char8_t * __restrict, const char * __restrict, size_t,
 		mbstate_t * __restrict);
