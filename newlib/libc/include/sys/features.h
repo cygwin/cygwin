@@ -234,7 +234,7 @@ extern "C" {
  *	g++ -std=c++11 or newer (on by default since GCC 6), or with
  *	_ISOC11_SOURCE.
  *
- * __ISO_C_VISIBLE >= 2020
+ * __ISO_C_VISIBLE >= 2023
  *	ISO C23; enabled with gcc -std=c23 or newer,
  *	g++ -std=c++20 or newer, or with
  *	_ISOC23_SOURCE or _ISOC2x_SOURCE.
@@ -288,7 +288,7 @@ extern "C" {
 #if defined(_ISOC23_SOURCE) || \
     (defined(__STDC_VERSION__) && (__STDC_VERSION__ - 0) > 201710L) || \
     (defined(__cplusplus) && (__cplusplus - 0) >= 202002L)
-#define __ISO_C_VISIBLE		2020
+#define __ISO_C_VISIBLE		2023
 #elif defined(_ISOC11_SOURCE) || \
     (defined(__STDC_VERSION__) && (__STDC_VERSION__ - 0) >= 201112L) || \
     (defined(__cplusplus) && (__cplusplus - 0) >= 201103L)
