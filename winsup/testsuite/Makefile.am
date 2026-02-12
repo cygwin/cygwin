@@ -328,7 +328,7 @@ LDADD_FOR_TESTDLL = $(builddir)/../cygwin/libcygwin.a -lgcc -lkernel32 -luser32
 
 # flags for test executables
 AM_CPPFLAGS = -I$(srcdir)/libltp/include
-AM_LDFLAGS = $(LDFLAGS_FOR_TESTDLL)
+AM_LDFLAGS = $(LDFLAGS_FOR_TESTDLL) -Wl,--disable-high-entropy-va
 LDADD = $(builddir)/libltp.a $(builddir)/../cygwin/binmode.o $(LDADD_FOR_TESTDLL)
 
 # additional flags for specific test executables

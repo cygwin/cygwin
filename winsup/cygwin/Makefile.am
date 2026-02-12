@@ -620,7 +620,7 @@ $(NEW_DLL_NAME): $(LDSCRIPT) libdll.a $(VERSION_OFILES) $(LIBSERVER)\
 	$(AM_V_CXXLD)$(CXX) $(CXXFLAGS) \
 	-mno-use-libstdc-wrappers \
 	-Wl,--gc-sections -nostdlib -Wl,-T$(LDSCRIPT) \
-	-Wl,--dynamicbase -static \
+	-Wl,--dynamicbase -Wl,--disable-high-entropy-va -static \
 	$${SOURCE_DATE_EPOCH:+-Wl,--no-insert-timestamp} \
 	-Wl,--heap=0 -Wl,--out-implib,cygdll.a -shared -o $@ \
 	-e @DLL_ENTRY@ $(DEF_FILE) \

@@ -38,7 +38,7 @@ cygserver_SOURCES = \
 
 cygserver_CXXFLAGS = $(cygserver_flags) -D__OUTSIDE_CYGWIN__
 cygserver_LDADD = -lntdll
-cygserver_LDFLAGS = -static -static-libgcc
+cygserver_LDFLAGS = -static -static-libgcc -Wl,--disable-high-entropy-va
 
 # Note: the objects in libcygserver are built without -D__OUTSIDE_CYGWIN__,
 # unlike cygserver.exe
