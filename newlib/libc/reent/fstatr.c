@@ -44,10 +44,7 @@ DESCRIPTION
 */
 
 int
-_fstat_r (ptr, fd, pstat)
-     struct _reent *ptr;
-     int fd;
-     struct stat *pstat;
+_fstat_r (struct _reent *ptr, int fd, struct stat *pstat)
 {
   int ret;
 

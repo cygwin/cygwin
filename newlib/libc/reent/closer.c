@@ -37,9 +37,7 @@ DESCRIPTION
 */
 
 int
-_close_r (ptr, fd)
-     struct _reent *ptr;
-     int fd;
+_close_r (struct _reent *ptr, int fd)
 {
   int ret;
 

@@ -42,9 +42,7 @@ DESCRIPTION
 */
 
 int
-_isatty_r (ptr, fd)
-     struct _reent *ptr;
-     int fd;
+_isatty_r (struct _reent *ptr, int fd)
 {
   int ret;
 
