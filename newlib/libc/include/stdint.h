@@ -41,87 +41,28 @@ typedef __uint_least64_t uint_least64_t;
 #define __int_least64_t_defined 1
 #endif
 
-/*
- * Fastest minimum-width integer types
- *
- * Assume int to be the fastest type for all types with a width 
- * less than __INT_MAX__ rsp. INT_MAX
- */
-#ifdef __INT_FAST8_TYPE__
-  typedef __INT_FAST8_TYPE__ int_fast8_t;
-  typedef __UINT_FAST8_TYPE__ uint_fast8_t;
-#define __int_fast8_t_defined 1
-#elif __STDINT_EXP(INT_MAX) >= 0x7f
-  typedef signed int int_fast8_t;
-  typedef unsigned int uint_fast8_t;
+#ifdef ___int_fast8_t_defined
+typedef __int_fast8_t int_fast8_t;
+typedef __uint_fast8_t uint_fast8_t;
 #define __int_fast8_t_defined 1
 #endif
 
-#ifdef __INT_FAST16_TYPE__
-  typedef __INT_FAST16_TYPE__ int_fast16_t;
-  typedef __UINT_FAST16_TYPE__ uint_fast16_t;
-#define __int_fast16_t_defined 1
-#elif __STDINT_EXP(INT_MAX) >= 0x7fff
-  typedef signed int int_fast16_t;
-  typedef unsigned int uint_fast16_t;
+#ifdef ___int_fast16_t_defined
+typedef __int_fast16_t int_fast16_t;
+typedef __uint_fast16_t uint_fast16_t;
 #define __int_fast16_t_defined 1
 #endif
 
-#ifdef __INT_FAST32_TYPE__
-  typedef __INT_FAST32_TYPE__ int_fast32_t;
-  typedef __UINT_FAST32_TYPE__ uint_fast32_t;
-#define __int_fast32_t_defined 1
-#elif __STDINT_EXP(INT_MAX) >= 0x7fffffff
-  typedef signed int int_fast32_t;
-  typedef unsigned int uint_fast32_t;
+#ifdef ___int_fast32_t_defined
+typedef __int_fast32_t int_fast32_t;
+typedef __uint_fast32_t uint_fast32_t;
 #define __int_fast32_t_defined 1
 #endif
 
-#ifdef __INT_FAST64_TYPE__
-  typedef __INT_FAST64_TYPE__ int_fast64_t;
-  typedef __UINT_FAST64_TYPE__ uint_fast64_t;
+#ifdef ___int_fast64_t_defined
+typedef __int_fast64_t int_fast64_t;
+typedef __uint_fast64_t uint_fast64_t;
 #define __int_fast64_t_defined 1
-#elif __STDINT_EXP(INT_MAX) > 0x7fffffff
-  typedef signed int int_fast64_t;
-  typedef unsigned int uint_fast64_t;
-#define __int_fast64_t_defined 1
-#endif
-
-/*
- * Fall back to [u]int_least<N>_t for [u]int_fast<N>_t types
- * not having been defined, yet.
- * Leave undefined, if [u]int_least<N>_t should not be available.
- */
-#if !__int_fast8_t_defined
-#if __int_least8_t_defined
-  typedef int_least8_t int_fast8_t;
-  typedef uint_least8_t uint_fast8_t;
-#define __int_fast8_t_defined 1
-#endif
-#endif
-
-#if !__int_fast16_t_defined
-#if __int_least16_t_defined
-  typedef int_least16_t int_fast16_t;
-  typedef uint_least16_t uint_fast16_t;
-#define __int_fast16_t_defined 1
-#endif
-#endif
-
-#if !__int_fast32_t_defined
-#if __int_least32_t_defined
-  typedef int_least32_t int_fast32_t;
-  typedef uint_least32_t uint_fast32_t;
-#define __int_fast32_t_defined 1
-#endif
-#endif
-
-#if !__int_fast64_t_defined
-#if __int_least64_t_defined
-  typedef int_least64_t int_fast64_t;
-  typedef uint_least64_t uint_fast64_t;
-#define __int_fast64_t_defined 1
-#endif
 #endif
 
 #ifdef __INTPTR_TYPE__

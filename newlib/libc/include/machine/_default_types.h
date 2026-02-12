@@ -210,6 +210,86 @@ typedef __uint64_t __uint_least64_t;
 #define ___int_least64_t_defined 1
 #endif
 
+#ifdef __INT_FAST8_TYPE__
+typedef __INT_FAST8_TYPE__ __int_fast8_t;
+#ifdef __UINT_FAST8_TYPE__
+typedef __UINT_FAST8_TYPE__ __uint_fast8_t;
+#else
+typedef unsigned __INT_FAST8_TYPE__ __uint_fast8_t;
+#endif
+#define ___int_fast8_t_defined 1
+#elif defined(___int8_t_defined)
+typedef __int8_t __int_fast8_t;
+typedef __uint8_t __uint_fast8_t;
+#define ___int_fast8_t_defined 1
+#elif defined(___int16_t_defined)
+typedef __int16_t __int_fast8_t;
+typedef __uint16_t __uint_fast8_t;
+#define ___int_fast8_t_defined 1
+#elif defined(___int32_t_defined)
+typedef __int32_t __int_fast8_t;
+typedef __uint32_t __uint_fast8_t;
+#define ___int_fast8_t_defined 1
+#elif defined(___int64_t_defined)
+typedef __int64_t __int_fast8_t;
+typedef __uint64_t __uint_fast8_t;
+#define ___int_fast8_t_defined 1
+#endif
+
+#ifdef __INT_FAST16_TYPE__
+typedef __INT_FAST16_TYPE__ __int_fast16_t;
+#ifdef __UINT_FAST16_TYPE__
+typedef __UINT_FAST16_TYPE__ __uint_fast16_t;
+#else
+typedef unsigned __INT_FAST16_TYPE__ __uint_fast16_t;
+#endif
+#define ___int_fast16_t_defined 1
+#elif defined(___int16_t_defined)
+typedef __int16_t __int_fast16_t;
+typedef __uint16_t __uint_fast16_t;
+#define ___int_fast16_t_defined 1
+#elif defined(___int32_t_defined)
+typedef __int32_t __int_fast16_t;
+typedef __uint32_t __uint_fast16_t;
+#define ___int_fast16_t_defined 1
+#elif defined(___int64_t_defined)
+typedef __int64_t __int_fast16_t;
+typedef __uint64_t __uint_fast16_t;
+#define ___int_fast16_t_defined 1
+#endif
+
+#ifdef __INT_FAST32_TYPE__
+typedef __INT_FAST32_TYPE__ __int_fast32_t;
+#ifdef __UINT_FAST32_TYPE__
+typedef __UINT_FAST32_TYPE__ __uint_fast32_t;
+#else
+typedef unsigned __INT_FAST32_TYPE__ __uint_fast32_t;
+#endif
+#define ___int_fast32_t_defined 1
+#elif defined(___int32_t_defined)
+typedef __int32_t __int_fast32_t;
+typedef __uint32_t __uint_fast32_t;
+#define ___int_fast32_t_defined 1
+#elif defined(___int64_t_defined)
+typedef __int64_t __int_fast32_t;
+typedef __uint64_t __uint_fast32_t;
+#define ___int_fast32_t_defined 1
+#endif
+
+#ifdef __INT_FAST64_TYPE__
+typedef __INT_FAST64_TYPE__ __int_fast64_t;
+#ifdef __UINT_FAST64_TYPE__
+typedef __UINT_FAST64_TYPE__ __uint_fast64_t;
+#else
+typedef unsigned __INT_FAST64_TYPE__ __uint_fast64_t;
+#endif
+#define ___int_fast64_t_defined 1
+#elif defined(___int64_t_defined)
+typedef __int64_t __int_fast64_t;
+typedef __uint64_t __uint_fast64_t;
+#define ___int_fast64_t_defined 1
+#endif
+
 #if defined(__INTMAX_TYPE__)
 typedef __INTMAX_TYPE__ __intmax_t;
 #elif __have_longlong64
