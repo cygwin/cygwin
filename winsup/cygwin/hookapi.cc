@@ -40,17 +40,6 @@ PEHeaderFromHModule (HMODULE hModule)
   if (pNTHeader->Signature != IMAGE_NT_SIGNATURE)
     return NULL;
 
-  /* Return valid PIMAGE_NT_HEADERS only for supported architectures. */
-  switch (pNTHeader->FileHeader.Machine)
-    {
-    case IMAGE_FILE_MACHINE_AMD64:
-      break;
-    case IMAGE_FILE_MACHINE_ARM64:
-      break;
-    default:
-      return NULL;
-    }
-
   return pNTHeader;
 }
 
