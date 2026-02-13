@@ -1,7 +1,7 @@
 Fixes:
 ------
 
-- Guard c32rtomb against invalid input characters.
+- Guard c32rtomb() against invalid input characters.
   Addresses a testsuite error in current gawk git master.
 
 - Allow changing primary group even when running with cygserver account
@@ -13,3 +13,8 @@ Fixes:
 
 - Fix uid/gid mapping from unix id to Cygwin id in certain scenarios when
   accessing Samba or NFS shares on unixoid OS.
+
+- gencat: Fix a bug in octal value handling in catalog input files.
+  Addresses a flaw in tcsh's cataloge file generation.
+
+- Bump default_POSIX_C_SOURCE to 202405.
