@@ -1576,7 +1576,10 @@ open (const char *unix_path, int flags, ...)
       cygheap_fdnew fd;
 
       if (fd < 0)
-	__leave;		/* errno already set */
+	{
+	  fh->close();
+	  __leave;		/* errno already set */
+	}
 
       fd = fh;
       if (fd <= 2)
