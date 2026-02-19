@@ -636,8 +636,12 @@ $(NEW_DLL_NAME): $(LDSCRIPT) libdll.a $(VERSION_OFILES) $(LIBSERVER)\
 # cygwin import library
 toolopts=--cpu=@target_cpu@ --ar=@AR@ --as=@AS@ --nm=@NM@ --objcopy=@OBJCOPY@
 
-$(DEF_FILE): scripts/gendef cygwin.din
-	$(AM_V_GEN)$(srcdir)/scripts/gendef --cpu=@target_cpu@ --output-def=$(DEF_FILE) $(srcdir)/cygwin.din
+# Architecture-specific .din files
+ARCH_DIN = $(srcdir)/@target_cpu@/cygwin.din
+
+$(DEF_FILE): scripts/gendef cygwin.din $(wildcard $(ARCH_DIN))
+	$(AM_V_GEN)$(srcdir)/scripts/gendef --cpu=@target_cpu@ --output-def=$(DEF_FILE) \
+	  $(wildcard $(ARCH_DIN)) $(srcdir)/cygwin.din
 
 sigfe.s: $(DEF_FILE) tlsoffsets
 	@[ -s $@ ] || \

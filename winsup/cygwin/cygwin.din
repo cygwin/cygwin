@@ -1,6 +1,3 @@
-LIBRARY "cygwin1.dll" BASE=0x180040000
-
-EXPORTS
 # Exported variables
 __argc DATA
 __argv DATA

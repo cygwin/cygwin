@@ -1,0 +1,6 @@
+# x86_64-specific exports
+# These symbols are available on x64 architecture
+
+LIBRARY "cygwin1.dll" BASE=0x180040000
+
+EXPORTS
