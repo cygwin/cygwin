@@ -2730,6 +2730,38 @@ fhandler_pty_master::pty_master_fwd_thread (const master_fwd_thread_param_t *p)
 	    else
 	      state = 0;
 
+	  /* Remove CSI ? 9001 h/l (win32-input-mode) */
+	  int arg = 0;
+	  state = 0;
+	  for (DWORD i = 0; i < rlen; i++)
+	    if (outbuf[i] == '\033')
+	      {
+		start_at = i;
+		state = 1;
+		continue;
+	      }
+	    else if ((state == 1 && outbuf[i] == '[')
+		     || (state == 2 && outbuf[i] == '?'))
+	      {
+		state ++;
+		continue;
+	      }
+	    else if (state == 3 && isdigit (outbuf[i]))
+	      arg = arg * 10 + (outbuf[i] - '0');
+	    else if (state == 3 && outbuf[i] == ';')
+	      arg = 0;
+	    else if (state == 3 && arg == 9001
+		     && (outbuf[i] == 'h' || outbuf[i] == 'l'))
+	      {
+		memmove (&outbuf[start_at], &outbuf[i+1], rlen-i-1);
+		rlen = wlen = start_at + rlen - i - 1;
+		state = 0;
+		i = start_at - 1;
+		continue;
+	      }
+	    else
+	      state = 0;
+
 	  /* Remove OSC Ps ; ? BEL/ST */
 	  state = 0;
 	  for (DWORD i = 0; i < rlen; i++)
