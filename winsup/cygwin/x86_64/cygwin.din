@@ -4,3 +4,4 @@
 LIBRARY "cygwin1.dll" BASE=0x180040000
 
 EXPORTS
+_alloca = __alloca NOSIGFE
