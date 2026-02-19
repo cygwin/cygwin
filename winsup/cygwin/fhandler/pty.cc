@@ -2692,8 +2692,12 @@ workarounds_for_pseudo_console_output (char *outbuf, DWORD rlen)
 	assert (state == 2);
 	if (outbuf[i-1] == '[' && outbuf[i] == '>')
 	  saw_greater_than_sign = true;
-	else if (isdigit (outbuf[i]) || outbuf[i] == ';')
-	  continue;
+	else if (outbuf[i-1] == '[' && outbuf[i] == '?')
+	  saw_question_mark = true;
+	else if (isdigit (outbuf[i]))
+	  arg = arg * 10 + (outbuf[i] - '0');
+	else if (outbuf[i] == ';')
+	  arg = 0;
 	else if (saw_greater_than_sign && outbuf[i] == 'm')
 	  {
 	    /* Remove CSI > Pm m */
@@ -2722,6 +2726,14 @@ workarounds_for_pseudo_console_output (char *outbuf, DWORD rlen)
 	      }
 	    state = 0;
 	  }
+	else if (saw_question_mark && arg == 9001
+		 && (outbuf[i] == 'h' || outbuf[i] == 'l'))
+	  {
+	    memmove (&outbuf[start_at], &outbuf[i+1], rlen-i-1);
+	    rlen = start_at + rlen - i - 1;
+	    i = start_at - 1;
+	    state = 0;
+	  }
 	else if (outbuf[i] == '\033')
 	  {
 	    start_at = i;
@@ -2734,6 +2746,8 @@ workarounds_for_pseudo_console_output (char *outbuf, DWORD rlen)
 	  {
 	    is_csi = false;
 	    saw_greater_than_sign = false;
+	    saw_question_mark = false;
+	    arg = 0;
 	  }
       }
     else if (is_osc)
