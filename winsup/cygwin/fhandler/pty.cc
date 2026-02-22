@@ -2137,6 +2137,8 @@ fhandler_pty_master::close (int flag)
 ssize_t
 fhandler_pty_master::write (const void *ptr, size_t len)
 {
+  size_t orig_len = len;
+
   ssize_t ret;
   char *p = (char *) ptr;
   termios &ti = tc ()->ti;
@@ -2160,7 +2162,8 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 
       DWORD n;
       WaitForSingleObject (input_mutex, mutex_timeout);
-      for (size_t i = 0; i < len; i++)
+      len = 0;
+      for (size_t i = 0; i < orig_len; i++)
 	{
 	  if (p[i] == '\033')
 	    {
@@ -2185,18 +2188,21 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 	    line_edit (p + i, 1, ti, &ret);
 	  if (state == 1 && p[i] == 'R')
 	    state = 2;
-	}
-      if (state == 2)
-	{
-	  /* req_xfer_input is true if "ESC[6n" was sent just for
-	     triggering transfer_input() in master. In this case,
-	     the responce sequence should not be written. */
-	  if (!get_ttyp ()->req_xfer_input)
-	    WriteFile (to_slave_nat, wpbuf, ixput, &n, NULL);
-	  ixput = 0;
-	  state = 0;
-	  get_ttyp ()->req_xfer_input = false;
-	  get_ttyp ()->pcon_start = false;
+	  if (state == 2)
+	    {
+	      /* req_xfer_input is true if "ESC[6n" was sent just for
+		 triggering transfer_input() in master. In this case,
+		 the response sequence should not be written. */
+	      if (!get_ttyp ()->req_xfer_input)
+		WriteFile (to_slave_nat, wpbuf, ixput, &n, NULL);
+	      len = orig_len - i - 1;
+	      ptr = p + i + 1;
+	      ixput = 0;
+	      state = 0;
+	      get_ttyp ()->req_xfer_input = false;
+	      get_ttyp ()->pcon_start = false;
+	      break;
+	    }
 	}
       ReleaseMutex (input_mutex);
 
@@ -2221,8 +2227,8 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 	    }
 	  get_ttyp ()->pcon_start_pid = 0;
 	}
-
-      return len;
+      if (len == 0)
+	return orig_len;
     }
 
   /* Write terminal input to to_slave_nat pipe instead of output_handle
@@ -2262,7 +2268,7 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 	WriteFile (to_slave_nat, buf, nlen, &n, NULL);
       ReleaseMutex (input_mutex);
 
-      return len;
+      return orig_len;
     }
 
   /* The code path reaches here when pseudo console is not activated
@@ -2284,8 +2290,8 @@ fhandler_pty_master::write (const void *ptr, size_t len)
   ReleaseMutex (input_mutex);
 
   if (status > line_edit_signalled && status != line_edit_pipe_full)
-    ret = -1;
-  return ret;
+    return -1;
+  return orig_len - len + ret;
 }
 
 void
