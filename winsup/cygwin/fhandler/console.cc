@@ -318,6 +318,16 @@ inrec_eq (const INPUT_RECORD *a, const INPUT_RECORD *b, DWORD n)
 	     written event. Therefore they are ignored. */
 	  const KEY_EVENT_RECORD *ak = &a[i].Event.KeyEvent;
 	  const KEY_EVENT_RECORD *bk = &b[i].Event.KeyEvent;
+	  WCHAR c1 = ak->uChar.UnicodeChar;
+	  WCHAR c2 = bk->uChar.UnicodeChar;
+	  if (inside_pcon)
+	    {
+	      /* Workaround for pseudo console in Windows 11 */
+	      if (c1 == 8) /* Ctrl-H */
+		c1 = 127; /* Backspace */
+	      if (c2 == 8) /* Ctrl-H */
+		c2 = 127; /* Backspace */
+	    }
 	  /* On Windows 11, conhost normalizes wRepeatCount from 0 to 1
 	     on readback. Treat them as equivalent for comparison. */
 	  WORD r1 = ak->wRepeatCount;
@@ -327,7 +337,7 @@ inrec_eq (const INPUT_RECORD *a, const INPUT_RECORD *b, DWORD n)
 	  if (r2 == 0)
 	    r2 = 1;
 	  if (ak->bKeyDown != bk->bKeyDown
-	      || ak->uChar.UnicodeChar != bk->uChar.UnicodeChar
+	      || c1 != c2
 	      || r1 != r2)
 	    return false;
 	}

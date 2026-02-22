@@ -2564,6 +2564,8 @@ private:
   HANDLE thread_param_copied_event;
   HANDLE helper_goodbye;
   HANDLE helper_h_process;
+  HANDLE h_pcon_in_dupped;
+  DWORD nat_pipe_owner_pid_dupped;
 
 public:
   HANDLE get_echo_handle () const { return echo_r; }

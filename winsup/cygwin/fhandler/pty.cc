@@ -1950,7 +1950,8 @@ fhandler_pty_master::fhandler_pty_master (int unit, dev_t via)
     master_thread (NULL), from_master_nat (NULL), to_master_nat (NULL),
     from_slave_nat (NULL), to_slave_nat (NULL), echo_r (NULL), echo_w (NULL),
     dwProcessId (0), to_master (NULL), from_master (NULL),
-    master_fwd_thread (NULL)
+    master_fwd_thread (NULL), h_pcon_in_dupped (NULL),
+    nat_pipe_owner_pid_dupped (0)
 {
   dev_referred_via = via;
   if (unit >= 0)
@@ -2131,6 +2132,10 @@ fhandler_pty_master::close (int flag)
     termios_printf ("error closing from_master %p, %E", from_master);
   from_master = NULL;
 
+  if (h_pcon_in_dupped)
+    ForceCloseHandle (h_pcon_in_dupped);
+  h_pcon_in_dupped = NULL;
+
   return 0;
 }
 
@@ -2241,28 +2246,77 @@ fhandler_pty_master::write (const void *ptr, size_t len)
     { /* Reaches here when non-cygwin app is foreground and pseudo console
 	 is activated. */
       tmp_pathbuf tp;
-      char *buf = (char *) ptr;
+      char *buf = tp.c_get ();
       size_t nlen = len;
       if (get_ttyp ()->term_code_page != CP_UTF8)
 	{
 	  static mbstate_t mbp;
-	  buf = tp.c_get ();
 	  nlen = NT_MAX_PATH;
 	  convert_mb_str (CP_UTF8, buf, &nlen,
 			  get_ttyp ()->term_code_page, (const char *) ptr, len,
 			  &mbp);
 	}
+      else
+	memcpy (buf, ptr, nlen);
 
-      for (size_t i = 0; i < nlen; i++)
+      if (get_ttyp ()->nat_pipe_owner_pid != nat_pipe_owner_pid_dupped)
+	{
+	  if (!nat_pipe_owner_self (get_ttyp ()->nat_pipe_owner_pid))
+	    {
+	      if (h_pcon_in_dupped)
+		ForceCloseHandle (h_pcon_in_dupped);
+	      h_pcon_in_dupped = NULL;
+	      nat_pipe_owner_pid_dupped = 0;
+	      HANDLE pcon_owner = OpenProcess (PROCESS_DUP_HANDLE, FALSE,
+					       get_ttyp ()->nat_pipe_owner_pid);
+	      if (pcon_owner)
+		{
+		  DuplicateHandle (pcon_owner, get_ttyp ()->h_pcon_in,
+				   GetCurrentProcess (), &h_pcon_in_dupped,
+				   0, FALSE, DUPLICATE_SAME_ACCESS);
+		  nat_pipe_owner_pid_dupped = get_ttyp ()->nat_pipe_owner_pid;
+		  CloseHandle (pcon_owner);
+		}
+	    }
+	  else
+	    {
+	      h_pcon_in_dupped = get_ttyp ()->h_pcon_in;
+	      nat_pipe_owner_pid_dupped = get_ttyp ()->nat_pipe_owner_pid;
+	    }
+	}
+
+      /* Retrieve console mode */
+      DWORD cons_mode = ENABLE_VIRTUAL_TERMINAL_INPUT;
+      if (h_pcon_in_dupped && memchr (buf, '\010' /* Ctrl-H */, nlen))
+	{
+	  if (!nat_pipe_owner_self (nat_pipe_owner_pid_dupped))
+	    {
+	      DWORD resume_pid =
+		attach_console_temporarily (nat_pipe_owner_pid_dupped);
+	      GetConsoleMode (h_pcon_in_dupped, &cons_mode);
+	      resume_from_temporarily_attach (resume_pid);
+	    }
+	  else
+	    GetConsoleMode (h_pcon_in_dupped, &cons_mode);
+	}
+
+      len = nlen;
+      for (size_t i = 0, j = 0; i < len; i++)
 	{
 	  process_sig_state r = process_sigs (buf[i], get_ttyp (), this);
-	  if (r == done_with_debugger)
+	  if (r != done_with_debugger)
 	    {
-	      for (size_t j = i; j < nlen - 1; j++)
-		buf[j] = buf[j + 1];
-	      nlen--;
-	      i--;
+	      char c = buf[i];
+	      /* Workaround for pseudo console in Windows 11 */
+	      if (!(cons_mode & ENABLE_VIRTUAL_TERMINAL_INPUT))
+		/* Undesired backspace conversion in pseudo console does
+		   not happen if ENABLE_VIRTUAL_TERMINAL_INPUT is set. */
+		if (c == '\010') /* Ctrl-H */
+		  c = '\177';  /* Backspace */
+	      buf[j++] = c;
 	    }
+	  else
+	    nlen--;
 	}
 
       DWORD n;
@@ -3145,6 +3199,8 @@ fhandler_pty_master::fixup_after_fork (HANDLE parent)
   from_slave_nat = arch->from_slave_nat;
   to_slave_nat = arch->to_slave_nat;
 #endif
+  h_pcon_in_dupped = NULL;
+  nat_pipe_owner_pid_dupped = 0;
   report_tty_counts (this, "inherited master", "");
 }
 
@@ -3998,6 +4054,10 @@ fhandler_pty_slave::transfer_input (tty::xfer_dir dir, HANDLE from, tty *ttyp,
 	    if (r[i].EventType == KEY_EVENT && r[i].Event.KeyEvent.bKeyDown)
 	      {
 		DWORD ctrl_key_state = r[i].Event.KeyEvent.dwControlKeyState;
+		if (r[i].Event.KeyEvent.uChar.AsciiChar == '\010' /* Ctrl-H */
+		    && !(ctrl_key_state & ALT_PRESSED))
+		  /* Workaround for pseudo console in Windows 11 */
+		  r[i].Event.KeyEvent.uChar.AsciiChar = '\177'; /* Backspace */
 		if (r[i].Event.KeyEvent.uChar.AsciiChar)
 		  {
 		    if ((ctrl_key_state & ALT_PRESSED)
