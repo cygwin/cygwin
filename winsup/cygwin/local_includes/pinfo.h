@@ -46,6 +46,9 @@ enum picom
 
 class fhandler_pipe;
 
+pid_t create_cygwin_pid ();
+pid_t cygwin_pid (DWORD);
+
 class _pinfo
 {
 public:
@@ -126,10 +129,46 @@ public:
   bool exists ();
   const char *_ctty (char *);
 
+  /* "Special" here means a non-cygwin process or a process whose parent
+     is not a cygwin process */
+  inline bool is_foreground_special_process (pid_t tty_pgid)
+  {
+    if (pgid != tty_pgid) /* The process is background */
+      return false;
+    if (!(process_state & PID_CYGPARENT))
+      return true;
+    return !!(process_state & PID_NOTCYGWIN);
+  }
+  inline bool is_foreground_non_cygwin_process (pid_t tty_pgid)
+  {
+    if (pgid != tty_pgid)
+      return false;
+    return !!(process_state & PID_NOTCYGWIN);
+  }
+  inline bool is_gdb_with_foreground_non_cygwin_inferior (pid_t tty_pgid)
+  {
+    if (pgid == tty_pgid) /* GDB is the foreground process */
+      return false;
+    if (wpid_debuggee_maybe == 0)
+      return false;
+    /* Below is true for GDB with non-cygwin inferior */
+    return !cygwin_pid (wpid_debuggee_maybe);
+  }
+  inline bool is_cygwin_inferior_being_debugged ()
+  {
+    if (cygstarted)
+      return false;
+    if (process_state & PID_NOTCYGWIN)
+      return false;
+    return !!(process_state & PID_DEBUGGED);
+  }
+
   /* signals */
   HANDLE sendsig;
   HANDLE exec_sendsig;
   DWORD exec_dwProcessId;
+
+  DWORD wpid_debuggee_maybe;
 public:
   friend class pinfo_minimal;
 };
@@ -253,9 +292,6 @@ public:
   ~winpids ();
   void release ();
 };
-
-pid_t create_cygwin_pid ();
-pid_t cygwin_pid (DWORD);
 
 void pinfo_init (char **, int);
 extern pinfo myself;

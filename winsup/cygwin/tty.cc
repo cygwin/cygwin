@@ -340,10 +340,9 @@ tty::nat_fg (pid_t pgid)
   for (unsigned i = 0; i < pids.npids; i++)
     {
       _pinfo *p = pids[i];
-      if (p->ctty == ntty && p->pgid == pgid
-	  && ((p->process_state & PID_NOTCYGWIN)
-	      /* Below is true for GDB with non-cygwin inferior */
-	      || p->exec_dwProcessId == p->dwProcessId))
+      if (p->ctty == ntty
+	  && (p->is_foreground_non_cygwin_process (pgid)
+	      || p->is_gdb_with_foreground_non_cygwin_inferior (pgid)))
 	return true;
     }
   if (pgid > MAX_PID)
