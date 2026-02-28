@@ -2240,7 +2240,8 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 	}
 
       DWORD n;
-      WriteFile (to_slave_nat, buf, nlen, &n, NULL);
+      if (nlen)
+	WriteFile (to_slave_nat, buf, nlen, &n, NULL);
       ReleaseMutex (input_mutex);
 
       return len;
