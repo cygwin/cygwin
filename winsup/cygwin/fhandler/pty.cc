@@ -384,6 +384,7 @@ atexit_func (void)
 	    break;
 	  }
       CloseHandle (h_gdb_inferior);
+      myself->wpid_debuggee_maybe = 0;
     }
 }
 
@@ -420,6 +421,7 @@ CreateProcessA_Hooked
   DuplicateHandle (GetCurrentProcess (), h_gdb_inferior,
 		   GetCurrentProcess (), &h_gdb_inferior,
 		   0, 0, DUPLICATE_SAME_ACCESS);
+  myself->wpid_debuggee_maybe = pi->dwProcessId;
   debug_process = !!(f & (DEBUG_PROCESS | DEBUG_ONLY_THIS_PROCESS));
   if (debug_process)
     mutex_timeout = 0; /* to avoid deadlock in GDB */
@@ -459,6 +461,7 @@ CreateProcessW_Hooked
   DuplicateHandle (GetCurrentProcess (), h_gdb_inferior,
 		   GetCurrentProcess (), &h_gdb_inferior,
 		   0, 0, DUPLICATE_SAME_ACCESS);
+  myself->wpid_debuggee_maybe = pi->dwProcessId;
   debug_process = !!(f & (DEBUG_PROCESS | DEBUG_ONLY_THIS_PROCESS));
   if (debug_process)
     mutex_timeout = 0; /* to avoid deadlock in GDB */
@@ -1236,9 +1239,6 @@ fhandler_pty_slave::set_switch_to_nat_pipe (void)
     {
       isHybrid = true;
       setup_locale ();
-      myself->exec_dwProcessId = myself->dwProcessId; /* Set this as a marker
-							 for tty::nat_fg()
-							 and process_sigs() */
       bool stdin_is_ptys = GetStdHandle (STD_INPUT_HANDLE) == get_handle ();
       setup_for_non_cygwin_app (false, NULL, stdin_is_ptys);
     }
@@ -1270,6 +1270,7 @@ fhandler_pty_slave::reset_switch_to_nat_pipe (void)
 	{
 	  CloseHandle (h_gdb_inferior);
 	  h_gdb_inferior = NULL;
+	  myself->wpid_debuggee_maybe = 0;
 	  mutex_timeout = INFINITE;
 	  if (isHybrid)
 	    {

@@ -1215,8 +1215,8 @@ ctrl_c_handler (DWORD type)
   if (!pinfo (cygwin_pid (GetCurrentProcessId ())))
     return TRUE;
 
-  if (type == CTRL_C_EVENT && ::cygheap->ctty
-      && !cygheap->ctty->need_console_handler ())
+  if (type == CTRL_C_EVENT && !myself->is_cygwin_inferior_being_debugged ()
+      && ::cygheap->ctty && !cygheap->ctty->need_console_handler ())
     /* Ctrl-C is handled in fhandler_console::cons_master_thread(). */
     return TRUE;
 

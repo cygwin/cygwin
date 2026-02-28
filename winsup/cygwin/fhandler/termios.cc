@@ -338,19 +338,9 @@ fhandler_termios::process_sigs (char c, tty* ttyp, fhandler_termios *fh)
   for (unsigned i = 0; i < pids.npids; i++)
     {
       _pinfo *p = pids[i];
-      /* PID_NOTCYGWIN: check this for non-cygwin process.
-	 exec_dwProcessId == dwProcessId:
-		     check this for GDB with non-cygwin inferior in pty
-		     without pcon enabled. In this case, the inferior is not
-		     cygwin process list. This condition is set true as
-		     a marker for GDB with non-cygwin inferior in pty code.
-	 !PID_CYGPARENT: check this for GDB with cygwin inferior or
-			 cygwin apps started from non-cygwin shell. */
-      if (c == '\003' && p && p->ctty == ttyp->ntty && p->pgid == pgid
-	  && ((p->process_state & PID_NOTCYGWIN)
-	      || ((p->exec_dwProcessId == p->dwProcessId)
-		  && ttyp->pty_input_state_eq (tty::to_nat))
-	      || !(p->process_state & PID_CYGPARENT)))
+      if (c == '\003' && p && p->ctty == ttyp->ntty
+	  && (p->is_foreground_special_process (pgid)
+	      || p->is_gdb_with_foreground_non_cygwin_inferior (pgid)))
 	{
 	  /* Ctrl-C event will be sent only to the processes attaching
 	     to the same console. Therefore, attach to the console to
@@ -372,7 +362,7 @@ fhandler_termios::process_sigs (char c, tty* ttyp, fhandler_termios *fh)
 	  if (p->process_state & PID_NEW_PG)
 	    GenerateConsoleCtrlEvent (CTRL_BREAK_EVENT, p->dwProcessId);
 	  else if ((!fh || fh->need_send_ctrl_c_event ()
-		    || p->exec_dwProcessId == p->dwProcessId)
+		    || p->is_gdb_with_foreground_non_cygwin_inferior (pgid))
 		   && !ctrl_c_event_sent)
 	    {
 	      GenerateConsoleCtrlEvent (CTRL_C_EVENT, 0);
@@ -390,24 +380,23 @@ fhandler_termios::process_sigs (char c, tty* ttyp, fhandler_termios *fh)
 	    }
 	  need_discard_input = true;
 	}
-      if (p && p->ctty == ttyp->ntty && p->pgid == pgid)
+      if (p && p->ctty == ttyp->ntty)
 	{
-	  if (p->process_state & PID_NOTCYGWIN)
-	    pg_with_nat = true; /* The process group has non-cygwin process */
-	  if (!(p->process_state & PID_NOTCYGWIN))
-	    need_send_sig = true; /* Process which needs signal exists */
-	  if (!p->cygstarted)
-	    nat_shell = true; /* The shell seems to a non-cygwin shell */
-	  if (p->process_state & PID_TTYIN)
-	    cyg_reader = true; /* Theh process is reading the tty */
-	  if (!p->cygstarted && !(p->process_state & PID_NOTCYGWIN)
-	      && (p->process_state & PID_DEBUGGED))
-	    with_debugger = true; /* inferior is cygwin app */
-	  if (!(p->process_state & PID_NOTCYGWIN)
-	      && (p->exec_dwProcessId == p->dwProcessId) /* Check marker */
-	      && ttyp->pty_input_state_eq (tty::to_nat)
-	      && p->pid == pgid)
-	    with_debugger_nat = true; /* inferior is non-cygwin app */
+	  if (p->pgid == pgid)
+	    {
+	      if (p->process_state & PID_NOTCYGWIN)
+		pg_with_nat = true; /* The process group has non-cygwin app */
+	      if (!(p->process_state & PID_NOTCYGWIN))
+		need_send_sig = true; /* Process which needs signal exists */
+	      if (!p->cygstarted)
+		nat_shell = true; /* The shell seems to a non-cygwin shell */
+	      if (p->process_state & PID_TTYIN)
+		cyg_reader = true; /* Theh process is reading the tty */
+	      if (p->is_cygwin_inferior_being_debugged ())
+		with_debugger = true;
+	    }
+	  if (p->is_gdb_with_foreground_non_cygwin_inferior (pgid))
+	    with_debugger_nat = true;
 	}
     }
   if ((with_debugger || with_debugger_nat) && need_discard_input)
@@ -536,10 +525,9 @@ fhandler_termios::line_edit (const char *rptr, size_t nread, termios& ti,
       switch (process_sigs (c, get_ttyp (), this))
 	{
 	case signalled:
-	  sawsig = true;
-	  fallthrough;
 	case not_signalled_but_done:
 	case done_with_debugger:
+	  sawsig = true;
 	  get_ttyp ()->output_stopped &= ~BY_VSTOP;
 	  continue;
 	case not_signalled_with_nat_reader:
