@@ -3596,7 +3596,7 @@ fhandler_pty_slave::get_winpid_to_hand_over (tty *ttyp,
       if (!switch_to)
 	switch_to = get_console_process_id (current_pid,
 					    false, true, false, true);
-      if (!switch_to)
+      if (!switch_to && ttyp->pcon_activated)
 	switch_to = get_console_process_id (current_pid,
 					    false, false, false, false);
     }
