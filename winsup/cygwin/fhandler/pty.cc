@@ -2187,6 +2187,7 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 	{ /* Pseudo console initialization has been done in above code. */
 	  pinfo pp (get_ttyp ()->pcon_start_pid);
 	  if (get_ttyp ()->switch_to_nat_pipe
+	      && pp && pp->pgid == get_ttyp ()->getpgid ()
 	      && get_ttyp ()->pty_input_state_eq (tty::to_cyg))
 	    {
 	      /* This accept_input() call is needed in order to transfer input
