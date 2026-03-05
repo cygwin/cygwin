@@ -27,11 +27,10 @@
 #define _SYS_LOCK_H_
 
 #include <sys/cdefs.h>
+#include <sys/_timespec.h>
 #include <stddef.h>
 
 __BEGIN_DECLS
-
-struct timespec;
 
 struct _Thread_Control;
 
@@ -137,6 +136,9 @@ void _Mutex_Acquire(struct _Mutex_Control *);
 
 int _Mutex_Acquire_timed(struct _Mutex_Control *, const struct timespec *);
 
+int _Mutex_Acquire_timed_clock(struct _Mutex_Control *,
+    const struct timespec *, __clockid_t);
+
 int _Mutex_Acquire_timed_ticks(struct _Mutex_Control *, __uint32_t);
 
 int _Mutex_Try_acquire(struct _Mutex_Control *);
@@ -186,6 +188,9 @@ void _Mutex_recursive_Acquire(struct _Mutex_recursive_Control *);
 
 int _Mutex_recursive_Acquire_timed(struct _Mutex_recursive_Control *,
     const struct timespec *);
+
+int _Mutex_recursive_Acquire_timed_clock(struct _Mutex_recursive_Control *,
+    const struct timespec *, __clockid_t);
 
 int _Mutex_recursive_Acquire_timed_ticks(struct _Mutex_recursive_Control *,
     __uint32_t);
@@ -237,6 +242,9 @@ void _Condition_Wait(struct _Condition_Control *, struct _Mutex_Control *);
 int _Condition_Wait_timed(struct _Condition_Control *,
     struct _Mutex_Control *, const struct timespec *);
 
+int _Condition_Wait_timed_clock(struct _Condition_Control *,
+    struct _Mutex_Control *, const struct timespec *, __clockid_t);
+
 int _Condition_Wait_timed_ticks(struct _Condition_Control *,
     struct _Mutex_Control *, __uint32_t);
 
@@ -245,6 +253,9 @@ void _Condition_Wait_recursive(struct _Condition_Control *,
 
 int _Condition_Wait_recursive_timed(struct _Condition_Control *,
     struct _Mutex_recursive_Control *, const struct timespec *);
+
+int _Condition_Wait_recursive_timed_clock(struct _Condition_Control *,
+    struct _Mutex_recursive_Control *, const struct timespec *, __clockid_t);
 
 int _Condition_Wait_recursive_timed_ticks(struct _Condition_Control *,
     struct _Mutex_recursive_Control *, __uint32_t);
@@ -297,6 +308,9 @@ void _Semaphore_Wait(struct _Semaphore_Control *);
 
 int _Semaphore_Wait_timed(struct _Semaphore_Control *,
     const struct timespec *);
+
+int _Semaphore_Wait_timed_clock(struct _Semaphore_Control *,
+    const struct timespec *, __clockid_t);
 
 int _Semaphore_Wait_timed_ticks(struct _Semaphore_Control *, __uint32_t);
 
