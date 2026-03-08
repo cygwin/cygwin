@@ -1133,6 +1133,8 @@ fhandler_pty_slave::reset_switch_to_nat_pipe (void)
 	      else
 		hand_over_only (get_ttyp ());
 	      ReleaseMutex (pipe_sw_mutex);
+
+	      HANDLE input_handle_nat, output_handle_nat;
 	      if (need_restore_handles)
 		{
 		  pinfo p (get_ttyp ()->master_pid);
@@ -1140,16 +1142,15 @@ fhandler_pty_slave::reset_switch_to_nat_pipe (void)
 		    OpenProcess (PROCESS_DUP_HANDLE, FALSE, p->dwProcessId);
 		  if (pty_owner)
 		    {
-		      CloseHandle (get_handle_nat ());
 		      DuplicateHandle (pty_owner,
 				       get_ttyp ()->from_master_nat (),
-				       GetCurrentProcess (), &get_handle_nat (),
+				       GetCurrentProcess (),
+				       &input_handle_nat,
 				       0, TRUE, DUPLICATE_SAME_ACCESS);
-		      CloseHandle (get_output_handle_nat ());
 		      DuplicateHandle (pty_owner,
 				       get_ttyp ()->to_master_nat (),
 				       GetCurrentProcess (),
-				       &get_output_handle_nat (),
+				       &output_handle_nat,
 				       0, TRUE, DUPLICATE_SAME_ACCESS);
 		      CloseHandle (pty_owner);
 		    }
@@ -1169,11 +1170,12 @@ fhandler_pty_slave::reset_switch_to_nat_pipe (void)
 		      CloseHandle (repl.to_master); /* not used. */
 		      CloseHandle (repl.to_slave_nat); /* not used. */
 		      CloseHandle (repl.to_slave); /* not used. */
-		      CloseHandle (get_handle_nat ());
-		      set_handle_nat (repl.from_master_nat);
-		      CloseHandle (get_output_handle_nat ());
-		      set_output_handle_nat (repl.to_master_nat);
+		      input_handle_nat = repl.from_master_nat;
+		      output_handle_nat = repl.to_master_nat;
 		    }
+
+		  /* Restore nat handles in all pty slave instances */
+		  replace_nat_handles (input_handle_nat, output_handle_nat);
 		}
 	      myself->exec_dwProcessId = 0;
 	      isHybrid = false;
@@ -3616,26 +3618,8 @@ fhandler_pty_slave::setup_pseudoconsole ()
   while (false);
 
 skip_create:
-  do
-    {
-      /* Fixup handles */
-      HANDLE orig_input_handle_nat = get_handle_nat ();
-      HANDLE orig_output_handle_nat = get_output_handle_nat ();
-      cygheap_fdenum cfd (false);
-      while (cfd.next () >= 0)
-	if (cfd->get_device () == get_device ())
-	  {
-	    fhandler_base *fh = cfd;
-	    fhandler_pty_slave *ptys = (fhandler_pty_slave *) fh;
-	    if (ptys->get_handle_nat () == orig_input_handle_nat)
-	      ptys->set_handle_nat (hpConIn);
-	    if (ptys->get_output_handle_nat () == orig_output_handle_nat)
-	      ptys->set_output_handle_nat (hpConOut);
-	  }
-      CloseHandle (orig_input_handle_nat);
-      CloseHandle (orig_output_handle_nat);
-    }
-  while (false);
+  /* Fixup handles in all PTY-slave instances */
+  replace_nat_handles (hpConIn, hpConOut);
 
   if (!process_alive (get_ttyp ()->nat_pipe_owner_pid))
     get_ttyp ()->nat_pipe_owner_pid = myself->exec_dwProcessId;
@@ -4469,4 +4453,32 @@ fhandler_pty_common::resume_from_temporarily_attach (DWORD resume_pid)
       init_console_handler (false);
     }
   release_attach_mutex ();
+}
+
+void
+fhandler_pty_slave::replace_nat_handles (HANDLE new_input, HANDLE new_output)
+{
+  HANDLE orig_input_handle_nat = get_handle_nat();
+  HANDLE orig_output_handle_nat = get_output_handle_nat();
+  cygheap_fdenum cfd (false);
+  while (cfd.next () >= 0)
+    if (cfd->get_device () == get_device ())
+      {
+	fhandler_base *fh = cfd;
+	fhandler_pty_slave *ptys = (fhandler_pty_slave *) fh;
+	if (ptys->get_handle_nat () == orig_input_handle_nat)
+	  ptys->set_handle_nat (new_input);
+	if (ptys->get_output_handle_nat () == orig_output_handle_nat)
+	  ptys->set_output_handle_nat (new_output);
+      }
+  if (cygheap->ctty->get_device () == get_device ())
+    {
+      fhandler_pty_slave *ptys = (fhandler_pty_slave *) cygheap->ctty;
+      if (ptys->get_handle_nat () == orig_input_handle_nat)
+	ptys->set_handle_nat (new_input);
+      if (ptys->get_output_handle_nat () == orig_output_handle_nat)
+	ptys->set_output_handle_nat (new_output);
+    }
+  CloseHandle (orig_input_handle_nat);
+  CloseHandle (orig_output_handle_nat);
 }
