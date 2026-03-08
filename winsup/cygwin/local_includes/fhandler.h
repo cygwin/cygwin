@@ -2530,6 +2530,7 @@ class fhandler_pty_slave: public fhandler_pty_common
 					  DWORD force_switch_to = 0);
   void setpgid_aux (pid_t pid);
   static void release_ownership_of_nat_pipe (tty *ttyp, fhandler_termios *fh);
+  void replace_nat_handles (HANDLE new_input, HANDLE new_output);
 };
 
 #define __ptsname(buf, unit) __small_sprintf ((buf), "/dev/pty%d", (unit))
