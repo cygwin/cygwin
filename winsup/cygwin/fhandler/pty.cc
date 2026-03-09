@@ -2733,7 +2733,8 @@ workarounds_for_pseudo_console_output (char *outbuf, DWORD rlen)
 	      }
 	    state = 0;
 	  }
-	else if (saw_question_mark && arg == 9001
+	else if (saw_question_mark
+		 && (arg == 9001 || arg == 1004)
 		 && (outbuf[i] == 'h' || outbuf[i] == 'l'))
 	  {
 	    memmove (&outbuf[start_at], &outbuf[i+1], rlen-i-1);
