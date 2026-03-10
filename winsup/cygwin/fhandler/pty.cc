@@ -4180,16 +4180,19 @@ fhandler_pty_slave::cleanup_for_non_cygwin_app (handle_set_t *p, tty *ttyp,
 {
   ttyp->wait_fwd ();
   WaitForSingleObject (p->pipe_sw_mutex, INFINITE);
-  DWORD switch_to = get_winpid_to_hand_over (ttyp, force_switch_to);
-  if ((!switch_to && (ttyp->pcon_activated || stdin_is_ptys))
-      && ttyp->pty_input_state_eq (tty::to_nat))
+  if (nat_pipe_owner_self (ttyp->nat_pipe_owner_pid))
     {
-      WaitForSingleObject (p->input_mutex, mutex_timeout);
-      acquire_attach_mutex (mutex_timeout);
-      transfer_input (tty::to_cyg, p->from_master_nat, ttyp,
-		      p->input_available_event);
-      release_attach_mutex ();
-      ReleaseMutex (p->input_mutex);
+      DWORD switch_to = get_winpid_to_hand_over (ttyp, force_switch_to);
+      if ((!switch_to && (ttyp->pcon_activated || stdin_is_ptys))
+	  && ttyp->pty_input_state_eq (tty::to_nat))
+	{
+	  WaitForSingleObject (p->input_mutex, mutex_timeout);
+	  acquire_attach_mutex (mutex_timeout);
+	  transfer_input (tty::to_cyg, p->from_master_nat, ttyp,
+			  p->input_available_event);
+	  release_attach_mutex ();
+	  ReleaseMutex (p->input_mutex);
+	}
     }
   if (ttyp->pcon_activated)
     close_pseudoconsole (ttyp, force_switch_to);
