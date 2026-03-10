@@ -646,9 +646,12 @@ sig_send (_pinfo *p, siginfo_t& si, _cygtls *tls)
     {
       HANDLE dupsig;
       DWORD dwProcessId;
-      DWORD t0 = GetTickCount ();
-      while (GetTickCount () - t0 < 100 && !p->sendsig)
-	yield ();
+      if (!ISSTATE (p, PID_NOTCYGWIN))
+	{
+	  DWORD t0 = GetTickCount ();
+	  while (GetTickCount () - t0 < 100 && !p->sendsig)
+	    yield ();
+	}
       if (p->sendsig)
 	{
 	  dupsig = p->sendsig;
