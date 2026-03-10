@@ -1508,6 +1508,23 @@ _cygtls::handle_SIGCONT ()
   InterlockedAnd ((LONG *) &myself->process_state, ~PID_STOPPED);
 }
 
+inline static bool
+is_stop_or_cont (int sig)
+{
+  switch (sig)
+    {
+    case SIGSTOP:
+    case SIGTSTP:
+    case SIGTTIN:
+    case SIGTTOU:
+    case SIGCONT:
+      return true;
+    default:
+      break;
+    }
+  return false;
+}
+
 int
 sigpacket::process ()
 {
@@ -1661,7 +1678,7 @@ exit_sig:
   thissig.sa_flags &= ~SA_ONSTACK;
 
 dosig:
-  if (have_execed)
+  if (have_execed && (ch_spawn.iscygwin () || !is_stop_or_cont (si.si_signo)))
     {
       sigproc_printf ("terminating captive process");
       if (::cygheap->ctty)

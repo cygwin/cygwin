@@ -861,7 +861,7 @@ child_info_spawn::worker (const char *prog_arg, const char *const *argv,
 	  if (term_spawn_worker.need_cleanup ())
 	    {
 	      LONG prev_sigExeced = sigExeced;
-	      while (WaitForSingleObject (pi.hProcess, 100) == WAIT_TIMEOUT)
+	      while (cygwait (pi.hProcess, 100) != WAIT_OBJECT_0)
 		/* If child process does not exit in predetermined time
 		   period, the process does not seem to be terminated by
 		   the signal sigExeced. Therefore, clear sigExeced here. */
