@@ -2123,13 +2123,16 @@ pwdgrp::fetch_account_from_windows (fetch_user_arg_t &arg, bool ugid_caching, cy
 	       sid_sub_auth (sid, 0) == SECURITY_APPPOOL_ID_BASE_RID))
 	    break;
 	  /* Otherwise, no fully_qualified for builtin accounts, except for
-	     NT SERVICE, for which we require the prefix.  Note that there's
-	     no equivalent test in the `if (!fq_name)' branch above, because
-	     LookupAccountName never returns NT SERVICE accounts if they are
-	     not prependend with the domain anyway. */
+	     NT SERVICE and NT VIRTUAL MACHINE, for which we require the
+	     prefix.
+	     Note that there's no equivalent test in the `if (!fq_name)'
+	     branch above, because LookupAccountName never returns NT SERVICE
+	     or NT VIRTUAL MACHINE accounts if they are not prependend with
+	     the domain. */
 	  if (sid_id_auth (sid) != 5 /* SECURITY_NT_AUTHORITY */
 	      || (sid_sub_auth (sid, 0) != SECURITY_NT_NON_UNIQUE
-		  && sid_sub_auth (sid, 0) != SECURITY_SERVICE_ID_BASE_RID))
+		  && sid_sub_auth (sid, 0) != SECURITY_SERVICE_ID_BASE_RID
+		  && sid_sub_auth (sid, 0) != SECURITY_VIRTUALSERVER_ID_BASE_RID))
 	    {
 	      debug_printf ("Invalid account name <%s> (fully qualified/"
 			    "not NON_UNIQUE or NT_SERVICE)", arg.name);
@@ -2242,6 +2245,11 @@ pwdgrp::fetch_account_from_windows (fetch_user_arg_t &arg, bool ugid_caching, cy
 	  /* Account domain user or group. */
 	  csid = cygheap->dom.account_sid ();
 	  csid.append (arg.id & 0xffff);
+	}
+      else if (arg.id == 0x53000)
+	{
+	  /* NT VIRTUAL MACHINE\Virtual Machines */
+	  csid.create (5, 2, 83, 0);
 	}
       else if (arg.id < 0x60000)
 	{
@@ -2603,9 +2611,10 @@ pwdgrp::fetch_account_from_windows (fetch_user_arg_t &arg, bool ugid_caching, cy
 	  break;
 	case SidTypeWellKnownGroup:
 	  fully_qualified_name = (
-		  /* NT SERVICE Account */
+		  /* NT SERVICE or NT VIRTUAL MACHINE Account */
 		  (sid_id_auth (sid) == 5 /* SECURITY_NT_AUTHORITY */
-		      && sid_sub_auth (sid, 0) == SECURITY_SERVICE_ID_BASE_RID)
+		   && (sid_sub_auth (sid, 0) == SECURITY_SERVICE_ID_BASE_RID
+		       || sid_sub_auth (sid, 0) == SECURITY_VIRTUALSERVER_ID_BASE_RID))
 		  /* Microsoft Account */
 		  || sid_id_auth (sid) == 11);
 #ifdef INTERIX_COMPATIBLE
