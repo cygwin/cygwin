@@ -101,8 +101,8 @@
 	The bitmask of |log(REAL_FLT_MIN)|, rounding down.
 
    FLT_SMALLEST_EXP
-	REAL_FLT_MIN's exponent - EXP_BIAS (1 if denormals are not supported,
-	-22 if they are).
+	REAL_FLT_MIN's exponent + EXP_BIAS - 1 (0 if denormals are not
+	supported, -23 if they are).
 */
 
 #ifdef _FLT_NO_DENORMALS
@@ -111,14 +111,14 @@
 #define FLT_UWORD_MIN 0x00800000
 #define FLT_UWORD_EXP_MIN 0x42fc0000
 #define FLT_UWORD_LOG_MIN 0x42aeac50
-#define FLT_SMALLEST_EXP 1
+#define FLT_SMALLEST_EXP 0
 #else
 #define FLT_UWORD_IS_ZERO(x) ((x)==0)
 #define FLT_UWORD_IS_SUBNORMAL(x) ((x)<0x00800000L)
 #define FLT_UWORD_MIN 0x00000001
 #define FLT_UWORD_EXP_MIN 0x43160000
 #define FLT_UWORD_LOG_MIN 0x42cff1b5
-#define FLT_SMALLEST_EXP -22
+#define FLT_SMALLEST_EXP -23
 #endif
 
 #ifdef __STDC__
