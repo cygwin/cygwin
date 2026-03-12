@@ -233,6 +233,13 @@ _clock (void)
     return -1;
 }
 
+int
+_link (const char *old_name, const char *new_name)
+{
+  errno = ENOSYS;
+  return -1;
+}
+
 /* Some system calls are implemented in nSIM hostlink, but are available only
    on Linux hosts.  To minimize potential compatibility issues they are by
    default disabled in libgloss build.  */
