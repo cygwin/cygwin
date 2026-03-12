@@ -31,7 +31,8 @@
 /* This implementation is optimized for performance.  For code size a generic
    implementation of this function from newlib/libc/string/strchr.c will be
    used.  */
-#if !defined (__OPTIMIZE_SIZE__) && !defined (PREFER_SIZE_OVER_SPEED)
+#if !defined (__OPTIMIZE_SIZE__) && !defined (PREFER_SIZE_OVER_SPEED) \
+    && !defined (__ARC_RF16__)
 
 #include "asm.h"
 
