@@ -22,10 +22,6 @@ libc_a_SOURCES += \
 	%D%/strcpy-bs.S \
 	%D%/strcpy-bs-arc600.S \
 	%D%/strcpy-stub.c \
-	%D%/strlen.S \
-	%D%/strlen-bs.S \
-	%D%/strlen-bs-norm.S \
-	%D%/strlen-stub.c \
 	%D%/strncpy.S \
 	%D%/strncpy-stub.c \
 	%D%/strncpy-bs.S
