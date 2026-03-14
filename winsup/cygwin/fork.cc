@@ -400,6 +400,7 @@ frok::parent (volatile char * volatile stack_here)
 	{
 	  this_errno = geterrno_from_win_error ();
 	  error ("CreateProcessW failed for '%W'", myself->progname);
+	  ch.silentfail (true);
 	  dlls.release_forkables ();
 	  memset (&pi, 0, sizeof (pi));
 	  goto cleanup;
