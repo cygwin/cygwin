@@ -8,6 +8,6 @@ What's new:
 - Support for cross-module overriding of additional new/delete overloads
   introduced in C++14 and C++17.
 
-- Improved support for sort and hard limits in setrlimit(2), support
+- Improved support for soft and hard limits in setrlimit(2), support
   RLIMIT_NPROC.
 
