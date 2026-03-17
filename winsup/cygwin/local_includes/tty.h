@@ -18,6 +18,7 @@ details. */
 /* Input/Output/ioctl events */
 
 #define INPUT_AVAILABLE_EVENT	"cygtty.input.avail"
+#define INPUT_TRANSFERRED_EVENT	"cygtty.input.xfer"
 #define OUTPUT_MUTEX		"cygtty.output.mutex"
 #define INPUT_MUTEX		"cygtty.input.mutex"
 #define PIPE_SW_MUTEX		"cygtty.pipe_sw.mutex"
