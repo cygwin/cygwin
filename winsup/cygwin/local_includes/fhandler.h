@@ -2011,6 +2011,7 @@ class fhandler_termios: public fhandler_base
   {
     HANDLE from_master_nat;
     HANDLE input_available_event;
+    HANDLE input_transferred_to_cyg;
     HANDLE input_mutex;
     HANDLE pipe_sw_mutex;
   };
@@ -2382,13 +2383,14 @@ class fhandler_pty_common: public fhandler_termios
   fhandler_pty_common ()
     : fhandler_termios (),
     output_mutex (NULL), input_mutex (NULL), pipe_sw_mutex (NULL),
-    input_available_event (NULL)
+    input_available_event (NULL), input_transferred_to_cyg (NULL)
   {
     pc.file_attributes (FILE_ATTRIBUTE_NORMAL);
   }
   static const unsigned pipesize = 128 * 1024;
   HANDLE output_mutex, input_mutex, pipe_sw_mutex;
   HANDLE input_available_event;
+  HANDLE input_transferred_to_cyg;
 
   bool use_archetype () const {return true;}
   DWORD __acquire_output_mutex (const char *fn, int ln, DWORD ms);
@@ -2510,7 +2512,8 @@ class fhandler_pty_slave: public fhandler_pty_common
   void setup_locale (void);
   void create_invisible_console (void);
   static void transfer_input (tty::xfer_dir dir, HANDLE from, tty *ttyp,
-			      HANDLE input_available_event);
+			      HANDLE input_available_event,
+			      HANDLE input_transferred_to_cyg);
   HANDLE get_input_available_event (void) { return input_available_event; }
   bool pcon_activated (void) { return get_ttyp ()->pcon_activated; }
   void cleanup_before_exit ();
@@ -2545,8 +2548,10 @@ public:
   struct master_fwd_thread_param_t {
     HANDLE to_master;
     HANDLE from_slave_nat;
+    HANDLE input_transferred_to_cyg;
     HANDLE output_mutex;
     tty *ttyp;
+    fhandler_pty_master *master;
   };
 private:
   int pktmode;			// non-zero if pty in a packet mode.
@@ -2625,6 +2630,7 @@ public:
   void get_master_thread_param (master_thread_param_t *p);
   void get_master_fwd_thread_param (master_fwd_thread_param_t *p);
   bool need_send_ctrl_c_event ();
+  void apply_line_edit_to_transferred_input ();
 };
 
 class fhandler_dev_null: public fhandler_base

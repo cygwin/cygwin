@@ -209,6 +209,7 @@ atexit_func (void)
 	      {
 		ptys->get_handle_nat (),
 		ptys->get_input_available_event (),
+		ptys->input_transferred_to_cyg,
 		ptys->input_mutex,
 		ptys->pipe_sw_mutex
 	      };
@@ -738,7 +739,7 @@ fhandler_pty_slave::open (int flags, mode_t)
   {
     &from_master_nat_local, &input_available_event, &input_mutex, &inuse,
     &output_mutex, &to_master_nat_local, &pty_owner, &to_master_local,
-    &from_master_local, &pipe_sw_mutex,
+    &from_master_local, &pipe_sw_mutex, &input_transferred_to_cyg,
     NULL
   };
 
@@ -776,6 +777,12 @@ fhandler_pty_slave::open (int flags, mode_t)
   if (!(input_available_event = OpenEvent (MAXIMUM_ALLOWED, TRUE, buf)))
     {
       errmsg = "open input event failed, %E";
+      goto err;
+    }
+  shared_name (buf, INPUT_TRANSFERRED_EVENT, get_minor ());
+  if (!(input_transferred_to_cyg = OpenEvent (MAXIMUM_ALLOWED, TRUE, buf)))
+    {
+      errmsg = "open input transferred event failed, %E";
       goto err;
     }
 
@@ -992,6 +999,8 @@ fhandler_pty_slave::close (int flag)
     termios_printf ("CloseHandle (inuse), %E");
   if (!ForceCloseHandle (input_available_event))
     termios_printf ("CloseHandle (input_available_event<%p>), %E", input_available_event);
+  if (!ForceCloseHandle (input_transferred_to_cyg))
+    termios_printf ("CloseHandle (input_transferred_to_cyg<%p>), %E", input_transferred_to_cyg);
   if (!ForceCloseHandle (get_output_handle_nat ()))
     termios_printf ("CloseHandle (get_output_handle_nat ()<%p>), %E",
 	get_output_handle_nat ());
@@ -1100,7 +1109,8 @@ fhandler_pty_slave::reset_switch_to_nat_pipe (void)
 		  WaitForSingleObject (input_mutex, mutex_timeout);
 		  acquire_attach_mutex (mutex_timeout);
 		  transfer_input (tty::to_cyg, get_handle_nat (), get_ttyp (),
-				  input_available_event);
+				  input_available_event,
+				  input_transferred_to_cyg);
 		  release_attach_mutex ();
 		  ReleaseMutex (input_mutex);
 		}
@@ -1249,14 +1259,14 @@ fhandler_pty_slave::mask_switch_to_nat_pipe (bool mask, bool xfer)
 	{
 	  acquire_attach_mutex (mutex_timeout);
 	  transfer_input (tty::to_cyg, get_handle_nat (), get_ttyp (),
-			  input_available_event);
+			  input_available_event, input_transferred_to_cyg);
 	  release_attach_mutex ();
 	}
       else if (!mask && get_ttyp ()->pty_input_state_eq (tty::to_cyg))
 	{
 	  acquire_attach_mutex (mutex_timeout);
 	  transfer_input (tty::to_nat, get_handle (), get_ttyp (),
-			  input_available_event);
+			  input_available_event, input_transferred_to_cyg);
 	  release_attach_mutex ();
 	}
     }
@@ -1818,11 +1828,15 @@ fhandler_pty_slave::fch_open_handles (bool chown)
   shared_name (buf, INPUT_AVAILABLE_EVENT, get_minor ());
   input_available_event = OpenEvent (READ_CONTROL | write_access,
 				     TRUE, buf);
+  shared_name (buf, INPUT_TRANSFERRED_EVENT, get_minor ());
+  input_transferred_to_cyg = OpenEvent (READ_CONTROL | write_access,
+					TRUE, buf);
   output_mutex = get_ttyp ()->open_output_mutex (write_access);
   input_mutex = get_ttyp ()->open_input_mutex (write_access);
   pipe_sw_mutex = get_ttyp ()->open_mutex (PIPE_SW_MUTEX, write_access);
   inuse = get_ttyp ()->open_inuse (write_access);
-  if (!input_available_event || !output_mutex || !input_mutex || !inuse)
+  if (!input_available_event || !output_mutex || !input_mutex || !inuse
+      || !input_transferred_to_cyg)
     {
       __seterrno ();
       return false;
@@ -1839,11 +1853,13 @@ fhandler_pty_slave::fch_set_sd (security_descriptor &sd, bool chown)
 
   get_object_sd (input_available_event, sd_old);
   if (!set_object_sd (input_available_event, sd, chown)
+      && !set_object_sd (input_transferred_to_cyg, sd, chown)
       && !set_object_sd (output_mutex, sd, chown)
       && !set_object_sd (input_mutex, sd, chown)
       && !set_object_sd (inuse, sd, chown))
     return 0;
   set_object_sd (input_available_event, sd_old, chown);
+  set_object_sd (input_transferred_to_cyg, sd_old, chown);
   set_object_sd (output_mutex, sd_old, chown);
   set_object_sd (input_mutex, sd_old, chown);
   set_object_sd (inuse, sd_old, chown);
@@ -1856,6 +1872,7 @@ void
 fhandler_pty_slave::fch_close_handles ()
 {
   close_maybe (input_available_event);
+  close_maybe (input_transferred_to_cyg);
   close_maybe (output_mutex);
   close_maybe (input_mutex);
   close_maybe (inuse);
@@ -2108,6 +2125,9 @@ fhandler_pty_master::close (int flag)
   if (!ForceCloseHandle (input_available_event))
     termios_printf ("CloseHandle (input_available_event<%p>), %E",
 		    input_available_event);
+  if (!ForceCloseHandle (input_transferred_to_cyg))
+    termios_printf ("CloseHandle (input_transferred_to_cyg<%p>), %E",
+		    input_transferred_to_cyg);
 
   /* The from_master must be closed last so that the same pty is not
      allocated before cleaning up the other corresponding instances. */
@@ -2211,7 +2231,8 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 	      acquire_attach_mutex (mutex_timeout);
 	      fhandler_pty_slave::transfer_input (tty::to_nat, from_master,
 						  get_ttyp (),
-						  input_available_event);
+						  input_available_event,
+						  input_transferred_to_cyg);
 	      release_attach_mutex ();
 	      ReleaseMutex (input_mutex);
 	    }
@@ -2321,7 +2342,8 @@ fhandler_pty_master::write (const void *ptr, size_t len)
     {
       acquire_attach_mutex (mutex_timeout);
       fhandler_pty_slave::transfer_input (tty::to_nat, from_master,
-					  get_ttyp (), input_available_event);
+					  get_ttyp (), input_available_event,
+					  input_transferred_to_cyg);
       release_attach_mutex ();
     }
 
@@ -2677,6 +2699,26 @@ reply:
   return 0;
 }
 
+void
+fhandler_pty_master::apply_line_edit_to_transferred_input ()
+{
+  /* cyg pipe is fhandler_pty_common::pipesize (128K) depth, so memory
+     allocated by w_get() (128K) is enough here. */
+  tmp_pathbuf tp;
+  char *buf = (char *) tp.w_get ();
+  DWORD n;
+  ReadFile (from_master, buf, NT_MAX_PATH * 2, &n, NULL);
+  char *p = buf;
+  while (n)
+    {
+      ssize_t ret;
+      line_edit (p, n, get_ttyp ()->ti, &ret);
+      n -= ret;
+      p += ret;
+    }
+  SetEvent (input_available_event);
+}
+
 static DWORD
 pty_master_thread (VOID *arg)
 {
@@ -2700,18 +2742,36 @@ fhandler_pty_master::pty_master_fwd_thread (const master_fwd_thread_param_t *p)
   char *outbuf = tp.c_get ();
   char *mbbuf = tp.c_get ();
   static mbstate_t mbp;
+  OVERLAPPED ov = {0, };
+  ov.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+  HANDLE w[2] = {ov.hEvent, p->input_transferred_to_cyg};
 
   termios_printf ("Started.");
   for (;;)
     {
       p->ttyp->fwd_last_time = GetTickCount64 ();
-      DWORD n;
-      p->ttyp->fwd_not_empty =
-	::bytes_available (n, p->from_slave_nat) && n;
-      if (!ReadFile (p->from_slave_nat, outbuf, NT_MAX_PATH, &rlen, NULL))
+      if (!ReadFile (p->from_slave_nat, outbuf, NT_MAX_PATH, NULL, &ov)
+	  && GetLastError () != ERROR_IO_PENDING)
 	{
 	  termios_printf ("ReadFile for forwarding failed, %E");
 	  break;
+	}
+wait_event:
+      switch (WaitForMultipleObjects (2, w, FALSE, INFINITE))
+	{
+	case WAIT_OBJECT_0:
+	  GetOverlappedResult (p->from_slave_nat, &ov, &rlen, FALSE);
+	  ResetEvent (ov.hEvent);
+	  break;
+	case WAIT_OBJECT_0 + 1:
+	  p->master->apply_line_edit_to_transferred_input ();
+	  ResetEvent (p->input_transferred_to_cyg);
+	  goto wait_event;
+	default:
+	  /* Not expected to happen */
+	  debug_printf ("WaitForMultipleObjects() returns unexpectedly.");
+	  Sleep (10);
+	  goto wait_event;
 	}
       if (p->ttyp->stop_fwd_thread)
 	break;
@@ -3024,7 +3084,8 @@ fhandler_pty_master::setup ()
   char pipename[sizeof ("ptyNNNN-from-master-nat")];
   __small_sprintf (pipename, "pty%d-to-master-nat", unit);
   res = fhandler_pipe::create (&sec_none, &from_slave_nat, &to_master_nat,
-			       fhandler_pty_common::pipesize, pipename, 0);
+			       fhandler_pty_common::pipesize, pipename,
+			       FILE_FLAG_OVERLAPPED);
   if (res)
     {
       errstr = "output pipe for non-cygwin apps";
@@ -3083,6 +3144,10 @@ fhandler_pty_master::setup ()
      event's security descriptor is what we expect it to be. */
   if (!(input_available_event = t.get_event (errstr = INPUT_AVAILABLE_EVENT,
 					     &sa, TRUE))
+      || GetLastError () == ERROR_ALREADY_EXISTS)
+    goto err;
+  if (!(input_transferred_to_cyg = t.get_event (errstr = INPUT_TRANSFERRED_EVENT,
+						&sa, TRUE))
       || GetLastError () == ERROR_ALREADY_EXISTS)
     goto err;
 
@@ -3162,6 +3227,7 @@ err:
   close_maybe (get_handle ());
   close_maybe (get_output_handle ());
   close_maybe (input_available_event);
+  close_maybe (input_transferred_to_cyg);
   close_maybe (output_mutex);
   close_maybe (input_mutex);
   close_maybe (from_master_nat);
@@ -3967,6 +4033,8 @@ fhandler_pty_master::get_master_fwd_thread_param (master_fwd_thread_param_t *p)
   p->from_slave_nat = from_slave_nat;
   p->output_mutex = output_mutex;
   p->ttyp = get_ttyp ();
+  p->input_transferred_to_cyg = input_transferred_to_cyg;
+  p->master = this;
   SetEvent (thread_param_copied_event);
 }
 
@@ -3974,7 +4042,8 @@ fhandler_pty_master::get_master_fwd_thread_param (master_fwd_thread_param_t *p)
 #define CTRL_PRESSED (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED)
 void
 fhandler_pty_slave::transfer_input (tty::xfer_dir dir, HANDLE from, tty *ttyp,
-				    HANDLE input_available_event)
+				    HANDLE input_available_event,
+				    HANDLE input_transferred_to_cyg)
 {
   HANDLE to;
   if (dir == tty::to_nat)
@@ -4096,26 +4165,8 @@ fhandler_pty_slave::transfer_input (tty::xfer_dir dir, HANDLE from, tty *ttyp,
 	      ptr = mbbuf;
 	      len = nlen;
 	    }
-	  /* Call WriteFile() line by line */
-	  char *p0 = ptr;
-	  char *p_cr = (char *) memchr (p0, '\r', len - (p0 - ptr));
-	  char *p_lf = (char *) memchr (p0, '\n', len - (p0 - ptr));
-	  while (p_cr || p_lf)
-	    {
-	      char *p1 =
-		p_cr ?  (p_lf ? ((p_cr + 1 == p_lf)
-				 ?  p_lf : min(p_cr, p_lf)) : p_cr) : p_lf;
-	      *p1 = '\n';
-	      n = p1 - p0 + 1;
-	      if (n && WriteFile (to, p0, n, &n, NULL) && n)
-		transfered = true;
-	      p0 = p1 + 1;
-	      p_cr = (char *) memchr (p0, '\r', len - (p0 - ptr));
-	      p_lf = (char *) memchr (p0, '\n', len - (p0 - ptr));
-	    }
-	  n = len - (p0 - ptr);
-	  if (n && WriteFile (to, p0, n, &n, NULL) && n)
-	    transfered = true;
+	  if (len && WriteFile (to, ptr, len, &n, NULL) && n)
+	    transfered = true;;
 	}
     }
   else
@@ -4154,13 +4205,20 @@ fhandler_pty_slave::transfer_input (tty::xfer_dir dir, HANDLE from, tty *ttyp,
     }
   CloseHandle (to);
 
+  ttyp->pty_input_state = dir;
   /* Fix input_available_event which indicates availability in cyg pipe. */
   if (dir == tty::to_nat) /* all data is transfered to nat pipe,
 			     so no data available in cyg pipe. */
     ResetEvent (input_available_event);
   else if (transfered) /* There is data transfered to cyg pipe. */
-    SetEvent (input_available_event);
-  ttyp->pty_input_state = dir;
+    {
+      SetEvent (input_transferred_to_cyg);
+      /* Wait for line_edit() to be applied to the data in the cyg pipe.
+	 Holding input mutex while waiting here is necessary to
+	 prevent mixing transferred input and new master::write() input. */
+      while (IsEventSignalled (input_transferred_to_cyg))
+	yield ();
+    }
   ttyp->discard_input = false;
 }
 
@@ -4180,6 +4238,9 @@ fhandler_pty_slave::get_duplicated_handle_set (handle_set_t *p)
   DuplicateHandle (GetCurrentProcess (), input_available_event,
 		   GetCurrentProcess (), &p->input_available_event,
 		   0, 0, DUPLICATE_SAME_ACCESS);
+  DuplicateHandle (GetCurrentProcess (), input_transferred_to_cyg,
+		   GetCurrentProcess (), &p->input_transferred_to_cyg,
+		   0, 0, DUPLICATE_SAME_ACCESS);
   DuplicateHandle (GetCurrentProcess (), input_mutex,
 		   GetCurrentProcess (), &p->input_mutex,
 		   0, 0, DUPLICATE_SAME_ACCESS);
@@ -4195,6 +4256,8 @@ fhandler_pty_slave::close_handle_set (handle_set_t *p)
   p->from_master_nat = NULL;
   CloseHandle (p->input_available_event);
   p->input_available_event = NULL;
+  CloseHandle (p->input_transferred_to_cyg);
+  p->input_transferred_to_cyg = NULL;
   CloseHandle (p->input_mutex);
   p->input_mutex = NULL;
   CloseHandle (p->pipe_sw_mutex);
@@ -4230,7 +4293,7 @@ fhandler_pty_slave::setup_for_non_cygwin_app (bool nopcon,
       WaitForSingleObject (input_mutex, mutex_timeout);
       acquire_attach_mutex (mutex_timeout);
       transfer_input (tty::to_nat, get_handle (), get_ttyp (),
-		      input_available_event);
+		      input_available_event, input_transferred_to_cyg);
       release_attach_mutex ();
       ReleaseMutex (input_mutex);
     }
@@ -4252,7 +4315,8 @@ fhandler_pty_slave::cleanup_for_non_cygwin_app (handle_set_t *p, tty *ttyp,
 	  WaitForSingleObject (p->input_mutex, mutex_timeout);
 	  acquire_attach_mutex (mutex_timeout);
 	  transfer_input (tty::to_cyg, p->from_master_nat, ttyp,
-			  p->input_available_event);
+			  p->input_available_event,
+			  p->input_transferred_to_cyg);
 	  release_attach_mutex ();
 	  ReleaseMutex (p->input_mutex);
 	}
@@ -4278,7 +4342,7 @@ fhandler_pty_slave::setpgid_aux (pid_t pid)
       WaitForSingleObject (input_mutex, mutex_timeout);
       acquire_attach_mutex (mutex_timeout);
       transfer_input (tty::to_nat, get_handle (), get_ttyp (),
-		      input_available_event);
+		      input_available_event, input_transferred_to_cyg);
       release_attach_mutex ();
       ReleaseMutex (input_mutex);
     }
@@ -4304,7 +4368,8 @@ fhandler_pty_slave::setpgid_aux (pid_t pid)
 	}
       else
 	acquire_attach_mutex (mutex_timeout);
-      transfer_input (tty::to_cyg, from, get_ttyp (), input_available_event);
+      transfer_input (tty::to_cyg, from, get_ttyp (), input_available_event,
+		      input_transferred_to_cyg);
       if (attach_restore)
 	resume_from_temporarily_attach (resume_pid);
       else
