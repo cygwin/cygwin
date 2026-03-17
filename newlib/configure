@@ -6186,15 +6186,15 @@ else
 fi
 
 
- case $host in
-  aarch64-*-mingw* | aarch64-*-cygwin*)
+case $host in
+  aarch64-*-cygwin* | aarch64-*-mingw*)
     IS_AARCH64_WINDOWS=yes ;;
   *)
     IS_AARCH64_WINDOWS=no ;;
 esac
 
-
- if test -r "${srcdir}/libc/machine/${machine_dir}/machine/_fpmath.h"; then
+ if test -r "${srcdir}/libc/machine/${machine_dir}/machine/_fpmath.h" &&
+   test "$IS_AARCH64_WINDOWS" = no; then
   HAVE_FPMATH_H_TRUE=
   HAVE_FPMATH_H_FALSE='#'
 else
