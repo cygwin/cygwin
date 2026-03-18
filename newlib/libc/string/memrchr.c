@@ -47,7 +47,7 @@ memrchr (const void *src_void,
   unsigned long  mask;
   unsigned int i;
 
-  while (UNALIGNED_X(src))
+  while (UNALIGNED_X(src + 1))
     {
       if (!length--)
         return NULL;
