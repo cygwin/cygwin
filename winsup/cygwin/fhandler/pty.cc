@@ -2149,6 +2149,8 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 
   push_process_state process_state (PID_TTYOU);
 
+  get_ttyp ()->discard_input = false;
+
   if (get_ttyp ()->pcon_start)
     { /* Reaches here when pseudo console initialization is on going. */
       /* Pseudo condole support uses "CSI6n" to get cursor position.
