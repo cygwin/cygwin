@@ -14,6 +14,10 @@
 .global memcpy
 .type	memcpy, @function
 memcpy:
+#if __riscv_landing_pad
+  lpad 0
+#endif
+
   mv a3, a0
   beqz a2, 2f
 

@@ -14,6 +14,10 @@
 .global memmove
 .type	memmove, @function
 memmove:
+#if __riscv_landing_pad
+  lpad 0
+#endif
+
   beqz a2, .Ldone		/* in case there are 0 bytes to be copied, return immediately */
 
   mv a4, a0			/* copy the destination address over to a4, since memmove should return that address in a0 at the end */

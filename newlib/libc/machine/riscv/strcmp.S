@@ -15,6 +15,10 @@
 .globl strcmp
 .type  strcmp, @function
 strcmp:
+#if __riscv_landing_pad
+  lpad 0
+#endif
+
 #if defined(PREFER_SIZE_OVER_SPEED) || defined(__OPTIMIZE_SIZE__)
 .Lcompare:
   lbu   a2, 0(a0)

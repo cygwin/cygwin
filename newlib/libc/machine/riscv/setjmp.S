@@ -15,6 +15,9 @@
   .globl  setjmp
   .type   setjmp, @function
 setjmp:
+#if __riscv_landing_pad
+  lpad 0
+#endif
 	REG_S ra,  0*SZREG(a0)
   #if __riscv_xlen == 32 && (__riscv_zilsd) && (__riscv_misaligned_fast)
 	  sd    s0,  1*SZREG(a0)
@@ -70,6 +73,9 @@ setjmp:
   .globl  longjmp
   .type   longjmp, @function
 longjmp:
+#if __riscv_landing_pad
+  lpad 0
+#endif
 	REG_L ra,  0*SZREG(a0)
   #if __riscv_xlen == 32 && (__riscv_zilsd) && (__riscv_misaligned_fast)
     ld s0, 1*SZREG(a0)
