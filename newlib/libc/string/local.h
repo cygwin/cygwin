@@ -21,7 +21,7 @@ int __wcwidth (wint_t);
  * This macro is used to skip a few bytes to find an aligned pointer.
  * It's better to keep it as is even if _HAVE_HW_MISALIGNED_ACCESS is enabled,
  * to avoid small performance penalties (if they are not zero).  */
-#define UNALIGNED_X(X) ((long)X & (sizeof (long) - 1))
+#define UNALIGNED_X(X) ((long)(X) & (sizeof (long) - 1))
 
 #ifdef _HAVE_HW_MISALIGNED_ACCESS
 /* Hardware performs unaligned operations with little
