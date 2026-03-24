@@ -7,7 +7,12 @@ details. */
 #pragma once
 
 #define exception_list void
-typedef struct _DISPATCHER_CONTEXT *PDISPATCHER_CONTEXT;
+
+#if defined (__aarch64__)
+#define EXCEPTION_HANDLE_REF "_ZN9exception6handleEP17_EXCEPTION_RECORDPvP8_CONTEXTP25_DISPATCHER_CONTEXT_ARM64"
+ #else
+#define EXCEPTION_HANDLE_REF "_ZN9exception6handleEP17_EXCEPTION_RECORDPvP8_CONTEXTP19_DISPATCHER_CONTEXT"
+#endif
 
 class exception
 {
@@ -21,8 +26,8 @@ public:
     /* Install SEH handler. */
     asm volatile ("\n\
     1:									\n\
-      .seh_handler							  \
-	_ZN9exception6handleEP17_EXCEPTION_RECORDPvP8_CONTEXTP19_DISPATCHER_CONTEXT,	  \
+      .seh_handler "							  \
+	EXCEPTION_HANDLE_REF ",	  \
 	@except								\n\
       .seh_handlerdata							\n\
       .long 1								\n\
