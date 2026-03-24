@@ -73,6 +73,7 @@ bool reset_com;
 bool wincmdln;
 winsym_t allow_winsymlinks = WSYM_default;
 bool disable_pcon;
+bool use_legacy_pcon;
 bool winjitdebug = false;
 
 /* Taken from BSD libc:

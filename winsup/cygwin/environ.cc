@@ -114,6 +114,7 @@ static struct parse_thing
   } known[] NO_COPY =
 {
   {"disable_pcon", {&disable_pcon}, setbool, NULL, {{false}, {true}}},
+  {"use_legacy_pcon", {&use_legacy_pcon}, setbool, NULL, {{false}, {true}}},
   {"error_start", {func: error_start_init}, isfunc, NULL, {{0}, {0}}},
   {"export", {&export_settings}, setbool, NULL, {{false}, {true}}},
   {"glob", {func: glob_init}, isfunc, NULL, {{0}, {s: "normal"}}},
