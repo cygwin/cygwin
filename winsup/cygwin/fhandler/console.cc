@@ -1946,8 +1946,6 @@ fhandler_console::pcon_hand_over_proc (void)
   char buf[MAX_PATH];
   shared_name (buf, PIPE_SW_MUTEX, parent_pty);
   HANDLE mtx = OpenMutex (MAXIMUM_ALLOWED, FALSE, buf);
-  WaitForSingleObject (mtx, INFINITE);
-  ReleaseMutex (mtx);
   DWORD res = WaitForSingleObject (mtx, INFINITE);
   if (res == WAIT_OBJECT_0 || res == WAIT_ABANDONED)
     {
@@ -1958,8 +1956,7 @@ fhandler_console::pcon_hand_over_proc (void)
     }
   else
     system_printf("Acquiring pcon_ho_mutex failed.");
-  /* Do not release the mutex.
-     Hold onto the mutex until this process completes. */
+  ReleaseMutex (mtx);
 }
 
 bool
