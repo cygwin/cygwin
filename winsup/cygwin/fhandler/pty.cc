@@ -1309,14 +1309,8 @@ fhandler_pty_common::to_be_read_from_nat_pipe (void)
       goto out;
   }
 
-  if (!pinfo (get_ttyp ()->getpgid ()))
-    /* GDB may set invalid process group for non-cygwin process. */
-    {
-      ret = true;
-      goto out;
-    }
+  ret = true; /* !pcon_start && switch_to_nat_pipe && !masked */
 
-  ret = get_ttyp ()->nat_fg (get_ttyp ()->getpgid ());
 out:
   ReleaseMutex (pipe_sw_mutex);
   return ret;
@@ -2381,6 +2375,7 @@ fhandler_pty_master::write (const void *ptr, size_t len)
   /* This input transfer is needed when cygwin-app which is started from
      non-cygwin app is terminated if pseudo console is disabled. */
   if (to_be_read_from_nat_pipe () && !get_ttyp ()->pcon_activated
+      && get_ttyp ()->nat_fg (get_ttyp ()->getpgid ())
       && get_ttyp ()->pty_input_state == tty::to_cyg)
     {
       acquire_attach_mutex (mutex_timeout);
