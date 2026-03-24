@@ -10,8 +10,19 @@ details. */
 
 #if defined (__aarch64__)
 #define EXCEPTION_HANDLE_REF "_ZN9exception6handleEP17_EXCEPTION_RECORDPvP8_CONTEXTP25_DISPATCHER_CONTEXT_ARM64"
- #else
+#define EXCEPTION_HANDLER_DATA
+#else
 #define EXCEPTION_HANDLE_REF "_ZN9exception6handleEP17_EXCEPTION_RECORDPvP8_CONTEXTP19_DISPATCHER_CONTEXT"
+#define EXCEPTION_HANDLER_DATA \
+  asm volatile ("\n\
+  1:									\n\
+    .seh_handler "							  \
+      EXCEPTION_HANDLE_REF ",						  \
+      @except								\n\
+    .seh_handlerdata							\n\
+    .long 1								\n\
+    .rva 1b, 2f, 2f, 2f							\n\
+    .seh_code								\n")
 #endif
 
 class exception
@@ -24,15 +35,7 @@ public:
   exception () __attribute__ ((always_inline))
   {
     /* Install SEH handler. */
-    asm volatile ("\n\
-    1:									\n\
-      .seh_handler "							  \
-	EXCEPTION_HANDLE_REF ",	  \
-	@except								\n\
-      .seh_handlerdata							\n\
-      .long 1								\n\
-      .rva 1b, 2f, 2f, 2f						\n\
-      .seh_code								\n");
+    EXCEPTION_HANDLER_DATA;
   };
   ~exception () __attribute__ ((always_inline))
   {

@@ -346,8 +346,17 @@ public:
 
 #if defined (__aarch64__)
 #define EXCEPTION_MYFAULT_REF "_ZN9exception7myfaultEP17_EXCEPTION_RECORDPvP8_CONTEXTP25_DISPATCHER_CONTEXT_ARM64"
+#define TRY_HANDLER_DATA (void) &&__l_try;
 #else
 #define EXCEPTION_MYFAULT_REF "_ZN9exception7myfaultEP17_EXCEPTION_RECORDPvP8_CONTEXTP19_DISPATCHER_CONTEXT"
+#define TRY_HANDLER_DATA \
+  __asm__ goto ("\n" \
+  "  .seh_handler " EXCEPTION_MYFAULT_REF ", @except			\n" \
+  "  .seh_handlerdata							\n" \
+  "  .long 1								\n" \
+  "  .rva %l[__l_try],%l[__l_endtry],%l[__l_except],%l[__l_except]	\n" \
+  "  .seh_code								\n" \
+  : : : : __l_try, __l_endtry, __l_except)
 #endif
 
 /* Exception handling macros. This is a handmade SEH try/except. */
@@ -357,13 +366,7 @@ public:
     __label__ __l_try, __l_except, __l_endtry; \
     __mem_barrier; \
     san __sebastian (&&__l_except); \
-    __asm__ goto ("\n" \
-      "  .seh_handler " EXCEPTION_MYFAULT_REF ", @except						\n" \
-      "  .seh_handlerdata						\n" \
-      "  .long 1							\n" \
-      "  .rva %l[__l_try],%l[__l_endtry],%l[__l_except],%l[__l_except]	\n" \
-      "  .seh_code							\n" \
-      : : : : __l_try, __l_endtry, __l_except); \
+    TRY_HANDLER_DATA; \
     { \
       __l_try: \
 	__mem_barrier;
