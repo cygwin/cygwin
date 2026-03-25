@@ -305,6 +305,23 @@ cons_master_thread (VOID *arg)
   return 0;
 }
 
+static inline DWORD
+strip_inrec (INPUT_RECORD *r, DWORD n)
+{
+  /* Pseudo console with OpenConsole.exe removes the events
+     whose bKeyDown is 0 as well as ones whose charcode is 0. */
+  DWORD j = 0;
+  for (DWORD i = 0; i < n; i++)
+    {
+      if (r[i].EventType != KEY_EVENT)
+	r[j++] = r[i];
+      else if (r[i].Event.KeyEvent.bKeyDown
+	       && r[i].Event.KeyEvent.uChar.UnicodeChar)
+	r[j++] = r[i];
+    }
+  return j;
+}
+
 /* Compare two INPUT_RECORD sequences */
 static inline bool
 inrec_eq (const INPUT_RECORD *a, const INPUT_RECORD *b, DWORD n)
@@ -417,6 +434,8 @@ fhandler_console::cons_master_thread (handle_set_t *p, tty *ttyp)
   while (con.owner == GetCurrentProcessId ())
     {
       DWORD total_read, n, i;
+      DWORD mode;
+      bool need_strip = false;
 
       if (con.disable_master_thread)
 	{
@@ -472,6 +491,23 @@ fhandler_console::cons_master_thread (handle_set_t *p, tty *ttyp)
 	{
 	case WAIT_OBJECT_0:
 	  acquire_attach_mutex (mutex_timeout);
+	  /* When ENABLE_VIRTUAL_TERMINAL_INPUT is set, the key events
+	     are not preserved as is. Particularly, when OpenConsole.exe
+	     is used, the following key events are simplified so much.
+	     Writing the events:
+		 press shift key -> press 'A' key ->
+		 lease 'A' key -> release shift key
+	     results in only one key event with:
+		 uChar.UnicodeChar = 0x41,
+		 wVirtualKeyCode = 0,
+		 wVirtualScanCode = 0,
+		 dwControlKeyState = 0,
+		 bKeyDown = 1
+	     Therefore, we need fixup the input record by calling
+	     strip_inrec() if the ENABLE_VIRTUAL_TERMINAL_INPUT flag is
+	     set, so that the input records are compared as expected. */
+	  GetConsoleMode (p->input_handle, &mode);
+	  need_strip = inside_pcon && (mode & ENABLE_VIRTUAL_TERMINAL_INPUT);
 	  total_read = 0;
 	  while (cygwait (p->input_handle, (DWORD) 0) == WAIT_OBJECT_0
 		 && total_read < inrec_size)
@@ -483,6 +519,8 @@ fhandler_console::cons_master_thread (handle_set_t *p, tty *ttyp)
 	      total_read += len;
 	    }
 	  release_attach_mutex ();
+	  if (need_strip)
+	    total_read = strip_inrec (input_rec, total_read);
 	  break;
 	case WAIT_TIMEOUT:
 	  con.num_processed = 0;
@@ -607,6 +645,8 @@ remove_record:
 	      acquire_attach_mutex (mutex_timeout);
 	      PeekConsoleInputW (p->input_handle, input_tmp, inrec_size, &n);
 	      release_attach_mutex ();
+	      if (need_strip)
+		n = strip_inrec (input_tmp, n);
 	      if (n < min (total_read, inrec_size))
 		break; /* Someone has read input without acquiring
 			  input_mutex. ConEmu cygwin-connector? */
@@ -625,6 +665,8 @@ remove_record:
 		  n += len;
 		}
 	      release_attach_mutex ();
+	      if (need_strip)
+		n = strip_inrec (input_tmp, n);
 	      bool fixed = false;
 	      for (DWORD ofs = n - total_read; ofs > 0; ofs--)
 		{
