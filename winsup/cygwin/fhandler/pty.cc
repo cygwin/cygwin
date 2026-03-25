@@ -2218,6 +2218,8 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 	    }
 	  else
 	    line_edit (p + i, 1, ti, &ret);
+	  len = orig_len - i - 1;
+	  ptr = p + i + 1;
 	  if (state == 1 && p[i] == 'R')
 	    state = 2;
 	  if (state == 2)
@@ -2227,8 +2229,6 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 		 the response sequence should not be written. */
 	      if (!get_ttyp ()->req_xfer_input)
 		WriteFile (to_slave_nat, wpbuf, ixput, &n, NULL);
-	      len = orig_len - i - 1;
-	      ptr = p + i + 1;
 	      ixput = 0;
 	      state = 0;
 	      get_ttyp ()->req_xfer_input = false;
