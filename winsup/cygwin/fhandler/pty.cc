@@ -2191,6 +2191,7 @@ fhandler_pty_master::write (const void *ptr, size_t len)
       static char wpbuf[wpbuf_len];
       static int ixput = 0;
       static int state = 0;
+      static DWORD wp_tid = 0;
 
       DWORD n;
       WaitForSingleObject (input_mutex, mutex_timeout);
@@ -2203,8 +2204,9 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 		line_edit (wpbuf, ixput, ti, &ret);
 	      ixput = 0;
 	      state = 1;
+	      wp_tid = _my_tls.thread_id;
 	    }
-	  if (state == 1)
+	  if (state == 1 && wp_tid == _my_tls.thread_id)
 	    {
 	      if (ixput < wpbuf_len)
 		wpbuf[ixput++] = p[i];
@@ -2220,7 +2222,7 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 	    line_edit (p + i, 1, ti, &ret);
 	  len = orig_len - i - 1;
 	  ptr = p + i + 1;
-	  if (state == 1 && p[i] == 'R')
+	  if (state == 1 && wp_tid == _my_tls.thread_id && p[i] == 'R')
 	    state = 2;
 	  if (state == 2)
 	    {
@@ -2231,6 +2233,7 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 		WriteFile (to_slave_nat, wpbuf, ixput, &n, NULL);
 	      ixput = 0;
 	      state = 0;
+	      wp_tid = 0;
 	      get_ttyp ()->req_xfer_input = false;
 	      get_ttyp ()->pcon_start = false;
 	      break;
