@@ -2738,6 +2738,7 @@ fhandler_pty_master::pty_master_fwd_thread (const master_fwd_thread_param_t *p)
 	      state = 0;
 
 	  /* Remove CSI ? 9001 h/l (win32-input-mode) */
+	  /* Remove CSI ? 1004 h/l (focus report) */
 	  int arg = 0;
 	  state = 0;
 	  for (DWORD i = 0; i < rlen; i++)
@@ -2757,7 +2758,7 @@ fhandler_pty_master::pty_master_fwd_thread (const master_fwd_thread_param_t *p)
 	      arg = arg * 10 + (outbuf[i] - '0');
 	    else if (state == 3 && outbuf[i] == ';')
 	      arg = 0;
-	    else if (state == 3 && arg == 9001
+	    else if (state == 3 && (arg == 9001 || arg == 1004)
 		     && (outbuf[i] == 'h' || outbuf[i] == 'l'))
 	      {
 		memmove (&outbuf[start_at], &outbuf[i+1], rlen-i-1);
