@@ -1065,6 +1065,12 @@ _dll_crt0 ()
   fesetenv (FE_DFL_ENV);
   _main_tls = &_my_tls;
   _main_tls->call ((DWORD (*) (void *, void *)) dll_crt0_1, NULL);
+#if defined(__aarch64__)
+  /* Add a compiler barrier to prevent the epilogue from appearing before
+     _main_tls->call. The epilogue optimization should not be applied after
+     the stack replacement.  */
+  __asm__ ("");
+#endif
 }
 
 void
