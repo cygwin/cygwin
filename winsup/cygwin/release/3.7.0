@@ -11,3 +11,4 @@ What's new:
 - Improved support for soft and hard limits in setrlimit(2), support
   RLIMIT_NPROC.
 
+- New API: _Fork.

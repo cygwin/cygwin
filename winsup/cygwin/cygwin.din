@@ -147,6 +147,7 @@ __xpg_strerror_r SIGFE
 _dll_crt0 NOSIGFE
 _Exit SIGFE
 _exit SIGFE
+_Fork SIGFE
 _feinitialise NOSIGFE
 _fscanf_r SIGFE
 _get_osfhandle SIGFE

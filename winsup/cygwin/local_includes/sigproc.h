@@ -131,7 +131,8 @@ class lock_pthread
 {
   bool bother;
 public:
-  lock_pthread (): bother (1)
+  lock_pthread (): bother (1) {}
+  void prepare ()
   {
     pthread::atforkprepare ();
   }
@@ -165,7 +166,15 @@ class hold_everything
   lock_process process;
 
 public:
-  hold_everything (bool& x): ischild (x) {}
+  hold_everything (bool& x, bool do_atfork_handlers): ischild (x)
+  {
+    /* POSIX.1-2024: _Fork() does not call any handler established
+		     by pthread_atfork(). */
+    if (do_atfork_handlers)
+      pthread.dont_bother ();
+    else
+      pthread.prepare ();
+  }
   operator int () const {return signals;}
 
   ~hold_everything()

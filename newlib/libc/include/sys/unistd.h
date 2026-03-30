@@ -96,6 +96,9 @@ int	fchownat (int __dirfd, const char *__path, uid_t __owner, gid_t __group, int
 int	fexecve (int __fd, char * const __argv[], char * const __envp[]);
 #endif
 pid_t   fork (void);
+#if __POSIX_VISIBLE >= 202405
+pid_t   _Fork (void);
+#endif
 long    fpathconf (int __fd, int __name);
 int     fsync (int __fd);
 #if __POSIX_VISIBLE >= 199309

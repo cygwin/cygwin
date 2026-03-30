@@ -31,7 +31,7 @@ details. */
 /* FIXME: Once things stabilize, bump up to a few minutes.  */
 #define FORK_WAIT_TIMEOUT (300 * 1000)     /* 300 seconds */
 
-static int dofork (void **proc, bool *with_forkables);
+static int dofork (void **proc, bool do_atfork_handlers, bool *with_forkables);
 class frok
 {
   frok (bool *forkables)
@@ -47,7 +47,7 @@ class frok
   int parent (volatile char * volatile here);
   int child (volatile char * volatile here);
   bool error (const char *fmt, ...);
-  friend int dofork (void **proc, bool *with_forkables);
+  friend int dofork (void **, bool, bool *);
 };
 
 static void
@@ -201,7 +201,6 @@ frok::child (volatile char * volatile here)
   CloseHandle (hParent);
   hParent = NULL;
   cygwin_finished_initializing = true;
-  pthread::atforkchild ();
   return 0;
 }
 
@@ -609,15 +608,33 @@ extern "C" int
 fork ()
 {
   bool with_forkables = false; /* do not force hardlinks on first try */
-  int res = dofork (NULL, &with_forkables);
+  int res = dofork (NULL, false, &with_forkables);
   if (res >= 0)
     return res;
   if (with_forkables)
     return res; /* no need for second try when already enabled */
   with_forkables = true; /* enable hardlinks for second try */
-  return dofork (NULL, &with_forkables);
+  return dofork (NULL, false, &with_forkables);
 }
 
+/* POSIX.1-2024:
+
+    The _Fork() function shall be equivalent to fork(), except that fork
+    handlers established by means of the pthread_atfork() function shall
+    not be called and _Fork() shall be async-signal-safe.  Our fork()
+    already is async-signal-safe. */
+extern "C" int
+_Fork ()
+{
+  bool with_forkables = false; /* do not force hardlinks on first try */
+  int res = dofork (NULL, true, &with_forkables);
+  if (res >= 0)
+    return res;
+  if (with_forkables)
+    return res; /* no need for second try when already enabled */
+  with_forkables = true; /* enable hardlinks for second try */
+  return dofork (NULL, true, &with_forkables);
+}
 
 /* __posix_spawn_fork is called from newlib's posix_spawn implementation.
    The original code in newlib has been taken from FreeBSD, and the core
@@ -628,17 +645,17 @@ extern "C" int
 __posix_spawn_fork (void **proc)
 {
   bool with_forkables = false; /* do not force hardlinks on first try */
-  int res = dofork (proc, &with_forkables);
+  int res = dofork (proc, false, &with_forkables);
   if (res >= 0)
     return res;
   if (with_forkables)
     return res; /* no need for second try when already enabled */
   with_forkables = true; /* enable hardlinks for second try */
-  return dofork (proc, &with_forkables);
+  return dofork (proc, false, &with_forkables);
 }
 
 static int
-dofork (void **proc, bool *with_forkables)
+dofork (void **proc, bool do_atfork_handlers, bool *with_forkables)
 {
   frok grouped (with_forkables);
 
@@ -659,7 +676,7 @@ dofork (void **proc, bool *with_forkables)
     }
 
   {
-    hold_everything held_everything (ischild);
+    hold_everything held_everything (ischild, do_atfork_handlers);
     /* This tmp_pathbuf constructor is required here because the below setjmp
        magic will otherwise not restore the original buffer count values in
        the thread-local storage.  A process forking too deeply will run into
@@ -695,6 +712,11 @@ dofork (void **proc, bool *with_forkables)
     else
       {
 	res = grouped.child (stackp);
+	/* So far pthread::atforkchild() was called as last function
+	   from inside frok::child().  Move the call here, so we don't have
+	   to propagate the do_atfork_handlers variable to frok::child(). */
+	if (!do_atfork_handlers)
+	  pthread::atforkchild ();
 	__in_forkee = FORKED;
 	ischild = true;	/* might have been reset by fork mem copy */
       }
