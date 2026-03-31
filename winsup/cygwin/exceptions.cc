@@ -618,10 +618,14 @@ EXCEPTION_DISPOSITION
 exception::myfault (EXCEPTION_RECORD *e, exception_list *frame, CONTEXT *in,
 		    PDISPATCHER_CONTEXT dispatch)
 {
+  if (IS_UNWINDING(e->ExceptionFlags))
+    return ExceptionContinueSearch;
+
   PSCOPE_TABLE table = (PSCOPE_TABLE) dispatch->HandlerData;
-  RtlUnwindEx (frame,
-	       (char *) dispatch->ImageBase + table->ScopeRecord[0].JumpTarget,
-	       e, 0, in, dispatch->HistoryTable);
+  void *jump_target = ((char *) dispatch->ImageBase) + table->ScopeRecord[0].JumpTarget;
+
+  CONTEXT c;
+  RtlUnwindEx (frame, jump_target, e, 0, &c, dispatch->HistoryTable);
   /* NOTREACHED, make gcc happy. */
   return ExceptionContinueSearch;
 }
