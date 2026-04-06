@@ -243,6 +243,7 @@ tty::init ()
   fwd_not_empty = false;
   pcon_start = false;
   pcon_start_pid = 0;
+  pcon_start_csi_c = false;
   pcon_cap_checked = false;
   has_csi6n = false;
   need_invisible_console = false;

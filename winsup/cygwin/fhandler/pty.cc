@@ -1349,7 +1349,8 @@ fhandler_pty_slave::reset_switch_to_nat_pipe (void)
     }
   if (isHybrid)
     return;
-  if (get_ttyp ()->pcon_start) /* Pseudo console initialization is on going */
+  if (get_ttyp ()->pcon_start || get_ttyp ()->pcon_start_csi_c)
+    /* Pseudo console initialization is on going */
     return;
   DWORD wait_ret = WaitForSingleObject (pipe_sw_mutex, mutex_timeout);
   if (wait_ret == WAIT_TIMEOUT)
@@ -1456,7 +1457,8 @@ fhandler_pty_common::to_be_read_from_nat_pipe (void)
      to CSI6n should be go to cyg-pipe. So, wait for pcon_start and
      return false. */
   while (WaitForSingleObject (pipe_sw_mutex, 0) == WAIT_TIMEOUT)
-    if (get_ttyp ()->pcon_start || get_ttyp ()->pcon_start_pid)
+    if (get_ttyp ()->pcon_start || get_ttyp ()->pcon_start_csi_c
+	|| get_ttyp ()->pcon_start_pid)
       return false;
     else
       yield ();
@@ -1780,7 +1782,7 @@ fhandler_pty_slave::tcgetattr (struct termios *t)
     if (cfd->get_major () == DEV_PTYM_MAJOR
 	&& cfd->get_minor () == get_minor ())
       {
-	if (get_ttyp ()->pcon_start)
+	if (get_ttyp ()->pcon_start || get_ttyp ()->pcon_start_csi_c)
 	  t->c_lflag &= ~(ICANON | ECHO);
 	if (get_ttyp ()->pcon_activated)
 	  t->c_iflag &= ~ICRNL;
@@ -2362,13 +2364,16 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 
   get_ttyp ()->discard_input = false;
 
-  if (get_ttyp ()->pcon_start)
+  int pcon_start_mode =
+    get_ttyp ()->pcon_start ? 1 : (get_ttyp ()->pcon_start_csi_c ? 2 : 0);
+  if (pcon_start_mode)
     { /* Reaches here when pseudo console initialization is on going. */
       /* Pseudo condole support uses "CSI6n" to get cursor position.
 	 If the reply for "CSI6n" is divided into multiple writes,
 	 pseudo console sometimes does not recognize it.  Therefore,
 	 put them together into wpbuf and write all at once. */
-      static const int wpbuf_len = strlen ("\033[32768;32868R");
+      /* Do the same for CSIc. */
+      static const int wpbuf_len = 64; /* Enough space for CSIc response */
       static char wpbuf[wpbuf_len];
       static int ixput = 0;
       static int state = 0;
@@ -2404,7 +2409,15 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 	  len = orig_len - i - 1;
 	  ptr = p + i + 1;
 	  if (state == 1 && wp_tid == _my_tls.thread_id && p[i] == 'R')
-	    state = 2;
+	    {
+	      get_ttyp ()->pcon_start = false;
+	      state = 2;
+	    }
+	  if (state == 1 && wp_tid == _my_tls.thread_id && p[i] == 'c')
+	    {
+	      get_ttyp ()->pcon_start_csi_c = false;
+	      state = 2;
+	    }
 	  if (state == 2)
 	    {
 	      /* req_xfer_input is true if "ESC[6n" was sent just for
@@ -2416,13 +2429,14 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 	      state = 0;
 	      wp_tid = 0;
 	      get_ttyp ()->req_xfer_input = false;
-	      get_ttyp ()->pcon_start = false;
-	      break;
+	      if (!get_ttyp ()->pcon_start && !get_ttyp ()->pcon_start_csi_c)
+		break;
 	    }
 	}
       ReleaseMutex (input_mutex);
 
-      if (!get_ttyp ()->pcon_start)
+      if (pcon_start_mode
+	  && !get_ttyp ()->pcon_start && !get_ttyp ()->pcon_start_csi_c)
 	{ /* Pseudo console initialization has been done in above code. */
 	  pinfo pp (get_ttyp ()->pcon_start_pid);
 	  if (get_ttyp ()->switch_to_nat_pipe
@@ -2580,7 +2594,7 @@ fhandler_pty_master::tcgetattr (struct termios *t)
 {
   *t = cygwin_shared->tty[get_minor ()]->ti;
   /* Workaround for rlwrap v0.40 or later */
-  if (get_ttyp ()->pcon_start)
+  if (get_ttyp ()->pcon_start || get_ttyp ()->pcon_start_csi_c)
     t->c_lflag &= ~(ICANON | ECHO);
   if (get_ttyp ()->pcon_activated)
     t->c_iflag &= ~ICRNL;
@@ -2947,8 +2961,10 @@ pty_master_thread (VOID *arg)
 #define CONSOLE_HELPER "\\bin\\cygwin-console-helper.exe"
 #define CONSOLE_HELPER_LEN (sizeof (CONSOLE_HELPER) - 1)
 
-inline static DWORD
-workarounds_for_pseudo_console_output (char *outbuf, DWORD rlen)
+DWORD
+fhandler_pty_master::workarounds_for_pseudo_console_output (char *outbuf,
+							    DWORD rlen,
+							    tty *ttyp)
 {
   int state = 0;
   int start_at = 0;
@@ -2957,6 +2973,7 @@ workarounds_for_pseudo_console_output (char *outbuf, DWORD rlen)
   int arg = 0;
   bool saw_greater_than_sign = false;
   bool saw_question_mark = false;
+  static bool in_pcon_start = false;
   for (DWORD i=0; i<rlen; i++)
     if (state == 0 && outbuf[i] == '\033')
       {
@@ -3038,8 +3055,21 @@ workarounds_for_pseudo_console_output (char *outbuf, DWORD rlen)
 	    start_at = i;
 	    state = 1;
 	  }
+	else if (arg == 6 && outbuf[i] == 'n' && ttyp->pcon_start)
+	  {
+	    in_pcon_start = true;
+	    state = 0;
+	  }
+	else if (arg == 0 && outbuf[i] == 'c' && in_pcon_start)
+	  {
+	    ttyp->pcon_start_csi_c = true;
+	    state = 0;
+	  }
 	else
-	  state = 0;
+	  {
+	    in_pcon_start = false;
+	    state = 0;
+	  }
 
 	if (state < 2)
 	  {
@@ -3097,6 +3127,7 @@ workarounds_for_pseudo_console_output (char *outbuf, DWORD rlen)
 	is_osc = false;
 	saw_greater_than_sign = false;
 	saw_question_mark = false;
+	in_pcon_start = false;
 	arg = 0;
 	state = 0;
       }
@@ -3155,7 +3186,8 @@ wait_event:
       char *ptr = outbuf;
       if (p->ttyp->pcon_activated)
 	{
-	  wlen = rlen = workarounds_for_pseudo_console_output (outbuf, rlen);
+	  wlen = rlen =
+	    workarounds_for_pseudo_console_output (outbuf, rlen, p->ttyp);
 
 	  if (p->ttyp->term_code_page != CP_UTF8)
 	    {

@@ -122,6 +122,7 @@ private:
   bool pcon_activated;
   bool pcon_start;
   pid_t pcon_start_pid;
+  bool pcon_start_csi_c;
   bool switch_to_nat_pipe;
   DWORD nat_pipe_owner_pid;
   UINT term_code_page;

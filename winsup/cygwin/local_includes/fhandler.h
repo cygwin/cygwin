@@ -2580,6 +2580,7 @@ public:
 
   static DWORD pty_master_thread (const master_thread_param_t *p);
   static DWORD pty_master_fwd_thread (const master_fwd_thread_param_t *p);
+  static DWORD workarounds_for_pseudo_console_output (char *, DWORD, tty *);
   int process_slave_output (char *buf, size_t len, int pktmode_on);
   void doecho (const void *str, DWORD len);
   int accept_input ();
