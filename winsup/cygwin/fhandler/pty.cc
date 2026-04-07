@@ -3530,7 +3530,7 @@ fhandler_pty_slave::setup_pseudoconsole ()
 				      PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
 				      hpcon, sizeof (hpcon), NULL, NULL))
 
-	goto cleanup_heap;
+	goto cleanup_proc_thread_attr;
 
       hello = CreateEvent (&sec_none, true, false, NULL);
       goodbye = CreateEvent (&sec_none, true, false, NULL);
@@ -3699,6 +3699,8 @@ skip_close_hello:
   CloseHandle (goodbye);
   CloseHandle (hr);
   CloseHandle (hw);
+cleanup_proc_thread_attr:
+  DeleteProcThreadAttributeList (si.lpAttributeList);
 cleanup_heap:
   HeapFree (GetProcessHeap (), 0, si.lpAttributeList);
 cleanup_pseudo_console:
