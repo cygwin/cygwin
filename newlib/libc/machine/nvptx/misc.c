@@ -13,6 +13,7 @@
  * they apply.
  */
 
+#include <fcntl.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -60,6 +61,11 @@ lseek(int fd, off_t offset, int whence) {
 int
 open (const char *pathname, int flags, ...) {
   return -1;
+}
+
+int
+creat (const char *path, mode_t mode) {
+  return open (path, O_CREAT | O_WRONLY | O_TRUNC, mode);
 }
 
 ssize_t
