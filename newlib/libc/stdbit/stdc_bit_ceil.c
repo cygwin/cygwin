@@ -8,8 +8,10 @@
 #include <limits.h>
 #include <stdbit.h>
 
+#include "stdbit_internal.h"
+
 /* Ensure we don't shift 1U out of range. */
-static_assert(UCHAR_WIDTH < UINT_WIDTH,
+_Static_assert(UCHAR_WIDTH < UINT_WIDTH,
     "stdc_bit_ceil_uc needs UCHAR_WIDTH < UINT_WIDTH");
 
 unsigned char
@@ -22,7 +24,7 @@ stdc_bit_ceil_uc(unsigned char x)
 }
 
 /* Ensure we don't shift 1U out of range. */
-static_assert(USHRT_WIDTH < UINT_WIDTH,
+_Static_assert(USHRT_WIDTH < UINT_WIDTH,
     "stdc_bit_ceil_us needs USHRT_WIDTH < UINT_WIDTH");
 
 unsigned short

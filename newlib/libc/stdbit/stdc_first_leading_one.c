@@ -7,6 +7,8 @@
 #include <limits.h>
 #include <stdbit.h>
 
+#include "stdbit_internal.h"
+
 unsigned int
 stdc_first_leading_one_uc(unsigned char x)
 {

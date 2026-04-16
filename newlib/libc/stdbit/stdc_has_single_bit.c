@@ -7,6 +7,8 @@
 #include <stdbit.h>
 #include <stdbool.h>
 
+#include "stdbit_internal.h"
+
 bool
 stdc_has_single_bit_uc(unsigned char x)
 {

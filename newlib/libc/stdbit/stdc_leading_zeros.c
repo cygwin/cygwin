@@ -8,8 +8,10 @@
 #include <limits.h>
 #include <stdbit.h>
 
+#include "stdbit_internal.h"
+
 /* Offset must be greater than zero. */
-static_assert(UCHAR_WIDTH < UINT_WIDTH,
+_Static_assert(UCHAR_WIDTH < UINT_WIDTH,
     "stdc_leading_zeros_uc needs UCHAR_WIDTH < UINT_WIDTH");
 
 unsigned int
@@ -21,7 +23,7 @@ stdc_leading_zeros_uc(unsigned char x)
 }
 
 /* Offset must be greater than zero. */
-static_assert(USHRT_WIDTH < UINT_WIDTH,
+_Static_assert(USHRT_WIDTH < UINT_WIDTH,
     "stdc_leading_zeros_us needs USHRT_WIDTH < UINT_WIDTH");
 
 unsigned int

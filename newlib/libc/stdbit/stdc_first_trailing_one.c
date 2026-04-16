@@ -6,6 +6,8 @@
 
 #include <stdbit.h>
 
+#include "stdbit_internal.h"
+
 unsigned int
 stdc_first_trailing_one_uc(unsigned char x)
 {

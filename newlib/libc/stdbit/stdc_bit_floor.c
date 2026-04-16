@@ -7,6 +7,8 @@
 #include <limits.h>
 #include <stdbit.h>
 
+#include "stdbit_internal.h"
+
 unsigned char
 stdc_bit_floor_uc(unsigned char x)
 {

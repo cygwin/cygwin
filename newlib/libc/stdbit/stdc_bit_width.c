@@ -7,6 +7,8 @@
 #include <limits.h>
 #include <stdbit.h>
 
+#include "stdbit_internal.h"
+
 unsigned int
 stdc_bit_width_uc(unsigned char x)
 {

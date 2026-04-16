@@ -8,8 +8,10 @@
 #include <limits.h>
 #include <stdbit.h>
 
+#include "stdbit_internal.h"
+
 /* Ensure we do not shift 1U out of range. */
-static_assert(UCHAR_WIDTH < UINT_WIDTH,
+_Static_assert(UCHAR_WIDTH < UINT_WIDTH,
     "stdc_trailing_zeros_uc needs UCHAR_WIDTH < UINT_WIDTH");
 
 unsigned int
@@ -19,7 +21,7 @@ stdc_trailing_zeros_uc(unsigned char x)
 }
 
 /* Ensure we do not shift 1U out of range. */
-static_assert(USHRT_WIDTH < UINT_WIDTH,
+_Static_assert(USHRT_WIDTH < UINT_WIDTH,
     "stdc_trailing_zeros_uc needs USHRT_WIDTH < UINT_WIDTH");
 
 unsigned int
