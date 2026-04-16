@@ -56,6 +56,7 @@ include %D%/misc/Makefile.inc
 include %D%/unix/Makefile.inc
 include %D%/posix/Makefile.inc
 include %D%/syscalls/Makefile.inc
+include %D%/stdbit/Makefile.inc
 include %D%/iconv/Makefile.inc
 include %D%/xdr/Makefile.inc
 include %D%/ssp/Makefile.inc
