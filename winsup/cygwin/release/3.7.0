@@ -12,3 +12,9 @@ What's new:
   RLIMIT_NPROC.
 
 - New API: _Fork.
+
+- New API: C23 stdbit functions stdc_bit_ceil*, stdc_bit_floor*,
+  stdc_bit_width*, stdc_count_ones*, stdc_count_zeros*, stdc_first_leading_one*,
+  stdc_first_leading_zero*, stdc_first_trailing_one*, stdc_first_trailing_zero*,
+  stdc_has_single_bit*, stdc_leading_ones*, stdc_leading_zeros*,
+  stdc_trailing_ones*, stdc_trailing_zeros*.
