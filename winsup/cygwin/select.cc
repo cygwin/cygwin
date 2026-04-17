@@ -561,7 +561,10 @@ select_stuff::poll (fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
     {
       int ret = s->peek ? s->peek (s, true) : 1;
       if (ret < 0)
-	return -1;
+	{
+	  set_errno (s->thread_errno);
+	  return -1;
+	}
       n += (ret > 0) ?  set_bits (s, readfds, writefds, exceptfds) : 0;
     }
   return n;

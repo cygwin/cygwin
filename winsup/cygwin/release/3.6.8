@@ -22,3 +22,7 @@ Fixes:
   Addresses: https://github.com/git-for-windows/git/issues/5632
 
 - Fix pty bugs regarding GDB with pty.
+
+- Add missing errno setting on error that poll() is called for closed
+  file descriptor.
+  Addresses: https://cygwin.com/pipermail/cygwin/2026-April/259602.html
