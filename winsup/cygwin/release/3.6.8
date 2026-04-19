@@ -1,0 +1,24 @@
+Fixes:
+------
+
+- Fix conhost.exe crash in pseudo console.
+
+- Drop CSI?9001h (win32-input-mode) sequence from pseudo console
+  output so that Ctrl-C correctly works.
+
+- Fix the problem that Ctrl-C does not work for foregrounded
+  'cat | sleep 100 &' command in tcsh.
+
+- Fix the problem that Ctrl-C does not work for foregrounded
+  'cat | cmd &' command.
+
+- Drop CSI?1004h (enable focus event report) sequence from pseudo
+  console output so that CSI I/O are not sent to the foreground
+  process.
+
+- Fix inheriting typeahead input after Ctrl-C.
+
+- Apply 7 separate patches that fix out-of-order key input.
+  Addresses: https://github.com/git-for-windows/git/issues/5632
+
+- Fix pty bugs regarding GDB with pty.
