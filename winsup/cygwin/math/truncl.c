@@ -13,7 +13,7 @@
 long double
 truncl (long double _x)
 {
-#if defined(_ARM_) || defined(__arm__)
+#if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
   return trunc(_x);
 #else
   long double retval = 0.0L;
@@ -26,5 +26,5 @@ truncl (long double _x)
   __asm__ __volatile__ ("frndint;" : "=t" (retval)  : "0" (_x)); /* round towards zero */
   __asm__ __volatile__ ("fldcw %0;" : : "m" (saved_cw) ); /* restore saved control word */
   return retval;
-#endif /* defined(_ARM_) || defined(__arm__) */
+#endif /* __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__ */
 }

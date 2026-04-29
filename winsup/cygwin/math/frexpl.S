@@ -10,14 +10,14 @@
  * It returns an integer power of two to expnt and the significand
  * between 0.5 and 1 to y.  Thus  x = y * 2**expn.
  */
-#ifdef __x86_64__
+#if defined(__x86_64__)
 	.align 8
-#else
+#elif defined(__i386__)
 	.align 2
 #endif
 .globl __MINGW_USYMBOL(frexpl)
 __MINGW_USYMBOL(frexpl):
-#ifdef __x86_64__
+#if defined(__x86_64__)
 	pushq %rbp
 	movq %rsp,%rbp
 	subq $48,%rsp
@@ -72,7 +72,7 @@ L24:
 	fstpt	(%r9)
 	leave
 	ret
-#else
+#elif defined(__i386__)
 	pushl %ebp
 	movl %esp,%ebp
 	subl $24,%esp
@@ -127,4 +127,9 @@ L24:
 	popl %esi
 	leave
 	ret
+#elif __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
+	bl	frexp
+	ret
+#else
+	.error "Not supported on your platform yet"
 #endif

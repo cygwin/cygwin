@@ -53,7 +53,7 @@ __MINGW_USYMBOL(exp2l):
 	movq	$0,8(%rcx)
 	fstpt	(%rcx)
 	ret
-#else
+#elif __i386__
 	fldt	4(%esp)
 /* I added the following ugly construct because exp(+-Inf) resulted
    in NaN.  The ugliness results from the bright minds at Intel.
@@ -89,4 +89,7 @@ __MINGW_USYMBOL(exp2l):
 	fstp	%st
 	fldz				/* Set result to 0.  */
 2:	ret
+#elif __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
+	bl	exp2
+	ret
 #endif

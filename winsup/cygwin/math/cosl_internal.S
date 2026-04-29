@@ -34,7 +34,7 @@ __MINGW_USYMBOL(__cosl_internal):
 	movq	$0,8(%rcx)
 	fstpt (%rcx)
 	ret
-#else
+#elif __i386__
 	fldt	4(%esp)
 	fcos
 	fnstsw	%ax
@@ -50,6 +50,9 @@ __MINGW_USYMBOL(__cosl_internal):
 	jnz	2b
 	fstp	%st(1)
 	fcos
+	ret
+#elif __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
+	bl	cos
 	ret
 #endif
 

@@ -7,15 +7,15 @@
 
 	.file	"remainderl.S"
 	.text
-#ifdef __x86_64__
+#if defined(__x86_64__)
 	.align 8
-#else
+#elif defined(__i386__)
 	.align 4
 #endif
 .globl __MINGW_USYMBOL(remainderl)
 	.def	__MINGW_USYMBOL(remainderl);	.scl	2;	.type	32;	.endef
 __MINGW_USYMBOL(remainderl):
-#ifdef __x86_64__
+#if defined(__x86_64__)
 	fldt	(%r8)
 	fldt	(%rdx)
 1:	fprem1
@@ -27,7 +27,7 @@ __MINGW_USYMBOL(remainderl):
 	movq	$0,8(%rcx)
 	fstpt	(%rcx)
 	ret
-#else
+#elif defined(__i386__)
 	fldt	16(%esp)
 	fldt	4(%esp)
 1:	fprem1
@@ -36,4 +36,9 @@ __MINGW_USYMBOL(remainderl):
 	jp	1b
 	fstp	%st(1)
 	ret
+#elif _defined(__aarch64__)
+	bl	remainder
+	ret
+#else
+	.error "Not supported on your platform yet"
 #endif

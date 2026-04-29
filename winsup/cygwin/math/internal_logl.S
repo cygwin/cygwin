@@ -7,9 +7,9 @@
 
 	.file	"internal_logl.S"
 	.text
-#ifdef __x86_64__
+#if defined(__x86_64__)
 	.align 8
-#else
+#elif defined(__i386__)
 	.align 4
 #endif
 one:	.double 1.0
@@ -21,7 +21,7 @@ limit:	.double 0.29
 .globl __MINGW_USYMBOL(__logl_internal)
 	.def	__MINGW_USYMBOL(__logl_internal);	.scl	2;	.type	32;	.endef
 __MINGW_USYMBOL(__logl_internal):
-#ifdef __x86_64__
+#if defined(__x86_64__)
 	fldln2			// log(2)
 	fldt	(%rdx)		// x : log(2)
 	fld	%st		// x : x : log(2)
@@ -45,7 +45,7 @@ __MINGW_USYMBOL(__logl_internal):
 	movq	$0,8(%rcx)
 	fstpt	(%rcx)
 	ret
-#else
+#elif defined(__i386__)
 	fldln2			// log(2)
 	fldt	4(%esp)		// x : log(2)
 	fld	%st		// x : x : log(2)
@@ -63,4 +63,9 @@ __MINGW_USYMBOL(__logl_internal):
 2:	fstp	%st(0)		// x : log(2)
 	fyl2x			// log(x)
 	ret
+#elif __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
+	bl	log
+	ret
+#else
+	.error "Not supported on your platform yet"
 #endif

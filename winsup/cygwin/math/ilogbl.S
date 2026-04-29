@@ -7,15 +7,15 @@
 
 	.file	"ilogbl.S"
 	.text
-#ifdef __x86_64__
+#if defined(__x86_64__)
 	.align 8
-#else
+#elif defined(__i386__)
 	.align 4
 #endif
 .globl __MINGW_USYMBOL(ilogbl)
 	.def	__MINGW_USYMBOL(ilogbl);	.scl	2;	.type	32;	.endef
 __MINGW_USYMBOL(ilogbl):
-#ifdef __x86_64__
+#if defined(__x86_64__)
 	fldt	(%rcx)
 	fxam			/* Is NaN or +-Inf?  */
 	fstsw   %ax
@@ -44,7 +44,7 @@ __MINGW_USYMBOL(ilogbl):
 2:	fstp    %st
 	movl	$0x80000001, %eax	/* FP_ILOGB0  */
 	ret
-#else
+#elif defined(__i386__)
 	fldt	4(%esp)
 /* I added the following ugly construct because ilogb(+-Inf) is
    required to return INT_MAX in ISO C99.
@@ -76,4 +76,9 @@ __MINGW_USYMBOL(ilogbl):
 2:	fstp    %st
 	movl	$0x80000001, %eax	/* FP_ILOGB0  */
 	ret
+#elif __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
+	bl	ilogb
+	ret
+#else
+	.error "Not supported on your platform yet"
 #endif

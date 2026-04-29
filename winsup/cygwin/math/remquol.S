@@ -7,14 +7,14 @@
 
 	.file	"remquol.S"
         .text
-#ifdef __x86_64__
+#if defined(__x86_64__)
 	.align 8
-#else
+#elif defined(__i386__)
 	.align 4
 #endif
 .globl __MINGW_USYMBOL(remquol)
 __MINGW_USYMBOL(remquol):
-#ifdef __x86_64__
+#if defined(__x86_64__)
 	pushq	%rcx
         fldt (%r8)
         fldt (%rdx)
@@ -45,7 +45,7 @@ __MINGW_USYMBOL(remquol):
 	movq	$0,8(%rcx)
 	fstpt	(%rcx)
         ret
-#else
+#elif defined(__i386__)
         fldt 4 +12(%esp)
         fldt 4(%esp)
 1:	fprem1
@@ -72,4 +72,9 @@ __MINGW_USYMBOL(remquol):
 1:	movl %eax, (%ecx)
 
         ret
+#elif __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
+	bl  remquo
+        ret
+#else
+	.error "Not supported on your platform yet"
 #endif

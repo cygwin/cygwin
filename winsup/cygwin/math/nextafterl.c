@@ -16,6 +16,9 @@
 long double
 nextafterl (long double x, long double y)
 {
+#if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__ && (LDBL_MANT_DIG == DBL_MANT_DIG)
+  return (long double) nexttoward (x, y);
+# else
   union {
       long double ld;
       struct {
@@ -63,6 +66,7 @@ nextafterl (long double x, long double y)
     u.parts.mantissa |=  normal_bit;
 
   return u.ld;
+# endif /* __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__ */
 }
 
 /* nexttowardl is the same function with a different name.  */

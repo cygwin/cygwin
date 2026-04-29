@@ -7,15 +7,15 @@
 
 	.file	"sinl_internal.S"
 	.text
-#ifdef __x86_64__
+#if defined(__x86_64__)
 	.align 8
-#else
+#elif defined(__i386__)
 	.align 4
 #endif
 .globl __MINGW_USYMBOL(__sinl_internal)
 	.def	__MINGW_USYMBOL(__sinl_internal);	.scl	2;	.type	32;	.endef
 __MINGW_USYMBOL(__sinl_internal):
-#ifdef __x86_64__
+#if defined(__x86_64__)
 	fldt	(%rdx)
 	fsin
 	fnstsw	%ax
@@ -38,7 +38,7 @@ __MINGW_USYMBOL(__sinl_internal):
 	movq	$0,8(%rcx)
 	fstpt	(%rcx)
 	ret
-#else
+#elif defined(__i386__)
 	fldt	4(%esp)
 	fsin
 	fnstsw	%ax
@@ -55,4 +55,9 @@ __MINGW_USYMBOL(__sinl_internal):
 	fstp	%st(1)
 	fsin
 	ret
+#elif __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
+	bl	sin
+	ret
+#else
+	.error "Not supported on your platform yet"
 #endif

@@ -12,18 +12,20 @@
 	   0.29 is a safe value.
 	 */
 
+#if defined(__x86_64__) || defined(__i386__)
 	/* Only gcc understands the .tfloat type
 	   The series of .long below represents
 	   limit:	.tfloat 0.29
 	 */
 	.align 16
+#endif
 limit:
 	.long 2920577761
 	.long 2491081031
 	.long 16381
-#ifdef __x86_64__
+#if defined(__x86_64__)
 	.align 8
-#else
+#elif defined(__i386__)
 	.align 4
 #endif
 	/* Please note:	 we use a double value here.  Since 1.0 has
@@ -38,7 +40,7 @@ one:	.double 1.0
 .globl __MINGW_USYMBOL(log1pl)
 	.def	__MINGW_USYMBOL(log1pl);	.scl	2;	.type	32;	.endef
 __MINGW_USYMBOL(log1pl):
-#ifdef __x86_64__
+#if defined(__x86_64__)
 	fldln2
 	fldt	(%rdx)
 	fxam
@@ -73,7 +75,7 @@ __MINGW_USYMBOL(log1pl):
 	movq	$0,8(%rcx)
 	fstpt	(%rcx)
 	ret
-#else
+#elif defined(__i386__)
 	fldln2
 	fldt	4(%esp)
 	fxam
@@ -99,4 +101,9 @@ __MINGW_USYMBOL(log1pl):
 	fstp	%st(1)
 	fstp	%st(1)
 	ret
+#elif __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
+	bl	log1p
+	ret
+#else
+	.error "Not supported on your platform yet"
 #endif

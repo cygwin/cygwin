@@ -89,6 +89,8 @@ __FLT_ABI (sqrt) (__FLT_TYPE x)
   __fsqrt_internal(x);
 #elif defined(_X86_) || defined(__i386__) || defined(_AMD64_) || defined(__x86_64__)
   asm volatile ("fsqrt" : "=t" (res) : "0" (x));
+#elif __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
+  asm volatile ("fsqrt %d0, %d1" : "=w"(res) : "w"(x));
 #else
 #error Not supported on your platform yet
 #endif

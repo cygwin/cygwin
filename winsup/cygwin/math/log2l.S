@@ -7,9 +7,9 @@
 
 	.file	"log2l.S"
 	.text
-#ifdef __x86_64__
+#if defined(__x86_64__)
 	.align 8
-#else
+#elif defined(__i386__)
 	.align 4
 #endif
 one:	.double 1.0
@@ -21,7 +21,7 @@ limit:	.double 0.29
 .globl __MINGW_USYMBOL(log2l)
 	.def	__MINGW_USYMBOL(log2l);	.scl	2;	.type	32;	.endef
 __MINGW_USYMBOL(log2l):
-#ifdef __x86_64__
+#if defined(__x86_64__)
 	fldl	one(%rip)
 	fldt	(%rdx)		// x : 1
 	fxam
@@ -57,7 +57,7 @@ __MINGW_USYMBOL(log2l):
 	movq	$0,8(%rcx)
 	fstpt	(%rcx)
 	ret
-#else
+#elif defined(__i386__)
 	fldl	one
 	fldt	4(%esp)		// x : 1
 	fxam
@@ -84,4 +84,9 @@ __MINGW_USYMBOL(log2l):
 	fstp	%st(1)
 	fstp	%st(1)
 	ret
+#elif __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
+	bl	log2
+	ret
+#else
+	.error "Not supported on your platform yet"
 #endif

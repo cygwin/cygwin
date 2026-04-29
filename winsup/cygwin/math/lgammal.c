@@ -198,11 +198,11 @@ static uLD C[] = {
 
 /* log( sqrt( 2*pi ) ) */
 static const long double LS2PI  =  0.91893853320467274178L;
-#if defined(__arm__) || defined(_ARM_)
+#if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
 #define MAXLGM 2.035093e36
 #else
 #define MAXLGM 1.04848146839019521116e+4928L
-#endif /* defined(__arm__) || defined(_ARM_) */
+#endif /* __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__ */
 
 /* Logarithm of gamma function */
 /* Reentrant version */
