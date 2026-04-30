@@ -21,3 +21,7 @@ What's new:
 
 - Add support for OpenConsole.exe if available. This adds new features
   and fixes against pseudo console based on legacy conhost.exe.
+
+- Now, a Cygwin process started from a non‑Cygwin process on a pseudo console
+  runs on a pty rather than on the console device originating from the pseudo
+  console.

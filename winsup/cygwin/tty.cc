@@ -123,6 +123,43 @@ tty_list::init ()
     }
 }
 
+/* Search for a pty whose pseudo console owns our console.
+   Return tty minor number or -1 if not found.
+   Called from init_std_file_from_handle() for processes started by
+   non-Cygwin parents to detect that inherited console handles are
+   from a pcon-backed pty.
+
+   The cheap precondition (any tty with pcon active in shared memory)
+   short-circuits the common case where no pty has a pseudo console
+   active, avoiding the GetConsoleProcessList() LPC call entirely. */
+int
+tty_list::find_pcon_pty ()
+{
+  DWORD pids[128];
+  DWORD count = 0;
+  bool got_pids = false;
+
+  for (int i = 0; i < NTTYS; i++)
+    {
+      if (!ttys[i].has_active_pcon ())
+	continue;
+
+      /* Fetch the console process list lazily, only on first candidate. */
+      if (!got_pids)
+	{
+	  count = GetConsoleProcessList (pids, 128);
+	  if (!count)
+	    return -1;
+	  got_pids = true;
+	}
+
+      for (DWORD j = 0; j < count; j++)
+	if (ttys[i].has_pcon_and_owner (pids[j]))
+	  return i;
+    }
+  return -1;
+}
+
 /* Search for a free tty and allocate it.
    Return tty number or -1 if error.
  */
