@@ -555,7 +555,7 @@ if test "x${newlib_hw_misaligned_access}" = "x"; then
   AC_CACHE_CHECK([if $CC has enabled misaligned hardware access],
               [newlib_cv_hw_misaligned_access], [dnl
   cat > conftest.c <<EOF
-#if __riscv_misaligned_fast || __riscv_misaligned_slow
+#if __riscv_misaligned_fast
 void misalign_access_supported(void) {}
 #else
 #error "misaligned access is not supported"

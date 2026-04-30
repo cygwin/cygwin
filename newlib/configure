@@ -6723,7 +6723,7 @@ if ${newlib_cv_hw_misaligned_access+:} false; then :
   $as_echo_n "(cached) " >&6
 else
     cat > conftest.c <<EOF
-#if __riscv_misaligned_fast || __riscv_misaligned_slow
+#if __riscv_misaligned_fast
 void misalign_access_supported(void) {}
 #else
 #error "misaligned access is not supported"
