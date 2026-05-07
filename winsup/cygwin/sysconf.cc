@@ -98,6 +98,11 @@ get_avphys (int in)
 	 / (wincap.allocation_granularity () / wincap.page_size ());
 }
 
+/* Cache detection for Intel and AMD uses CPUID, which are only
+   available on x86_64.  On AArch64, EL1 system registers fault from
+   userspace. Use GetLogicalProcessorInformationEx instead.  */
+#if !defined(__aarch64__)
+
 enum cache_level
 {
   LevelNone,
@@ -454,9 +459,151 @@ get_cpu_cache_amd (int in, uint32_t maxe)
   return ret;
 }
 
+#endif /* !__aarch64__ */
+
+/* On ARM64, GetLogicalProcessorInformationEx returns one cache
+   descriptor per core, unlike Intel CPUID leaf 4 which returns
+   one descriptor per cache level.  We filter to CPU 0's descriptors
+   and return the first match.  */
+
+#if defined(__aarch64__)
+long
+get_cpu_cache_arm64 (int in)
+{
+  DWORD len = 0;
+
+  GetLogicalProcessorInformationEx (RelationCache, NULL, &len);
+  if (GetLastError () != ERROR_INSUFFICIENT_BUFFER || len == 0)
+    return 0;
+
+  PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX buf =
+    (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX) malloc (len);
+  if (!buf)
+    return 0;
+
+  if (!GetLogicalProcessorInformationEx (RelationCache, buf, &len))
+    {
+      free (buf);
+      return 0;
+    }
+
+  long ret = 0;
+  PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX p = buf;
+  DWORD remaining = len;
+
+  GROUP_AFFINITY cpu0_affinity = {};
+  cpu0_affinity.Group = 0;
+  cpu0_affinity.Mask  = 1;
+
+  while (remaining > 0)
+    {
+      if (p->Size == 0)
+        break;
+      if (p->Relationship == RelationCache)
+        {
+          CACHE_RELATIONSHIP *cr = &p->Cache;
+          bool covers_cpu0 =
+            (cr->GroupMask.Group == cpu0_affinity.Group) &&
+            (cr->GroupMask.Mask  &  cpu0_affinity.Mask);
+
+          if (!covers_cpu0)
+            {
+              remaining -= p->Size;
+              p = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)
+                    ((BYTE *) p + p->Size);
+              continue;
+            }
+
+          uint8_t  level = cr->Level;
+          uint8_t  type  = cr->Type;
+          uint32_t size  = cr->CacheSize;
+          uint32_t asc   = cr->Associativity;
+          uint32_t lsize = cr->LineSize;
+          bool     match = false;
+
+          switch (in)
+            {
+            case _SC_LEVEL1_ICACHE_SIZE:
+              if (level == 1 && type == CacheInstruction)
+                { ret = size; match = true; }
+              break;
+            case _SC_LEVEL1_ICACHE_ASSOC:
+              if (level == 1 && type == CacheInstruction)
+                { ret = (asc == 0xFF) ? 0x8000 : asc; match = true; }
+              break;
+            case _SC_LEVEL1_ICACHE_LINESIZE:
+              if (level == 1 && type == CacheInstruction)
+                { ret = lsize; match = true; }
+              break;
+            case _SC_LEVEL1_DCACHE_SIZE:
+              if (level == 1 && type == CacheData)
+                { ret = size; match = true; }
+              break;
+            case _SC_LEVEL1_DCACHE_ASSOC:
+              if (level == 1 && type == CacheData)
+                { ret = (asc == 0xFF) ? 0x8000 : asc; match = true; }
+              break;
+            case _SC_LEVEL1_DCACHE_LINESIZE:
+              if (level == 1 && type == CacheData)
+                { ret = lsize; match = true; }
+              break;
+            case _SC_LEVEL2_CACHE_SIZE:
+              if (level == 2)
+                { ret = size; match = true; }
+              break;
+            case _SC_LEVEL2_CACHE_ASSOC:
+              if (level == 2)
+                { ret = (asc == 0xFF) ? 0x8000 : asc; match = true; }
+              break;
+            case _SC_LEVEL2_CACHE_LINESIZE:
+              if (level == 2)
+                { ret = lsize; match = true; }
+              break;
+            case _SC_LEVEL3_CACHE_SIZE:
+              if (level == 3)
+                { ret = size; match = true; }
+              break;
+            case _SC_LEVEL3_CACHE_ASSOC:
+              if (level == 3)
+                { ret = (asc == 0xFF) ? 0x8000 : asc; match = true; }
+              break;
+            case _SC_LEVEL3_CACHE_LINESIZE:
+              if (level == 3)
+                { ret = lsize; match = true; }
+              break;
+            case _SC_LEVEL4_CACHE_SIZE:
+              if (level == 4)
+                { ret = size; match = true; }
+              break;
+            case _SC_LEVEL4_CACHE_ASSOC:
+              if (level == 4)
+                { ret = (asc == 0xFF) ? 0x8000 : asc; match = true; }
+              break;
+            case _SC_LEVEL4_CACHE_LINESIZE:
+              if (level == 4)
+                { ret = lsize; match = true; }
+              break;
+            default:
+              break;
+            }
+          if (match)
+            break;
+        }
+      remaining -= p->Size;
+      p = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX) ((BYTE *) p + p->Size);
+    }
+
+  free (buf);
+  return ret;
+}
+#endif /* __aarch64__ */
+
 static long
 get_cpu_cache (int in)
 {
+#if defined(__aarch64__)
+  return get_cpu_cache_arm64 (in);
+#else
   uint32_t maxf, vendor_id[4];
   cpuid (&maxf, &vendor_id[0], &vendor_id[2], &vendor_id[1], 0x00000000);
 
@@ -471,6 +618,7 @@ get_cpu_cache (int in)
       return get_cpu_cache_amd (in, maxe);
     }
   return 0;
+#endif
 }
 
 enum sc_type { cons, func };

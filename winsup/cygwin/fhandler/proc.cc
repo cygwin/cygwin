@@ -643,6 +643,247 @@ mask_bits (uint32_t in)
 static off_t
 format_proc_cpuinfo (void *, char *&destbuf)
 {
+#if defined(__aarch64__)
+  WCHAR cpu_key[128], *cpu_num_p;
+  int cpu_number;
+  size_t buf_size = 16384;
+  size_t buf_used = 0;
+  char *buf = (char *) malloc (buf_size);
+  if (!buf)
+    return 0;
+  char *bufptr = buf;
+  GROUP_AFFINITY orig_group_affinity;
+  bool affinity_set = false;
+  WORD num_cpu_per_group = __get_cpus_per_group ();
+
+  cpu_num_p = wcpcpy (cpu_key,
+    L"\\Registry\\Machine\\HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\");
+
+  for (cpu_number = 0; ; cpu_number++)
+    {
+      __small_swprintf (cpu_num_p, L"%d", cpu_number);
+      if (!NT_SUCCESS (RtlCheckRegistryKey (RTL_REGISTRY_ABSOLUTE, cpu_key)))
+        break;
+      buf_used = bufptr - buf;
+      if (buf_used + 1024 > buf_size)
+        {
+          buf_size *= 2;
+          char *newbuf = (char *) realloc (buf, buf_size);
+          if (!newbuf)
+            {
+              if (affinity_set)
+                SetThreadGroupAffinity (GetCurrentThread (),
+                                        &orig_group_affinity, NULL);
+              free (buf);
+              return 0;
+            }
+          buf    = newbuf;
+          bufptr = buf + buf_used;
+        }
+
+      WORD cpu_group = cpu_number / num_cpu_per_group;
+      KAFFINITY cpu_mask = 1L << (cpu_number % num_cpu_per_group);
+
+      GROUP_AFFINITY affinity;
+      memset (&affinity, 0, sizeof affinity);
+      affinity.Mask  = cpu_mask;
+      affinity.Group = cpu_group;
+
+      affinity_set = false;
+
+      if (SetThreadGroupAffinity (GetCurrentThread (), &affinity,
+                                  &orig_group_affinity))
+        {
+          affinity_set = true;
+          yield ();
+        }
+
+      DWORD cpu_mhz = 0;
+      RTL_QUERY_REGISTRY_TABLE tab[2] =
+        {
+          { NULL, RTL_QUERY_REGISTRY_DIRECT | RTL_QUERY_REGISTRY_NOSTRING,
+            L"~Mhz", &cpu_mhz, REG_NONE, NULL, 0 },
+          { NULL, 0, NULL, NULL, 0, NULL, 0 }
+        };
+      RtlQueryRegistryValues (RTL_REGISTRY_ABSOLUTE, cpu_key, tab, NULL, NULL);
+
+      if (cpu_mhz > 0)
+        cpu_mhz = ((cpu_mhz - 1) / 10 + 1) * 10;
+      DWORD bogomips = cpu_mhz * 2;
+
+      /* Read string fields: VendorIdentifier, ProcessorNameString, Identifier.
+         RTL_QUERY_REGISTRY_DIRECT requires a UNICODE_STRING target for REG_SZ
+         values; using a DWORD target silently truncates the data.  */
+      WCHAR vendor_buf[256] = {0};
+      WCHAR name_buf[256]   = {0};
+      WCHAR ident_buf[256]  = {0};
+
+      UNICODE_STRING vendor_us = { 0, sizeof vendor_buf, vendor_buf };
+      UNICODE_STRING name_us   = { 0, sizeof name_buf,   name_buf   };
+      UNICODE_STRING ident_us  = { 0, sizeof ident_buf,  ident_buf  };
+
+      RTL_QUERY_REGISTRY_TABLE str_tab[4] =
+        {
+          { NULL, RTL_QUERY_REGISTRY_DIRECT,
+            L"VendorIdentifier",    &vendor_us, REG_SZ, NULL, 0 },
+          { NULL, RTL_QUERY_REGISTRY_DIRECT,
+            L"ProcessorNameString", &name_us,   REG_SZ, NULL, 0 },
+          { NULL, RTL_QUERY_REGISTRY_DIRECT,
+            L"Identifier",          &ident_us,  REG_SZ, NULL, 0 },
+          { NULL, 0, NULL, NULL, 0, NULL, 0 }
+        };
+      RtlQueryRegistryValues (RTL_REGISTRY_ABSOLUTE, cpu_key, str_tab,
+                              NULL, NULL);
+
+      int id_family = 0, id_model = 0;
+      for (WCHAR *p = ident_buf; *p; p++)
+        {
+          if (!wcsncmp (p, L"Family ", 7))
+            id_family = (int) wcstol (p + 7, NULL, 10);
+          else if (!wcsncmp (p, L"Model ", 6))
+            id_model  = (int) wcstol (p + 6, NULL, 10);
+        }
+
+      uint32_t cpu_implementer = 0x00;
+      uint32_t cpu_part        = 0x000;
+      uint32_t cpu_variant     = 0x0;
+      uint32_t cpu_revision    = 0x0;
+      uint32_t cpu_arch        = 8;
+
+      {
+        HANDLE hk = NULL;
+        UNICODE_STRING key_us;
+        OBJECT_ATTRIBUTES oa;
+        RtlInitUnicodeString (&key_us, cpu_key);
+        InitializeObjectAttributes (&oa, &key_us, OBJ_CASE_INSENSITIVE,
+                                    NULL, NULL);
+        if (NT_SUCCESS (NtOpenKey (&hk, KEY_READ, &oa)))
+          {
+            UNICODE_STRING val_us;
+            /* CP 4000 appears to contain the ARM MIDR value, but this
+               registry value is undocumented and has reportedly changed
+               across Windows updates.  Treat it as best-effort only. */
+            RtlInitUnicodeString (&val_us, L"CP 4000");
+            BYTE kbuf[sizeof (KEY_VALUE_PARTIAL_INFORMATION) + 8] = {0};
+            PKEY_VALUE_PARTIAL_INFORMATION kvi =
+              (PKEY_VALUE_PARTIAL_INFORMATION) kbuf;
+            ULONG res_len;
+            if (NT_SUCCESS (NtQueryValueKey (hk, &val_us,
+                                             KeyValuePartialInformation,
+                                             kvi, sizeof kbuf, &res_len))
+                && kvi->DataLength >= 4)
+              {
+                uint32_t midr = 0;
+                memcpy (&midr, kvi->Data, 4);
+                /* Some implementations store the value in the upper 32 bits. */
+                if (midr == 0 && kvi->DataLength >= 8)
+                  memcpy (&midr, kvi->Data + 4, 4);
+                if (midr != 0)
+                  {
+                    cpu_implementer = (midr >> 24) & 0xFF;
+                    cpu_variant     = (midr >> 20) & 0xF;
+                    cpu_arch        = (midr >> 16) & 0xF;
+                    cpu_part        = (midr >>  4) & 0xFFF;
+                    cpu_revision    =  midr        & 0xF;
+                    /* Architecture field 0xF means "ARMv8+ with CPUID
+                       scheme"; report as 8 (ARMv8) since we cannot read
+                       ID_AA64ISAR* registers from userspace on Windows. */
+                    if (cpu_arch == 0xF)
+                      cpu_arch = 8;
+                  }
+              }
+            NtClose (hk);
+          }
+      }
+
+      bufptr += __small_sprintf (bufptr, "processor\t: %d\n", cpu_number);
+
+      if (vendor_buf[0])
+        bufptr += __small_sprintf (bufptr, "vendor_id\t: %W\n", vendor_buf);
+
+      if (ident_buf[0])
+        {
+          bufptr += __small_sprintf (bufptr, "cpu family\t: %d\n", id_family);
+          bufptr += __small_sprintf (bufptr, "model\t\t: %d\n",    id_model);
+        }
+      bufptr += __small_sprintf (bufptr, "stepping\t: %d\n", cpu_revision);
+
+      if (name_buf[0])
+        bufptr += __small_sprintf (bufptr, "model name\t: %W\n", name_buf);
+
+      bufptr += __small_sprintf (bufptr, "BogoMIPS\t: %d.00\n", bogomips);
+
+      /* Emit "cache size" line for /proc/cpuinfo feature parity with the
+         x86 branch.Values come from
+         GetLogicalProcessorInformationEx(RelationCache)
+         via get_cpu_cache_arm64() in sysconf.cc  */
+      {
+        extern long get_cpu_cache_arm64 (int);
+        long cs = get_cpu_cache_arm64 (_SC_LEVEL3_CACHE_SIZE);
+        if (cs <= 0)
+          cs = get_cpu_cache_arm64 (_SC_LEVEL2_CACHE_SIZE);
+        if (cs <= 0)
+          {
+            long l1i = get_cpu_cache_arm64 (_SC_LEVEL1_ICACHE_SIZE);
+            long l1d = get_cpu_cache_arm64 (_SC_LEVEL1_DCACHE_SIZE);
+            if (l1i > 0 || l1d > 0)
+              cs = (l1i > 0 ? l1i : 0) + (l1d > 0 ? l1d : 0);
+          }
+        if (cs > 0)
+          bufptr += __small_sprintf (bufptr, "cache size\t: %d KB\n",
+                                     (int) (cs >> 10));
+      }
+
+      print ("Features\t:");
+      if (IsProcessorFeaturePresent (PF_ARM_V8_INSTRUCTIONS_AVAILABLE))
+        {
+          ftuprint ("fp");
+          ftuprint ("asimd");
+          ftuprint ("evtstrm");
+        }
+      if (IsProcessorFeaturePresent (PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE))
+        {
+          ftuprint ("aes");
+          ftuprint ("pmull");
+          ftuprint ("sha1");
+          ftuprint ("sha2");
+        }
+      if (IsProcessorFeaturePresent (PF_ARM_V8_CRC32_INSTRUCTIONS_AVAILABLE))
+        ftuprint ("crc32");
+      if (IsProcessorFeaturePresent (PF_ARM_V81_ATOMIC_INSTRUCTIONS_AVAILABLE))
+        ftuprint ("atomics");
+      if (IsProcessorFeaturePresent (PF_ARM_V82_DP_INSTRUCTIONS_AVAILABLE))
+        {
+          ftuprint ("asimdhp");
+          ftuprint ("asimddp");
+          ftuprint ("fphp");
+        }
+      if (IsProcessorFeaturePresent (PF_ARM_V83_JSCVT_INSTRUCTIONS_AVAILABLE))
+        ftuprint ("jscvt");
+      if (IsProcessorFeaturePresent (PF_ARM_V83_LRCPC_INSTRUCTIONS_AVAILABLE))
+        ftuprint ("lrcpc");
+      print ("\n");
+
+      if (cpu_implementer != 0 || cpu_part != 0)
+        bufptr += __small_sprintf (bufptr,
+          "CPU implementer\t: 0x%02x\n"
+          "CPU architecture: %d\n"
+          "CPU variant\t: 0x%x\n"
+          "CPU part\t: 0x%03x\n"
+          "CPU revision\t: %d\n",
+          cpu_implementer, cpu_arch, cpu_variant, cpu_part, cpu_revision);
+      bufptr += __small_sprintf (bufptr, "\n");
+
+      if (affinity_set)
+        SetThreadGroupAffinity (GetCurrentThread (), &orig_group_affinity, NULL);
+    }
+
+  off_t len = bufptr - buf;
+  destbuf = (char *) crealloc_abort (destbuf, len);
+  memcpy (destbuf, buf, len);
+  free (buf);
+  return len;
+#else
   WCHAR cpu_key[128], *cpu_num_p;
   DWORD orig_affinity_mask = 0;
   GROUP_AFFINITY orig_group_affinity;
@@ -1767,6 +2008,7 @@ format_proc_cpuinfo (void *, char *&destbuf)
   destbuf = (char *) crealloc_abort (destbuf, bufptr - buf);
   memcpy (destbuf, buf, bufptr - buf);
   return bufptr - buf;
+#endif
 }
 
 static off_t
