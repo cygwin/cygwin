@@ -13,6 +13,7 @@ libc_a_SOURCES += \
 	%D%/memmove.c \
 	%D%/mempcpy-asm.S \
 	%D%/mempcpy.c \
+	%D%/memrchr-asm.S \
 	%D%/memrchr.c \
 	%D%/memset.S \
 	%D%/setjmp.S \

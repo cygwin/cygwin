@@ -28,6 +28,9 @@ PORTABILITY
 QUICKREF
 	memrchr
 */
+#if defined(__riscv_vector) && !defined(__OPTIMIZE_SIZE__) && !defined(PREFER_SIZE_OVER_SPEED)
+/* memrchr defined in memrchr-asm.S */
+#else
 
 #include <sys/asm.h>
 #include <stddef.h>
@@ -170,3 +173,4 @@ memrchr (const void *src_void,
 
   return NULL;
 }
+#endif
