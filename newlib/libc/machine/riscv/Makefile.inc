@@ -11,6 +11,8 @@ libc_a_SOURCES += \
 	%D%/memcpy.c \
 	%D%/memmove-asm.S \
 	%D%/memmove.c \
+	%D%/mempcpy-asm.S \
+	%D%/mempcpy.c \
 	%D%/memrchr.c \
 	%D%/memset.S \
 	%D%/setjmp.S \
