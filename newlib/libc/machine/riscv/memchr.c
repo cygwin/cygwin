@@ -29,6 +29,9 @@ QUICKREF
 	memchr ansi pure
 */
 
+#if defined(__riscv_vector) && !defined(__OPTIMIZE_SIZE__) && !defined(PREFER_SIZE_OVER_SPEED)
+/* memchr defined in memchr-asm.S */
+#else
 #include <sys/asm.h>
 #include <stddef.h>
 #include "rv_string.h"
@@ -150,3 +153,4 @@ memchr (const void *src_void,
 
   return NULL;
 }
+#endif

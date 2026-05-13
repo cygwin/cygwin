@@ -3,6 +3,7 @@ libc_a_SOURCES += \
 	%D%/ieeefp.c \
 	%D%/memccpy-asm.S \
 	%D%/memccpy.c \
+	%D%/memchr-asm.S \
 	%D%/memchr.c \
 	%D%/memcpy-asm.S \
 	%D%/memcpy.c \
