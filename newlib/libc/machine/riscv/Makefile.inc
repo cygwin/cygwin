@@ -5,6 +5,8 @@ libc_a_SOURCES += \
 	%D%/memccpy.c \
 	%D%/memchr-asm.S \
 	%D%/memchr.c \
+	%D%/memcmp-asm.S \
+	%D%/memcmp.c \
 	%D%/memcpy-asm.S \
 	%D%/memcpy.c \
 	%D%/memmove-asm.S \
