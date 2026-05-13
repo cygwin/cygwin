@@ -16,20 +16,21 @@ bool NO_COPY wsock_started;
 
 /* Macro for defining "auto-load" functions.
  * Note that this is self-modifying code *gasp*.
- * The first invocation of a routine will trigger the loading of
- * the DLL.  This will then be followed by the discovery of
- * the procedure's entry point, which is placed into the location
- * pointed to by the stack pointer.  This code then changes
- * the "call" operand which invoked it to a "jmp" which will
- * transfer directly to the DLL function on the next invocation.
+ *
+ * The first invocation of a auto-load function will trigger the loading of the
+ * DLL.  This will then be followed by the discovery of the procedure's entry
+ * point.  The pointer the auto-load routine calls through (located via the
+ * return address) is then updated to transfer directly to the DLL function on
+ * the next invocation.
  *
  * Subsequent calls to routines whose transfer address has not been
  * determined will skip the "load the dll" step, starting at the
  * "discovery of the entry point" step.
  *
- * So, immediately following the the call to one of the above routines
- * we have:
- *  DLL info (4/8 bytes) Pointer to a block of information concerning
+ * So, immediately following the code to call to one of the above routines
+ * we have a struct func_info:
+ *
+ *  DLL info (8 bytes)	 Pointer to a block of information concerning
  *			 the DLL (see below).
  *  DLL notimp (2 bytes) Bool value flagging that non-existence of this
  *			 function is not a fatal error.
@@ -43,49 +44,62 @@ bool NO_COPY wsock_started;
  *  func name (n bytes)	 asciz string containing the name of the function
  *			 to be loaded.
  *
- * The DLL info block consists of the following
- *  load_state (4/8 bytes) Pointer to a word containing the routine used
- *			 to eventually invoke the function.  Initially
- *			 points to an init function which loads the DLL,
- *			 gets the process's load address, changes the contents
- *			 here to point to the function address, and changes
- *			 the address argument of the initial jmp call.
- *			 On x86_64, the jmp is not tweaked directly.  Rather,
- *			 the address of the Win32 function is stored in the
- *			 aforementioned Win32 function address slot and fetched
- *			 there for a jmp *%rax call.  This indirection is
- *			 necessary to workaround the lack of a jmp opcode with
- *			 offset values > 32 bit.  If the initialization has
- *			 been done, only the load part is done.
- *  DLL handle (4/8 bytes) The handle to use when loading the DLL.
+ * The DLL info block (struct dll_info) consists of the following
+ *
+ *  load_state (8 bytes) Pointer to the routine used to eventually invoke the
+ *			 function.
+ *
+ *			 Initially, this points to an init function which loads
+ *			 the DLL, then calls a function to which calls
+ *			 GetProcAddress for the given DLL handle and function
+ *			 name
+ *
+ *			 If the DLL load has already been done, only the
+ *			 GetProcAddress part is done.
+ *
+ *			 The jump is not tweaked directly. Rather, the address
+ *			 of the Win32 function is stored in the aforementioned
+ *			 Win32 function address slot and fetched there for an
+ *			 indirect jump.  (This is necessary to access the full
+ *			 64-bit address space.)
+ *
+ *  DLL handle (8 bytes) The handle to use when loading the DLL.
  *  DLL locker (4 bytes) Word to use to avoid multi-thread access during
  *			 initialization.
- *  extra init (4/8 bytes) Extra initialization function.
- *  DLL name (n bytes)	 asciz string containing the name of the DLL.
+ *  extra init (8 bytes) Extra initialization function.
+ *  DLL name (2n bytes)	 WCHAR string containing the name of the DLL.
  */
+
+#if defined(__x86_64__)
+# define WORD64 ".quad"
+#elif defined(__aarch64__)
+# define WORD64 ".xword"
+#else
+# error unimplemented for this target
+#endif
 
 /* LoadDLLprime is used to prime the DLL info information, providing an
    additional initialization routine to call prior to calling the first
-   function.  */
-#ifdef __x86_64__
-#define LoadDLLprime(dllname, init_also, no_resolve_on_fork) __asm__ ("	\n\
-.ifndef " #dllname "_primed				\n\
-  .section	.data_cygwin_nocopy,\"w\"		\n\
-  .align	8					\n\
-."#dllname "_info:					\n\
-  .quad		_std_dll_init				\n\
-  .quad		" #no_resolve_on_fork "			\n\
-  .long		-1					\n\
-  .align	8					\n\
-  .quad		" #init_also "				\n\
-  .string16	\"" #dllname ".dll\"			\n\
-  .text							\n\
-  .set		" #dllname "_primed, 1			\n\
-.endif							\n\
+   function.
+
+   The macro WORD64 stands in for .quad/.xword, and .balign (which means
+   "align to N bytes" on all targets, unlike .align) is used for
+   alignment.  */
+#define LoadDLLprime(dllname, init_also, no_resolve_on_fork) __asm__ ("\n\
+.ifndef " #dllname "_primed                              \n\
+  .section   .data_cygwin_nocopy,\"w\"                   \n\
+  .balign    8                                           \n\
+." #dllname "_info:                                      \n\
+  " WORD64 "   _std_dll_init                             \n\
+  " WORD64 "   " #no_resolve_on_fork "                   \n\
+  .long      -1                                          \n\
+  .balign    8                                           \n\
+  " WORD64 "   " #init_also "                            \n\
+  .string16  \"" #dllname ".dll\"                        \n\
+  .text                                                  \n\
+  .set       " #dllname "_primed, 1                      \n\
+.endif                                                   \n\
 ");
-#else
-#error unimplemented for this target
-#endif
 
 /* Standard DLL load macro.  May invoke a fatal error if the function isn't
    found. */
@@ -97,7 +111,7 @@ bool NO_COPY wsock_started;
   LoadDLLfuncEx3(name, dllname, notimp, err, 0)
 
 /* Main DLL setup stuff. */
-#ifdef __x86_64__
+#if defined(__x86_64__)
 #define LoadDLLfuncEx3(name, dllname, notimp, err, no_resolve_on_fork) \
   LoadDLLprime (dllname, dll_func_load, no_resolve_on_fork) \
   __asm__ ("						\n\
@@ -123,6 +137,39 @@ _win32_" #name ":					\n\
   .asciz	\"" #name "\"				\n\
   .text							\n\
 ");
+#elif defined(__aarch64__)
+#define LoadDLLfuncEx3(name, dllname, notimp, err, no_resolve_on_fork) \
+  LoadDLLprime (dllname, dll_func_load, no_resolve_on_fork) \
+  __asm__ ( "\n\
+  .section   ." #dllname "_autoload_text,\"wx\"          \n\
+  .global    " #name "                                   \n\
+  .global    _win32_" #name "                            \n\
+  .p2align   4                                           \n\
+" #name ":                                               \n\
+_win32_" #name ":                                        \n\
+  adr        x16, 3f          // x16 = &func_addr slot (label 3 == func_info+12)\n\
+  ldr        x16, [x16]       // x16 = *(&func_addr) = label 1 initially, real addr later\n\
+  br         x16              // fast-path branch into the resolved DLL func\n\
+1:                                                       \n\
+  sub        sp, sp, #80      // reserve 80 byte frame for caller's arg regs + LR\n\
+  stp        x0, x1, [sp, #0]                            \n\
+  stp        x2, x3, [sp, #16]                           \n\
+  stp        x4, x5, [sp, #32]                           \n\
+  stp        x6, x7, [sp, #48]                           \n\
+  stp        x8, x30, [sp, #64] // x30 here == label 2 == &func_info\n\
+  adr        x16, 2f          // x16 = &func_info\n\
+  ldr        x17, [x16]       // x17 = func_info->dll (= dll_info*)\n\
+  ldr        x17, [x17]       // x17 = dll_info->load_state (e.g. _std_dll_init)\n\
+  blr        x17              // call thunk; LR = label 2 = arg to std_dll_init\n\
+2:                                                      \n\
+  .xword     ." #dllname "_info // +0  func_info.dll\n\
+  .hword     " #notimp "        // +8  func_info.decoration[lo]\n\
+  .hword     ((" #err ") & 0xffff) // +10 func_info.decoration[hi]\n\
+3:                                                       \n\
+  .xword     1b                // +12 func_info.func_addr (patched by dll_func_load)\n\
+  .asciz     \"" #name "\"     // +20 func_info.name (asciz)\n\
+  .text                                                  \n\
+");
 #else
 #error unimplemented for this target
 #endif
@@ -141,7 +188,7 @@ extern "C" void dll_chain () __asm__ ("dll_chain");
 
 extern "C" {
 
-#ifdef __x86_64__
+#if defined(__x86_64__)
 __asm__ ("								\n\
 	 .section .rdata,\"r\"							\n\
 msg1:									\n\
@@ -203,6 +250,60 @@ dll_chain:								\n\
 	push	%rax		# Restore 'return address'		\n\
 	jmp	*%rdx		# Jump to next init function		\n\
 ");
+#elif defined(__aarch64__)
+__asm__ ( "\n\
+  .section .rdata,\"r\"                                  \n\
+msg1:                                                    \n\
+  .ascii \"couldn't dynamically determine load address for '%s' (handle %p), %E\\0\" \n\
+                                                         \n\
+  .text                                                  \n\
+  .p2align 2                                             \n\
+ noload:                                                 \n\
+  ldr        x2, [sp]          // x2 = func_info* (pushed by dll_chain)\n\
+  ldr        w3, [x2, #8]      // w3 = func_info.decoration\n\
+  tbz        w3, #0, 1f        // notimp bit clear -> fatal\n\
+  asr        w4, w3, #16       // w4 = err (sign-extend high half)\n\
+  str        w4, [sp, #8]      // spill into dll_chain's xzr slot\n\
+  mov        w0, #127          // ERROR_PROC_NOT_FOUND   \n\
+  bl         SetLastError                                \n\
+  ldr        w0, [sp, #8]      // reload err as return value\n\
+  ldr        x30, [sp, #88]    // restore caller LR (16 + 72)\n\
+  add        sp, sp, #96       // drop dll_chain (16) + trampoline (80) frames\n\
+  ret                                                    \n\
+1:                                                       \n\
+  add        x1, x2, #20       // x1 = &func_info.name   \n\
+  ldr        x3, [x2]          // x3 = dll_info*         \n\
+  ldr        x2, [x3, #8]      // x2 = dll_info->handle  \n\
+  adrp       x0, msg1                                    \n\
+  add        x0, x0, #:lo12:msg1                         \n\
+  bl         api_fatal         // never returns          \n\
+                                                         \n\
+  .globl     dll_func_load                               \n\
+dll_func_load:                                           \n\
+  ldr        x2, [sp]          // x2 = func_info* (pushed by dll_chain)\n\
+  ldr        x3, [x2]          // x3 = dll_info*         \n\
+  ldr        x0, [x3, #8]      // x0 = dll handle (arg1 to GetProcAddress)\n\
+  add        x1, x2, #20       // x1 = &func_info.name (arg2)\n\
+  bl         GetProcAddress                              \n\
+  cbz        x0, noload        // 0 -> not found, jump to error path\n\
+  ldr        x2, [sp]          // reload func_info*      \n\
+  str        x0, [x2, #12]     // patch func_addr slot (label 3)\n\
+  sub        x16, x2, #52      // x16 = trampoline entry; '#52' = 12 byte prologue\n\
+                               // + 40 byte slow path; keep in sync with LoadDLLfuncEx3\n\
+  add        sp, sp, #16       // drop dll_chain frame   \n\
+  ldp        x0, x1, [sp, #0]  // restore caller's arg regs\n\
+  ldp        x2, x3, [sp, #16]                           \n\
+  ldp        x4, x5, [sp, #32]                           \n\
+  ldp        x6, x7, [sp, #48]                           \n\
+  ldp        x8, x30, [sp, #64]                          \n\
+  add        sp, sp, #80       // drop trampoline frame  \n\
+  br         x16               // re-enter trampoline; fast path now hits real func\n\
+                                                         \n\
+  .global    dll_chain                                   \n\
+dll_chain:                                               \n\
+  stp        x0, xzr, [sp, #-16]! // x0 = func_info* (= ret.high); push for dll_func_load\n\
+  br         x1                   // x1 = dll->init (= ret.low); tail-call resolver\n\
+");
 #else
 #error unimplemented for this target
 #endif
@@ -222,7 +323,7 @@ struct dll_info
 struct func_info
 {
   struct dll_info *dll;
-  LONG decoration;
+  LONG decoration; // actually notimp & error;
   UINT_PTR func_addr;
   char name[];
 };
@@ -260,7 +361,7 @@ dll_load (HANDLE& handle, PWCHAR name)
 #define RETRY_COUNT 10
 
 /* The standard DLL initialization routine. */
-#ifdef __x86_64__
+#if defined(__x86_64__)
 
 /* On x86_64, we need assembler wrappers for std_dll_init and wsock_init.
    In the x86_64 ABI it's no safe bet that frame[1] (aka 8(%rbp)) contains
@@ -296,6 +397,26 @@ _" #func ":								\n\
 	popq	%rbp							\n\
 	ret								\n\
 	.seh_endproc							\n\
+");
+
+INIT_WRAPPER (std_dll_init)
+
+#elif defined(__aarch64__)
+#define INIT_WRAPPER(func) __asm__ ( "\n\
+  .text                                                  \n\
+  .p2align 2                                             \n\
+  .seh_proc _" #func "                                   \n\
+_" #func ":                                              \n\
+  stp        x29, x30, [sp, #-16]!                       \n\
+  .seh_save_fplr_x 16                                    \n\
+  .seh_endprologue                                       \n\
+  mov        x0, x30                                     \n\
+  bl         " #func "                                   \n\
+  ldp        x29, xzr, [sp], #16                         \n\
+  adrp       x30, dll_chain                              \n\
+  add        x30, x30, #:lo12:dll_chain                  \n\
+  ret                                                    \n\
+  .seh_endproc                                           \n\
 ");
 
 INIT_WRAPPER (std_dll_init)
@@ -360,7 +481,7 @@ std_dll_init (struct func_info *func)
 
 /* Initialization function for winsock stuff. */
 
-#ifdef __x86_64__
+#if defined(__x86_64__) || defined(__aarch64__)
 /* See above comment preceeding std_dll_init. */
 INIT_WRAPPER (wsock_init)
 #else
