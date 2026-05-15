@@ -225,8 +225,8 @@ process_file_actions_entry(posix_spawn_file_actions_entry_t *fae)
 		if (fchdir (fae->fae_dirfd) == -1)
 			return (errno);
 		break;
-	}
 #endif
+	}
 	return (0);
 }
 
