@@ -2018,7 +2018,6 @@ fhandler_console::setup_pcon_hand_over ()
 	if (get_console_process_id (owner, true, false, false, false))
 	  {
 	    inside_pcon = true;
-	    atexit (fhandler_console::pcon_hand_over_proc);
 	    parent_pty = i;
 	    parent_pty_input_mutex =
 	      cygwin_shared->tty[i]->open_input_mutex (MAXIMUM_ALLOWED);
@@ -2156,6 +2155,8 @@ fhandler_console::close (int flag)
   input_mutex = NULL;
   CloseHandle (output_mutex);
   output_mutex = NULL;
+
+  pcon_hand_over_proc ();
 
   WaitForSingleObject (shared_info_mutex, INFINITE);
   if (--shared_info_state[unit] == 0 && shared_console_info[unit])
