@@ -10,6 +10,7 @@
 */
 
 #include <sys/asm.h>
+#include "newlib.h"
 
 .text
 .globl strcmp
@@ -36,7 +37,7 @@ strcmp:
 #else
   li    t2, -1
 
-#if !(__riscv_misaligned_slow || __riscv_misaligned_fast)
+#if !_HAVE_HW_MISALIGNED_ACCESS
   or    a4, a0, a1
   and   a4, a4, SZREG-1
   bnez  a4, .Lmisaligned
