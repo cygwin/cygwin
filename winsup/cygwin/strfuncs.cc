@@ -211,9 +211,9 @@ c8rtomb (char *s, char8_t c8, mbstate_t *ps)
     {
       /* We already collected something... */
       int idx = ps->__count & 0x3;
-      char8_t &c1 = ps->__value.__wchb[0];
-      char8_t &c2 = ps->__value.__wchb[1];
-      char8_t &c3 = ps->__value.__wchb[2];
+      unsigned char &c1 = ps->__value.__wchb[0];
+      unsigned char &c2 = ps->__value.__wchb[1];
+      unsigned char &c3 = ps->__value.__wchb[2];
 
       switch (idx)
 	{
