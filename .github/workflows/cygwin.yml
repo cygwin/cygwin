@@ -18,6 +18,8 @@ jobs:
         include:
         - target: x86_64-pc-cygwin
           pkgarch: 64
+        - target: aarch64-pc-cygwin
+          pkgarch: '-aarch64'
     name: Fedora cross ${{ matrix.target }}
 
     env:
@@ -29,7 +31,12 @@ jobs:
     # install build tools
     - name: Install build tools
       run: |
-        dnf install -y autoconf automake gawk make patch perl mingw${{ matrix.pkgarch }}-gcc-c++ mingw${{ matrix.pkgarch }}-winpthreads-static mingw${{ matrix.pkgarch }}-zlib-static
+        dnf install -y autoconf automake gawk make patch perl
+        # mingw-aarch64 toolchain doesn't exist in fedora yet
+        if [ ${{ matrix.target }} != 'aarch64-pc-cygwin' ]
+        then
+          dnf install -y mingw${{ matrix.pkgarch }}-gcc-c++ mingw${{ matrix.pkgarch }}-winpthreads-static mingw${{ matrix.pkgarch }}-zlib-static
+        fi
 
     # enable 'dnf copr'
     - name: Enable 'dnf copr'
@@ -39,8 +46,18 @@ jobs:
     # install cross-cygwin toolchain and libs from copr
     - name: Install cross-cygwin toolchain and libs and cocom from copr
       run: |
-        dnf copr enable -y yselkowitz/cygwin
-        dnf install -y cygwin${{ matrix.pkgarch }}-gcc-c++ cygwin${{ matrix.pkgarch }}-gettext cygwin${{ matrix.pkgarch }}-libbfd cygwin${{ matrix.pkgarch }}-libiconv cygwin${{ matrix.pkgarch }}-zlib cocom
+        # use separate copr for aarch64 as it isn't all there yet
+        if [ ${{ matrix.target }} == 'aarch64-pc-cygwin' ]
+        then
+          dnf copr enable -y @cygwin/cygwin
+        else
+          dnf copr enable -y yselkowitz/cygwin
+        fi
+        dnf install -y cygwin${{ matrix.pkgarch }}-gcc-c++ cocom
+        if [ ${{ matrix.target }} != 'aarch64-pc-cygwin' ]
+        then
+          dnf install -y cygwin${{ matrix.pkgarch }}-gettext cygwin${{ matrix.pkgarch }}-libbfd cygwin${{ matrix.pkgarch }}-libiconv cygwin${{ matrix.pkgarch }}-zlib
+        fi
 
     # install doc tools
     - name: Install doc tools
@@ -51,9 +68,15 @@ jobs:
     # build
     - name: Configure, build and install
       run: |
+        if [ ${{ matrix.target }} == 'aarch64-pc-cygwin' ]
+        then
+          EXTRA_CFG=" --without-mingw-progs --disable-cygserver --disable-dumper"
+          export CFLAGS_FOR_TARGET="-Wno-error"
+          (cd winsup/cygwin && sed -i 's/-lkernel32 -lntdll/-lntdll -lonecore/' Makefile.am)
+        fi
         mkdir build install
         (cd winsup && ./autogen.sh)
-        (cd build && ../configure --target=${{ matrix.target }} --prefix=$(realpath $(pwd)/../install) )
+        (cd build && ../configure --target=${{ matrix.target }} --prefix=$(realpath $(pwd)/../install) ${EXTRA_CFG})
         make -C build
         make -C build/*/newlib info man
         make -C build install
@@ -88,7 +111,7 @@ jobs:
         ssh-add - <<< "${{ secrets.SSH_KEY }}"
         # deploy documentation files from install directory
         scp -pr install/share/doc/{cygwin-api,cygwin-ug-net,faq}* cygwin-admin@cygwin.com:/sourceware/www/sourceware/htdocs/cygwin/doc/${DEST}/
-      if: env.HAS_SSH_KEY == 'true'
+      if: ${{ env.HAS_SSH_KEY == 'true' }} && ${{ matrix.target == 'x86_64-pc-cygwin' }}
 
   windows-build:
     runs-on: windows-2022
