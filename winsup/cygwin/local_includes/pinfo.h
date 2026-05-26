@@ -227,10 +227,10 @@ public:
   void maybe_set_exit_code_from_windows ();
   void set_exit_code (DWORD n);
   _pinfo *operator -> () const {return procinfo;}
-  int operator == (pinfo *x) const {return x->procinfo == procinfo;}
-  int operator == (pinfo &x) const {return x.procinfo == procinfo;}
-  int operator == (_pinfo *x) const {return x == procinfo;}
-  int operator == (void *x) const {return procinfo == x;}
+  bool operator == (pinfo *x) const {return x->procinfo == procinfo;}
+  bool operator == (pinfo &x) const {return x.procinfo == procinfo;}
+  bool operator == (_pinfo *x) const {return x == procinfo;}
+  bool operator == (void *x) const {return procinfo == x;}
   _pinfo *operator * () const {return procinfo;}
   operator _pinfo * () const {return procinfo;}
   int operator !() const {return !procinfo;}
