@@ -1399,9 +1399,21 @@ fhandler_console::process_input_message (void)
 	    }
 	  else
 	    {
-	      WCHAR second = unicode_char >= 0xd800 && unicode_char <= 0xdbff
-		  && i + 1 < total_read ?
-		  input_rec[i + 1].Event.KeyEvent.uChar.UnicodeChar : 0;
+	      WCHAR second = 0;
+	      DWORD second_pos = i;
+	      if (unicode_char >= 0xd800 && unicode_char <= 0xdbff)
+		for (DWORD j = i + 1; j < total_read; j++)
+		  {
+		    /* Do not check bKeyDown. bKeyDown is 0 for surrogate
+		       pair in legacy console */
+		    if (input_rec[j].EventType == KEY_EVENT &&
+			input_rec[j].Event.KeyEvent.uChar.UnicodeChar)
+		      {
+			second = input_rec[j].Event.KeyEvent.uChar.UnicodeChar;
+			second_pos = j;
+			break;
+		      }
+		  }
 
 	      if (second < 0xdc00 || second > 0xdfff)
 		{
@@ -1412,7 +1424,7 @@ fhandler_console::process_input_message (void)
 		  /* handle surrogate pairs */
 		  WCHAR pair[2] = { unicode_char, second };
 		  nread = sys_wcstombs (tmp + 1, 59, pair, 2);
-		  i++;
+		  i = second_pos;
 		}
 
 	      /* Determine if the keystroke is modified by META.  The tricky
