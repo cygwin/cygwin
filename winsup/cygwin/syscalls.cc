@@ -1547,6 +1547,13 @@ open (const char *unix_path, int flags, ...)
 	  fh = fh_file;
 	}
 
+      /* Reserve an fdtable entry here, before calling open_with_arch() below.
+         Otherwise there's a tiny chance of hitting OPEN_MAX further on which
+         could create a new file without any way for Cygwin to refer to it. */
+      cygheap_fdnew fd;
+      if (fd < 0)
+        __leave;		/* errno already set */
+
       if (fh->dev () == FH_PROCESSFD && fh->pc.follow_fd_symlink ())
 	{
 	  /* Reopen file by descriptor */
@@ -1572,14 +1579,6 @@ open (const char *unix_path, int flags, ...)
       if ((flags & O_TMPFILE) && !fh->pc.isremote ())
 	try_to_bin (fh->pc, fh->get_handle (), DELETE,
 		    FILE_OPEN_FOR_BACKUP_INTENT);
-
-      cygheap_fdnew fd;
-
-      if (fd < 0)
-	{
-	  fh->close();
-	  __leave;		/* errno already set */
-	}
 
       fd = fh;
       if (fd <= 2)
