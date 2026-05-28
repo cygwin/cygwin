@@ -36,7 +36,7 @@ __MINGW_USYMBOL(remainderl):
 	jp	1b
 	fstp	%st(1)
 	ret
-#elif _defined(__aarch64__)
+#elif defined(__aarch64__)
 	bl	remainder
 	ret
 #else
