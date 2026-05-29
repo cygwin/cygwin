@@ -47,7 +47,8 @@ multilibtool_LIBRARIES += %D%/librdpmon.a
 	%D%/aprofile-validation.specs \
 	%D%/aprofile-validation-v2m.specs \
 	%D%/aprofile-ve-v2m.specs \
-	%D%/aprofile-ve.specs
+	%D%/aprofile-ve.specs \
+	%D%/mprofile-mps2.specs
 multilibtool_DATA += \
 	%D%/rdimon-crt0.o \
 	%D%/rdimon-crt0-v2m.o

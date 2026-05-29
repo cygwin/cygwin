@@ -23,8 +23,17 @@
  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
 
-/* This file is a wrapper for the initialization code.  It helps
-   manage multilibs without affecting the build system.  */
+/* This file gives a basic initialisation of an M-profile core.
 
-#include "rdimon-aem-a.S"
-#include "rdimon-aem-m.S"
+   We define a hardfault handler, required to prevent the simulator
+   from entering into an infinite loop.  This handler is located at
+   address 0xc by default when linking with mprofile-mps2.specs which
+   uses --section-start=.hardfault_handler_addr=0xc.  */
+
+#if  (__ARM_ARCH_PROFILE == 'M')
+    /* On M-profile, call abort in case of hardfault: this causes the
+       simulator to abort execution instead of going into an infinite
+       loop.  */
+    .section .hardfault_handler_addr, "a"
+    .word abort
+#endif

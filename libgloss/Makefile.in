@@ -2255,6 +2255,7 @@ TEXINFO_TEX = ../texinfo/texinfo.tex
 @CONFIG_ARM_TRUE@	arm/aprofile-validation-v2m.specs \
 @CONFIG_ARM_TRUE@	arm/aprofile-ve-v2m.specs \
 @CONFIG_ARM_TRUE@	arm/aprofile-ve.specs arm/pid.specs \
+@CONFIG_ARM_TRUE@       arm/mprofile-mps2.specs \
 @CONFIG_ARM_TRUE@	arm/iq80310.specs
 @CONFIG_ARM_TRUE@arm_libgloss_linux_a_SOURCES = \
 @CONFIG_ARM_TRUE@	arm/linux-syscalls0.c \
