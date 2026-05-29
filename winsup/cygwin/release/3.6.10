@@ -1,0 +1,7 @@
+Fixes:
+------
+
+- Fix deadlock in console teardown that arises from pseudo console.
+  Addresses: https://github.com/msys2/msys2-runtime/issues/338
+
+- Fix handling of surrogate pair in legacy console.
