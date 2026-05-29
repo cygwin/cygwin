@@ -28,12 +28,10 @@ memcmp:
   li a0, 0
   ret
 .Lfound:
-  vrgather.vx v16, v0, a4
-  vrgather.vx v24, v8, a4
-  vmv.x.s a0, v16
-  vmv.x.s a4, v24
-  andi a0, a0, 0xff
-  andi a4, a4, 0xff
+  add a0, a0, a4
+  add a1, a1, a4
+  lbu a0, 0(a0)
+  lbu a4, 0(a1)
   sub a0, a0, a4
   ret
 .size memcmp, .-memcmp
