@@ -19,6 +19,7 @@ details. */
 #include "cygheap.h"
 #include "pinfo.h"
 #include "shared_info.h"
+#include "tls_pbuf.h"
 
 HANDLE NO_COPY tty_list::mutex = NULL;
 
@@ -135,7 +136,9 @@ tty_list::init ()
 int
 tty_list::find_pcon_pty ()
 {
-  DWORD pids[128];
+  tmp_pathbuf tp;
+  DWORD *pids = (DWORD *) tp.c_get ();
+  const DWORD buf_size = NT_MAX_PATH / sizeof (DWORD);
   DWORD count = 0;
   bool got_pids = false;
 
@@ -144,10 +147,20 @@ tty_list::find_pcon_pty ()
       if (!ttys[i].has_active_pcon ())
 	continue;
 
-      /* Fetch the console process list lazily, only on first candidate. */
+      /* Fetch the console process list lazily, only on first candidate.
+	 The buffer-too-large dance mirrors the one in termios.cc's
+	 get_console_process_id() and works around new condrv's dislike
+	 of oversized first-call buffers, see
+	 https://github.com/microsoft/terminal/issues/18264#issuecomment-2515448548 */
       if (!got_pids)
 	{
-	  count = GetConsoleProcessList (pids, 128);
+	  DWORD buf_size1 = 1;
+	  while ((count = GetConsoleProcessList (pids, buf_size1)) > buf_size1)
+	    {
+	      if (count > buf_size)
+		return -1;
+	      buf_size1 = count;
+	    }
 	  if (!count)
 	    return -1;
 	  got_pids = true;
