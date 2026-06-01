@@ -1713,7 +1713,6 @@ dump_sysinfo ()
   else
     {
       char sep = strchr (s, ';') ? ';' : ':';
-      int count_path_items = 0;
       while (1)
 	{
 	  for (e = s; *e && *e != sep; e++);
@@ -1721,7 +1720,6 @@ dump_sysinfo ()
 	    printf ("\t%.*s\n", (int) (e - s), s);
 	  else
 	    puts ("\t.");
-	  count_path_items++;
 	  if (!*e)
 	    break;
 	  s = e + 1;
