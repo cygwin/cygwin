@@ -230,7 +230,9 @@ __wcwidth (const wint_t ucs)
 }
 
 int
-wcwidth (const wint_t wc)
+wcwidth (const wchar_t wc)
+// parameter width must be in sync with prototype in wchar.h
+// to exclude undefined behaviour on parameter width extension (e.g. gcc 16)
 {
   wint_t wi = wc;
 
