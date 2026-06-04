@@ -175,7 +175,7 @@ jobs:
     # upload installed cygwin as an artifact, for subsequent use in
     # test job(s)
     - name: Make Cygwin installation artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: cygwin-install-${{ matrix.pkgarch }}
         path: |
@@ -193,7 +193,7 @@ jobs:
 
     # upload test logs to facilitate investigation of problems
     - name: Upload test logs
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: testlogs
         path: |
@@ -223,7 +223,7 @@ jobs:
 
     steps:
     - run: git config --global core.autocrlf input
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
 
     # install cygwin
     - name: Install Cygwin
@@ -237,7 +237,7 @@ jobs:
 
     # fetch the just-built cygwin installation artifact
     - name: Unpack just-built Cygwin artifact
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: cygwin-install-${{ matrix.pkgarch }}
         # use the install-dir of cygwin-install-action above, so we unpack the
@@ -261,7 +261,7 @@ jobs:
 
     # upload logs artifact
     - name: Capture logs artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: stress-logs-${{ matrix.pkgarch }}-on-${{ matrix.runarch }}
         path: |
@@ -307,7 +307,7 @@ jobs:
 
     # fetch the just-built cygwin installation artifact
     - name: Unpack just-built Cygwin artifact
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: cygwin-install-${{ matrix.pkgarch }}
         # use the install-dir of cygwin-install-action above, so we unpack the
@@ -338,7 +338,7 @@ jobs:
 
     # upload logs artifact
     - name: Capture logs artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: stc-logs-${{ matrix.pkgarch }}-on-${{ matrix.runarch }}
         path: |
