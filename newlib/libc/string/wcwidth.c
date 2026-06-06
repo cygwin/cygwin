@@ -7,21 +7,47 @@ INDEX
 
 SYNOPSIS
 	#include <wchar.h>
-	int wcwidth(const wint_t <[wc]>);
+	int wcwidth(const wchar_t <[wc]>);
 
 DESCRIPTION
 	The <<wcwidth>> function shall determine the number of column
 	positions required for the wide character <[wc]>. The application
 	shall ensure that the value of <[wc]> is a character representable
-	as a wint_t (combining Unicode surrogate pairs into single 21-bit
-	Unicode code points), and is a wide-character code corresponding to a
+	as a wchar_t, and is a wide-character code corresponding to a
 	valid character in the current locale.
+	Note that for a Unicode character outside the 16-bit range, 
+	the application must split it into Unicode surrogates 
+	and use the <<wcswidth>> function instead.
 
 RETURNS
 	The <<wcwidth>> function shall either return 0 (if <[wc]> is a null
 	wide-character code), or return the number of column positions to
 	be occupied by the wide-character code <[wc]>, or return -1 (if <[wc]>
 	does not correspond to a printable wide-character code).
+
+EXAMPLE
+	An application function to determine the width of a 21-bit 
+	Unicode character may look like this:
+
+		typedef unsigned int uchar_t;
+		// determine high and low surrogates of Unicode character
+		wchar_t hisurr(uchar_t xc)
+		{
+		  return 0xD800 | (((xc - 0x10000) >> 10) & 0x3FF);
+		}
+		wchar_t losurr(uchar_t xc)
+		{
+		  return 0xDC00 | (xc & 0x3FF);
+		}
+
+		// determine width of 21-bit Unicode character
+		int ucwidth(uchar_t uc)
+		{
+		  if (uc < 0x10000)
+		    return wcwidth(uc);
+		  else
+		    return wcswidth((wchar_t[]){hisurr(uc), losurr(uc)}, 2);
+		}
 
 PORTABILITY
 <<wcwidth>> has been introduced in the Single UNIX Specification Volume 2.
@@ -165,6 +191,8 @@ bisearch(wint_t ucs, const struct interval *table, int max)
 
 int
 __wcwidth (const wint_t ucs)
+// unlike wcwidth, the parameter type of __wcwidth must be 32 bits wide
+// in order to support wcswidth
 {
 #ifdef _MB_CAPABLE
   /* sorted list of non-overlapping intervals of East Asian Ambiguous chars */
