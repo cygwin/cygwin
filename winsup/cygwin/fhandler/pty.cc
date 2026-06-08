@@ -2213,6 +2213,23 @@ fhandler_pty_common::close (int flag)
   return 0;
 }
 
+static inline HANDLE
+get_handle_from_process (DWORD pid, HANDLE h, bool inh = false)
+{
+  HANDLE ret = NULL;
+  HANDLE owner = OpenProcess (PROCESS_DUP_HANDLE, FALSE, pid);
+  if (owner)
+    {
+      if (!DuplicateHandle (owner, h, GetCurrentProcess (), &ret, 0, inh,
+			    DUPLICATE_SAME_ACCESS))
+	termios_printf ("DuplicateHandle() %p from process %d (%E)", h, pid);
+      CloseHandle (owner);
+    }
+  else
+    termios_printf ("OpenProcess (%d) failed (%E).", pid);
+  return ret;
+}
+
 void
 fhandler_pty_common::resize_pseudo_console (struct winsize *ws)
 {
@@ -2220,15 +2237,14 @@ fhandler_pty_common::resize_pseudo_console (struct winsize *ws)
   size.X = ws->ws_col;
   size.Y = ws->ws_row;
   HPCON_INTERNAL hpcon_local;
-  HANDLE pcon_owner =
-    OpenProcess (PROCESS_DUP_HANDLE, FALSE, get_ttyp ()->nat_pipe_owner_pid);
-  DuplicateHandle (pcon_owner, get_ttyp ()->h_pcon_write_pipe,
-		   GetCurrentProcess (), &hpcon_local.hWritePipe,
-		   0, FALSE, DUPLICATE_SAME_ACCESS);
+  hpcon_local.hWritePipe =
+    get_handle_from_process (get_ttyp ()->nat_pipe_owner_pid,
+			     get_ttyp ()->h_pcon_write_pipe);
+  if (hpcon_local.hWritePipe == NULL)
+    return;
   acquire_attach_mutex (mutex_timeout);
   ResizePseudoConsole ((HPCON) &hpcon_local, size);
   release_attach_mutex ();
-  CloseHandle (pcon_owner);
   CloseHandle (hpcon_local.hWritePipe);
 }
 
@@ -2490,18 +2506,13 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 	    {
 	      if (h_pcon_in_dupped)
 		ForceCloseHandle (h_pcon_in_dupped);
-	      h_pcon_in_dupped = NULL;
-	      nat_pipe_owner_pid_dupped = 0;
-	      HANDLE pcon_owner = OpenProcess (PROCESS_DUP_HANDLE, FALSE,
-					       get_ttyp ()->nat_pipe_owner_pid);
-	      if (pcon_owner)
-		{
-		  DuplicateHandle (pcon_owner, get_ttyp ()->h_pcon_in,
-				   GetCurrentProcess (), &h_pcon_in_dupped,
-				   0, FALSE, DUPLICATE_SAME_ACCESS);
-		  nat_pipe_owner_pid_dupped = get_ttyp ()->nat_pipe_owner_pid;
-		  CloseHandle (pcon_owner);
-		}
+	      h_pcon_in_dupped =
+		get_handle_from_process (get_ttyp ()->nat_pipe_owner_pid,
+					 get_ttyp ()->h_pcon_in);
+	      if (h_pcon_in_dupped)
+		nat_pipe_owner_pid_dupped = get_ttyp ()->nat_pipe_owner_pid;
+	      else
+		nat_pipe_owner_pid_dupped = 0;
 	    }
 	  else
 	    {
@@ -4265,16 +4276,9 @@ fhandler_pty_slave::transfer_input (tty::xfer_dir dir, HANDLE from, tty *ttyp,
     to = ttyp->to_slave ();
 
   pinfo p (ttyp->master_pid);
-  HANDLE pty_owner = NULL;
   if (p)
-    pty_owner = OpenProcess (PROCESS_DUP_HANDLE, FALSE, p->dwProcessId);
-  if (pty_owner)
-    {
-      DuplicateHandle (pty_owner, to, GetCurrentProcess (), &to,
-		       0, TRUE, DUPLICATE_SAME_ACCESS);
-      CloseHandle (pty_owner);
-    }
-  else
+    to = get_handle_from_process (p->dwProcessId, to, true);
+  if (to == NULL)
     {
       char pipe[MAX_PATH];
       __small_sprintf (pipe,
@@ -4571,12 +4575,8 @@ fhandler_pty_slave::setpgid_aux (pid_t pid)
       if (get_ttyp ()->pcon_activated && get_ttyp ()->nat_pipe_owner_pid
 	  && !get_console_process_id (get_ttyp ()->nat_pipe_owner_pid, true))
 	{
-	  HANDLE pcon_owner = OpenProcess (PROCESS_DUP_HANDLE, FALSE,
-					   get_ttyp ()->nat_pipe_owner_pid);
-	  DuplicateHandle (pcon_owner, get_ttyp ()->h_pcon_in,
-			   GetCurrentProcess (), &from,
-			   0, TRUE, DUPLICATE_SAME_ACCESS);
-	  CloseHandle (pcon_owner);
+	  from = get_handle_from_process (get_ttyp ()->nat_pipe_owner_pid,
+					  get_ttyp ()->h_pcon_in, true);
 	  DWORD target_pid = get_ttyp ()->nat_pipe_owner_pid;
 	  resume_pid = attach_console_temporarily (target_pid);
 	  attach_restore = true;
