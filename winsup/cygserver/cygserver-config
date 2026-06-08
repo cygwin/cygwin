@@ -162,7 +162,7 @@ then
     exit 1
   fi
   chmod 664 "${SYSCONFDIR}/cygserver.conf"
-  chown 18.544 "${SYSCONFDIR}/cygserver.conf"
+  chown 18:544 "${SYSCONFDIR}/cygserver.conf"
 fi
 
 # On NT ask if cygserver should be installed as service
@@ -194,7 +194,7 @@ then
       echo "To start it, call \`net start ${service_name}' or \`cygrunsrv -S ${service_name}'."
     fi
     touch "${LOCALSTATEDIR}/log/cygserver.log"
-    chown 18.544 "${LOCALSTATEDIR}/log/cygserver.log"
+    chown 18:544 "${LOCALSTATEDIR}/log/cygserver.log"
   fi
 fi
 
