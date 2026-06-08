@@ -2746,7 +2746,6 @@ fhandler_pty_master::apply_line_edit_to_transferred_input ()
       n -= ret;
       p += ret;
     }
-  SetEvent (input_available_event);
 }
 
 static DWORD
