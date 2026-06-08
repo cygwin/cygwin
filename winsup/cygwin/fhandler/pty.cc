@@ -2251,7 +2251,6 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 	      ixput = 0;
 	      state = 0;
 	      wp_tid = 0;
-	      get_ttyp ()->req_xfer_input = false;
 	      get_ttyp ()->pcon_start = false;
 	      break;
 	    }
@@ -2265,6 +2264,20 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 	      && pp && pp->pgid == get_ttyp ()->getpgid ()
 	      && get_ttyp ()->pty_input_state_eq (tty::to_cyg))
 	    {
+	      if (!get_ttyp ()->req_xfer_input)
+		{
+		  HANDLE pcon_handle_ready_event =
+		    get_ttyp ()->pcon_handle_ready_event;
+		  get_handle_from_process (get_ttyp ()->nat_pipe_owner_pid,
+					   pcon_handle_ready_event);
+		  if (pcon_handle_ready_event)
+		    {
+		      cygwait (pcon_handle_ready_event, INFINITE);
+		      ResetEvent (pcon_handle_ready_event);
+		      CloseHandle (pcon_handle_ready_event);
+		    }
+		}
+
 	      /* This accept_input() call is needed in order to transfer input
 		 which is not accepted yet to non-cygwin pipe. */
 	      WaitForSingleObject (input_mutex, mutex_timeout);
@@ -2278,6 +2291,7 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 	      release_attach_mutex ();
 	      ReleaseMutex (input_mutex);
 	    }
+	  get_ttyp ()->req_xfer_input = false;
 	  get_ttyp ()->pcon_start_pid = 0;
 	}
       if (len == 0)
@@ -3567,6 +3581,8 @@ fhandler_pty_slave::setup_pseudoconsole ()
       si.StartupInfo.hStdOutput = NULL;
       si.StartupInfo.hStdError = NULL;
 
+      get_ttyp ()->pcon_handle_ready_event =
+	CreateEvent (&sec_none_nih, TRUE, FALSE, NULL);
       get_ttyp ()->pcon_activated = true;
       get_ttyp ()->pcon_start = true;
       get_ttyp ()->pcon_start_pid = myself->pid;
@@ -3653,6 +3669,7 @@ skip_create:
       /* Discard the pseudo console handler container here.
 	 Reconstruct it temporary when it is needed. */
       HeapFree (GetProcessHeap (), 0, hp);
+      SetEvent (get_ttyp ()->pcon_handle_ready_event);
     }
 
   acquire_attach_mutex (mutex_timeout);
@@ -3859,6 +3876,11 @@ fhandler_pty_slave::close_pseudoconsole (tty *ttyp, DWORD force_switch_to)
 	  ttyp->nat_pipe_owner_pid = 0;
 	  ttyp->pcon_start = false;
 	  ttyp->pcon_start_pid = 0;
+	}
+      if (ttyp->pcon_handle_ready_event)
+	{
+	  CloseHandle (ttyp->pcon_handle_ready_event);
+	  ttyp->pcon_handle_ready_event = NULL;
 	}
     }
   else
@@ -4108,6 +4130,26 @@ fhandler_pty_slave::transfer_input (tty::xfer_dir dir, HANDLE from, tty *ttyp,
 
   UINT cp_from = 0, cp_to = 0;
 
+  HANDLE h_pcon_in = NULL;
+  DWORD con_mode = 0;
+  if (ttyp->pcon_activated && dir == tty::to_nat)
+    {
+      /* Escape sequences such as the cursor position report ("CSI m;n R")
+	 are undesirably converted into an Fn3 key by pseudo console.
+	 To privent this unintended conversion, temporarily enable
+	 ENABLE_VIRTUAL_TERMINAL_INPUT flag. */
+      h_pcon_in =
+	get_handle_from_process (ttyp->nat_pipe_owner_pid, ttyp->h_pcon_in);
+      if (h_pcon_in)
+	{
+	  DWORD target_pid = ttyp->nat_pipe_owner_pid;
+	  DWORD resume_pid = attach_console_temporarily (target_pid);
+	  GetConsoleMode (h_pcon_in, &con_mode);
+	  SetConsoleMode (h_pcon_in, con_mode | ENABLE_VIRTUAL_TERMINAL_INPUT);
+	  resume_from_temporarily_attach (resume_pid);
+	}
+    }
+
   if (dir == tty::to_nat)
     {
       cp_from = ttyp->term_code_page;
@@ -4221,6 +4263,15 @@ fhandler_pty_slave::transfer_input (tty::xfer_dir dir, HANDLE from, tty *ttyp,
 	}
     }
   CloseHandle (to);
+
+  if (h_pcon_in)
+    {
+      DWORD target_pid = ttyp->nat_pipe_owner_pid;
+      DWORD resume_pid = attach_console_temporarily (target_pid);
+      SetConsoleMode (h_pcon_in, con_mode);
+      resume_from_temporarily_attach (resume_pid);
+      CloseHandle (h_pcon_in);
+    }
 
   ttyp->pty_input_state = dir;
   /* Fix input_available_event which indicates availability in cyg pipe. */
