@@ -125,6 +125,7 @@ private:
   bool pcon_start_csi_c;
   bool switch_to_nat_pipe;
   DWORD nat_pipe_owner_pid;
+  HANDLE pcon_handle_ready_event;
   UINT term_code_page;
   ULONGLONG fwd_last_time;
   bool fwd_not_empty;
