@@ -207,7 +207,7 @@ typedef _Atomic(unsigned char)		atomic_char8_t;
 #endif
 typedef _Atomic(__char16_t)		atomic_char16_t;
 typedef _Atomic(__char32_t)		atomic_char32_t;
-typedef _Atomic(___wchar_t)		atomic_wchar_t;
+typedef _Atomic(__wchar_t)		atomic_wchar_t;
 typedef _Atomic(__int_least8_t)		atomic_int_least8_t;
 typedef _Atomic(__uint_least8_t)	atomic_uint_least8_t;
 typedef _Atomic(__int_least16_t)	atomic_int_least16_t;
