@@ -25,11 +25,28 @@ details. */
 static inline bool
 open_clipboard ()
 {
-  const int max_retry = 10;
+  const int max_retry = 20;
   for (int i = 0; i < max_retry; i++)
     {
+      /* No appropriate HWND exists here. */
       if (OpenClipboard (NULL))
-	return true;
+	{
+	  /* SetClipboardData() and GetClipboardData() occasionally
+	     fail with ERROR_CLIPBOARD_NOT_OPEN, even though
+	     OpenClipboard() succeeded if NULL HWND is used.
+	     Retry until GetClipboardData() does not return
+	     ERROR_CLIPBOARD_NOT_OPEN. */
+	  if (GetClipboardData (CF_UNICODETEXT))
+	    return true;
+	  DWORD err = GetLastError ();
+	  /* Here, ERROR_NOT_FOUND means the clipboard does not contains
+	     valid CF_UNICODETEXT. OpenClipboard() must have succeeded. */
+	  if (err == ERROR_NOT_FOUND)
+	    return true;
+	  CloseClipboard ();
+	  if (err != ERROR_CLIPBOARD_NOT_OPEN)
+	    return false;
+	}
       Sleep (1);
     }
   return false;
