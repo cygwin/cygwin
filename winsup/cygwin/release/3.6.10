@@ -5,3 +5,6 @@ Fixes:
   Addresses: https://github.com/msys2/msys2-runtime/issues/338
 
 - Fix handling of surrogate pair in legacy console.
+
+- Fix behaviour with OPEN_MAX files open
+  Addresses: https://cygwin.com/pipermail/cygwin/2026-May/259664.html
