@@ -492,8 +492,7 @@ fhandler_pty_master::accept_input ()
 
   HANDLE write_to = get_output_handle ();
   tmp_pathbuf tp;
-  if (to_be_read_from_nat_pipe ()
-      && get_ttyp ()->pty_input_state == tty::to_nat)
+  if (get_ttyp ()->pty_input_state == tty::to_nat)
     {
       /* This code is reached if non-cygwin app is foreground and
 	 pseudo console is not enabled. */
@@ -1109,18 +1108,18 @@ fhandler_pty_slave::reset_switch_to_nat_pipe (void)
 	  mutex_timeout = INFINITE;
 	  if (isHybrid)
 	    {
+	      WaitForSingleObject (input_mutex, mutex_timeout);
 	      if (get_ttyp ()->getpgid () == myself->pgid
 		  && GetStdHandle (STD_INPUT_HANDLE) == get_handle ()
 		  && get_ttyp ()->pty_input_state_eq (tty::to_nat))
 		{
-		  WaitForSingleObject (input_mutex, mutex_timeout);
 		  acquire_attach_mutex (mutex_timeout);
 		  transfer_input (tty::to_cyg, get_handle_nat (), get_ttyp (),
 				  input_available_event,
 				  input_transferred_to_cyg);
 		  release_attach_mutex ();
-		  ReleaseMutex (input_mutex);
 		}
+	      ReleaseMutex (input_mutex);
 	      if (get_ttyp ()->master_is_running_as_service
 		  && get_ttyp ()->pcon_activated)
 		/* If the master is running as service, re-attaching to
@@ -2181,6 +2180,22 @@ fhandler_pty_master::close (int flag)
   return 0;
 }
 
+line_edit_status
+fhandler_pty_master::line_edit_maybe (const char *ptr, size_t len,
+				      termios &ti, ssize_t *n)
+{
+  DWORD m;
+  if (get_ttyp ()->req_xfer_input
+      && get_ttyp ()->pty_input_state_eq (tty::to_nat))
+    {
+      WriteFile (to_slave_nat, ptr, len, &m, NULL);
+      *n = (ssize_t) m;
+      return line_edit_ok;
+    }
+  else
+    return line_edit (ptr, len, ti, n);
+}
+
 ssize_t
 fhandler_pty_master::write (const void *ptr, size_t len)
 {
@@ -2197,6 +2212,25 @@ fhandler_pty_master::write (const void *ptr, size_t len)
   push_process_state process_state (PID_TTYOU);
 
   get_ttyp ()->discard_input = false;
+
+  /* This input transfer is needed when cygwin-app which is started from
+     non-cygwin app is terminated while pseudo console is disabled. */
+  if (!get_ttyp ()->pcon_activated && !get_ttyp ()->pcon_start
+      && to_be_read_from_nat_pipe ())
+    {
+      WaitForSingleObject (input_mutex, mutex_timeout);
+      if (get_ttyp ()->nat_fg (get_ttyp ()->getpgid ())
+	  && get_ttyp ()->pty_input_state == tty::to_cyg)
+	{
+	  acquire_attach_mutex (mutex_timeout);
+	  fhandler_pty_slave::transfer_input (tty::to_nat, from_master,
+					      get_ttyp (),
+					      input_available_event,
+					      input_transferred_to_cyg);
+	  release_attach_mutex ();
+	}
+      ReleaseMutex (input_mutex);
+    }
 
   if (get_ttyp ()->pcon_start)
     { /* Reaches here when pseudo console initialization is on going. */
@@ -2218,7 +2252,7 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 	  if (p[i] == '\033')
 	    {
 	      if (ixput)
-		line_edit (wpbuf, ixput, ti, &ret);
+		line_edit_maybe (wpbuf, ixput, ti, &ret);
 	      ixput = 0;
 	      state = 1;
 	      wp_tid = _my_tls.thread_id;
@@ -2236,7 +2270,7 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 		}
 	    }
 	  else
-	    line_edit (p + i, 1, ti, &ret);
+	    line_edit_maybe (p + i, 1, ti, &ret);
 	  len = orig_len - i - 1;
 	  ptr = p + i + 1;
 	  if (state == 1 && wp_tid == _my_tls.thread_id && p[i] == 'R')
@@ -2259,6 +2293,7 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 
       if (!get_ttyp ()->pcon_start)
 	{ /* Pseudo console initialization has been done in above code. */
+	  WaitForSingleObject (input_mutex, mutex_timeout);
 	  pinfo pp (get_ttyp ()->pcon_start_pid);
 	  if (get_ttyp ()->switch_to_nat_pipe
 	      && pp && pp->pgid == get_ttyp ()->getpgid ()
@@ -2268,8 +2303,9 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 		{
 		  HANDLE pcon_handle_ready_event =
 		    get_ttyp ()->pcon_handle_ready_event;
-		  get_handle_from_process (get_ttyp ()->nat_pipe_owner_pid,
-					   pcon_handle_ready_event);
+		  pcon_handle_ready_event =
+		    get_handle_from_process (get_ttyp ()->nat_pipe_owner_pid,
+					     pcon_handle_ready_event);
 		  if (pcon_handle_ready_event)
 		    {
 		      cygwait (pcon_handle_ready_event, INFINITE);
@@ -2280,7 +2316,6 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 
 	      /* This accept_input() call is needed in order to transfer input
 		 which is not accepted yet to non-cygwin pipe. */
-	      WaitForSingleObject (input_mutex, mutex_timeout);
 	      if (get_readahead_valid ())
 		accept_input ();
 	      acquire_attach_mutex (mutex_timeout);
@@ -2289,9 +2324,9 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 						  input_available_event,
 						  input_transferred_to_cyg);
 	      release_attach_mutex ();
-	      ReleaseMutex (input_mutex);
 	    }
 	  get_ttyp ()->req_xfer_input = false;
+	  ReleaseMutex (input_mutex);
 	  get_ttyp ()->pcon_start_pid = 0;
 	}
       if (len == 0)
@@ -2301,7 +2336,7 @@ fhandler_pty_master::write (const void *ptr, size_t len)
   /* Write terminal input to to_slave_nat pipe instead of output_handle
      if current application is native console application. */
   WaitForSingleObject (input_mutex, mutex_timeout);
-  if (to_be_read_from_nat_pipe () && get_ttyp ()->pcon_activated
+  if (get_ttyp ()->pcon_activated
       && get_ttyp ()->pty_input_state == tty::to_nat)
     { /* Reaches here when non-cygwin app is foreground and pseudo console
 	 is activated. */
@@ -2385,20 +2420,6 @@ fhandler_pty_master::write (const void *ptr, size_t len)
   /* The code path reaches here when pseudo console is not activated
      or cygwin process is foreground even though pseudo console is
      activated. */
-
-  /* This input transfer is needed when cygwin-app which is started from
-     non-cygwin app is terminated if pseudo console is disabled. */
-  if (to_be_read_from_nat_pipe () && !get_ttyp ()->pcon_activated
-      && get_ttyp ()->nat_fg (get_ttyp ()->getpgid ())
-      && get_ttyp ()->pty_input_state == tty::to_cyg)
-    {
-      acquire_attach_mutex (mutex_timeout);
-      fhandler_pty_slave::transfer_input (tty::to_nat, from_master,
-					  get_ttyp (), input_available_event,
-					  input_transferred_to_cyg);
-      release_attach_mutex ();
-    }
-
   line_edit_status status = line_edit (p, len, ti, &ret);
   ReleaseMutex (input_mutex);
 
@@ -4337,9 +4358,9 @@ fhandler_pty_slave::setup_for_non_cygwin_app (bool nopcon,
 					      const WCHAR *envblock,
 					      bool stdin_is_ptys)
 {
+  WaitForSingleObject (pipe_sw_mutex, INFINITE);
   if (disable_pcon || !term_has_pcon_cap (envblock))
     nopcon = true;
-  WaitForSingleObject (pipe_sw_mutex, INFINITE);
   /* Setting switch_to_nat_pipe is necessary even if pseudo console
      will not be activated. */
   fhandler_base *fh = ::cygheap->fdtab[0];
@@ -4355,16 +4376,16 @@ fhandler_pty_slave::setup_for_non_cygwin_app (bool nopcon,
     pcon_enabled = setup_pseudoconsole ();
   ReleaseMutex (pipe_sw_mutex);
   /* For pcon enabled case, transfer_input() is called in master::write() */
+  WaitForSingleObject (input_mutex, mutex_timeout);
   if (!pcon_enabled && get_ttyp ()->getpgid () == myself->pgid
       && stdin_is_ptys && get_ttyp ()->pty_input_state_eq (tty::to_cyg))
     {
-      WaitForSingleObject (input_mutex, mutex_timeout);
       acquire_attach_mutex (mutex_timeout);
       transfer_input (tty::to_nat, get_handle (), get_ttyp (),
 		      input_available_event, input_transferred_to_cyg);
       release_attach_mutex ();
-      ReleaseMutex (input_mutex);
     }
+  ReleaseMutex (input_mutex);
 }
 
 void
@@ -4373,22 +4394,22 @@ fhandler_pty_slave::cleanup_for_non_cygwin_app (handle_set_t *p, tty *ttyp,
 						DWORD force_switch_to)
 {
   ttyp->wait_fwd ();
+  WaitForSingleObject (p->pipe_sw_mutex, INFINITE);
+  WaitForSingleObject (p->input_mutex, mutex_timeout);
   if (nat_pipe_owner_self (ttyp->nat_pipe_owner_pid))
     {
       DWORD switch_to = get_winpid_to_hand_over (ttyp, force_switch_to);
       if ((!switch_to && (ttyp->pcon_activated || stdin_is_ptys))
 	  && ttyp->pty_input_state_eq (tty::to_nat))
 	{
-	  WaitForSingleObject (p->input_mutex, mutex_timeout);
 	  acquire_attach_mutex (mutex_timeout);
 	  transfer_input (tty::to_cyg, p->from_master_nat, ttyp,
 			  p->input_available_event,
 			  p->input_transferred_to_cyg);
 	  release_attach_mutex ();
-	  ReleaseMutex (p->input_mutex);
 	}
     }
-  WaitForSingleObject (p->pipe_sw_mutex, INFINITE);
+  ReleaseMutex (p->input_mutex);
   if (ttyp->pcon_activated)
     close_pseudoconsole (ttyp, force_switch_to);
   else
@@ -4402,27 +4423,23 @@ fhandler_pty_slave::setpgid_aux (pid_t pid)
   reset_switch_to_nat_pipe ();
 
   WaitForSingleObject (pipe_sw_mutex, INFINITE);
+  WaitForSingleObject (input_mutex, mutex_timeout);
   bool was_nat_fg = get_ttyp ()->nat_fg (tc ()->pgid);
   bool nat_fg = get_ttyp ()->nat_fg (pid);
   if (!was_nat_fg && nat_fg && get_ttyp ()->switch_to_nat_pipe
       && get_ttyp ()->pty_input_state_eq (tty::to_cyg))
     {
-      ReleaseMutex (pipe_sw_mutex);
-      WaitForSingleObject (input_mutex, mutex_timeout);
       acquire_attach_mutex (mutex_timeout);
       transfer_input (tty::to_nat, get_handle (), get_ttyp (),
 		      input_available_event, input_transferred_to_cyg);
       release_attach_mutex ();
-      ReleaseMutex (input_mutex);
     }
   else if (was_nat_fg && !nat_fg && get_ttyp ()->switch_to_nat_pipe
 	   && get_ttyp ()->pty_input_state_eq (tty::to_nat))
     {
-      ReleaseMutex (pipe_sw_mutex);
       bool attach_restore = false;
       HANDLE from = get_handle_nat ();
       DWORD resume_pid = 0;
-      WaitForSingleObject (input_mutex, mutex_timeout);
       if (get_ttyp ()->pcon_activated && get_ttyp ()->nat_pipe_owner_pid
 	  && !get_console_process_id (get_ttyp ()->nat_pipe_owner_pid, true))
 	{
@@ -4440,10 +4457,9 @@ fhandler_pty_slave::setpgid_aux (pid_t pid)
 	resume_from_temporarily_attach (resume_pid);
       else
 	release_attach_mutex ();
-      ReleaseMutex (input_mutex);
     }
-  else
-    ReleaseMutex (pipe_sw_mutex);
+  ReleaseMutex (input_mutex);
+  ReleaseMutex (pipe_sw_mutex);
 }
 
 bool
@@ -4453,8 +4469,8 @@ fhandler_pty_master::need_send_ctrl_c_event ()
      apps will be done in pseudo console, therefore, sending it in
      fhandler_pty_master::write() duplicates that event for non-cygwin
      apps. So return false if pseudo console is activated. */
-  return !(to_be_read_from_nat_pipe () && get_ttyp ()->pcon_activated
-    && get_ttyp ()->pty_input_state == tty::to_nat);
+  return !(get_ttyp ()->pcon_activated
+	   && get_ttyp ()->pty_input_state == tty::to_nat);
 }
 
 void
