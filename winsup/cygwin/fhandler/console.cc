@@ -420,6 +420,7 @@ fhandler_console::cons_master_thread (handle_set_t *p, tty *ttyp)
 
       if (con.disable_master_thread)
 	{
+	  con.master_thread_suspended = true;
 	  cygwait (40);
 	  continue;
 	}
@@ -934,9 +935,9 @@ fhandler_console::setup_for_non_cygwin_app ()
      console mode. */
   if (get_ttyp ()->getpgid () == myself->pgid)
     {
+      set_disable_master_thread (true, this);
       set_input_mode (tty::native, &tc ()->ti, get_handle_set ());
       set_output_mode (tty::native, &tc ()->ti, get_handle_set ());
-      set_disable_master_thread (true, this);
     }
 }
 
@@ -948,12 +949,12 @@ fhandler_console::cleanup_for_non_cygwin_app (handle_set_t *p)
   termios *ti = shared_console_info[unit] ?
     &(shared_console_info[unit]->tty_min_state.ti) : &dummy;
   /* Cleaning-up console mode for non-cygwin app. */
-  set_disable_master_thread (con.owner == GetCurrentProcessId ());
   /* conmode can be tty::restore when non-cygwin app is
      exec'ed from login shell. */
   tty::cons_mode conmode = cons_mode_on_close (p);
   set_output_mode (conmode, ti, p);
   set_input_mode (conmode, ti, p);
+  set_disable_master_thread (con.owner == GetCurrentProcessId ());
 }
 
 /* Return the tty structure associated with a given tty number.  If the
@@ -1146,8 +1147,8 @@ fhandler_console::bg_check (int sig, bool dontsignal)
      in the same process group. */
   if (sig == SIGTTIN && con.curr_input_mode != tty::cygwin)
     {
-      set_disable_master_thread (false, this);
       set_input_mode (tty::cygwin, &tc ()->ti, get_handle_set ());
+      set_disable_master_thread (false, this);
     }
   if (sig == SIGTTOU && con.curr_output_mode != tty::cygwin)
     set_output_mode (tty::cygwin, &tc ()->ti, get_handle_set ());
@@ -2023,8 +2024,8 @@ fhandler_console::post_open_setup (int fd)
   /* Setting-up console mode for cygwin app started from non-cygwin app. */
   if (fd == 0)
     {
-      set_disable_master_thread (false, this);
       set_input_mode (tty::cygwin, &get_ttyp ()->ti, &handle_set);
+      set_disable_master_thread (false, this);
     }
   else if (fd == 1 || fd == 2)
     set_output_mode (tty::cygwin, &get_ttyp ()->ti, &handle_set);
@@ -2043,9 +2044,9 @@ fhandler_console::close (int flag)
       && (dev_t) myself->ctty == get_device ()
       && cons_mode_on_close (&handle_set) == tty::restore)
     {
+      set_disable_master_thread (true, this);
       set_output_mode (tty::restore, &get_ttyp ()->ti, &handle_set);
       set_input_mode (tty::restore, &get_ttyp ()->ti, &handle_set);
-      set_disable_master_thread (true, this);
     }
 
   if (shared_console_info[unit] && con.owner == GetCurrentProcessId ())
@@ -4369,10 +4370,10 @@ fhandler_console::set_console_mode_to_native ()
 	fhandler_console *cons = (fhandler_console *) (fhandler_base *) cfd;
 	if (cons->get_device () == cons->tc ()->getntty ())
 	  {
+	    set_disable_master_thread (true, cons);
 	    termios *cons_ti = &cons->tc ()->ti;
 	    set_input_mode (tty::native, cons_ti, cons->get_handle_set ());
 	    set_output_mode (tty::native, cons_ti, cons->get_handle_set ());
-	    set_disable_master_thread (true, cons);
 	    break;
 	  }
       }
@@ -4734,6 +4735,8 @@ fhandler_console::set_disable_master_thread (bool x, fhandler_console *cons)
   cons->acquire_input_mutex (mutex_timeout);
   con.disable_master_thread = x;
   cons->release_input_mutex ();
+  while (con.master_thread_suspended != x)
+    Sleep (1);
 }
 
 int

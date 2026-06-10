@@ -18,3 +18,5 @@ Fixes:
 - Fix race issue between starting and exiting non-cygwin apps in pty.
 
 - Fix CR/NL conversion in accept_input() for pty.
+
+- Ensure the cons_master_thread runs only when it is really supposed to.
