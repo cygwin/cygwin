@@ -1744,15 +1744,29 @@ out:
     discard_len = 0;
   if (discard_len)
     {
-      DWORD discarded;
       acquire_attach_mutex (mutex_timeout);
       DWORD resume_pid = attach_console (con.owner);
-      ReadConsoleInputW (get_handle (), input_rec, discard_len, &discarded);
+      discard_key_events (discard_len);
       detach_console (resume_pid, con.owner);
       release_attach_mutex ();
-      con.num_processed -= min (con.num_processed, discarded);
     }
   return stat;
+}
+
+void
+fhandler_console::discard_key_events (size_t n)
+{
+  DWORD discarded = 0;
+  INPUT_RECORD input_rec[INREC_SIZE];
+  DWORD n1 = min (INREC_SIZE, n);
+  while (n)
+    {
+      ReadConsoleInputW (get_handle (), input_rec, n1, &n1);
+      n -= n1;
+      discarded += n1;
+      n1 = min (INREC_SIZE, n);
+    }
+  con.num_processed -= min (con.num_processed, discarded);
 }
 
 bool
