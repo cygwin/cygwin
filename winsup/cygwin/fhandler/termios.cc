@@ -666,9 +666,13 @@ fhandler_termios::sigflush ()
      be NULL while this is alive.  However, we can conceivably close a
      ctty while exiting and that will zero this. */
   if ((!have_execed || have_execed_cygwin) && tc ()
-      && (tc ()->getpgid () == myself->pgid)
-      && !(tc ()->ti.c_lflag & NOFLSH))
-    tcflush (TCIFLUSH);
+      && (tc ()->getpgid () == myself->pgid))
+    {
+      if (!(tc ()->ti.c_lflag & NOFLSH))
+	tcflush (TCIFLUSH);
+      else
+	discard_key_events (1);
+    }
 }
 
 pid_t

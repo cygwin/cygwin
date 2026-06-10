@@ -1982,6 +1982,7 @@ class fhandler_termios: public fhandler_base
   virtual off_t lseek (off_t, int);
   pid_t tcgetsid ();
   virtual int fstat (struct stat *buf);
+  virtual void discard_key_events (size_t n) {}
 
   fhandler_termios (void *) {}
 
@@ -2360,6 +2361,7 @@ private:
   void wpbuf_put (char c);
   void wpbuf_send ();
   int fstat (struct stat *buf);
+  void discard_key_events (size_t n);
 
   class console_unit
   {
