@@ -14,3 +14,5 @@ Fixes:
 
 - Fix broken cursor position report resonse when a non-cygwin app starts.
   Addresses: https://cygwin.com/pipermail/cygwin/2026-June/259776.html
+
+- Fix race issue between starting and exiting non-cygwin apps in pty.

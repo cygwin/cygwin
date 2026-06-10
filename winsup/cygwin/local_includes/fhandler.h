@@ -2637,6 +2637,8 @@ public:
   void get_master_fwd_thread_param (master_fwd_thread_param_t *p);
   bool need_send_ctrl_c_event ();
   void apply_line_edit_to_transferred_input ();
+  line_edit_status line_edit_maybe (const char *p, size_t len, termios&,
+				    ssize_t *n);
 };
 
 class fhandler_dev_null: public fhandler_base
