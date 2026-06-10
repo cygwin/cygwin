@@ -1273,7 +1273,7 @@ wait_retry:
 
       int ret;
       acquire_input_mutex (mutex_timeout);
-      ret = process_input_message ();
+      ret = process_input_message (buflen);
       switch (ret)
 	{
 	case input_error:
@@ -1328,9 +1328,10 @@ sig_exit:
 }
 
 fhandler_console::input_states
-fhandler_console::process_input_message (void)
+fhandler_console::process_input_message (size_t len)
 {
   char tmp[60];
+  size_t num_chars = 0;
 
   if (!shared_console_info[unit])
     return input_error;
@@ -1717,6 +1718,7 @@ fhandler_console::process_input_message (void)
 	  continue;
 	}
 
+      num_chars += nread;
       if (toadd)
 	{
 	  ssize_t ret;
@@ -1734,15 +1736,22 @@ fhandler_console::process_input_message (void)
 		goto out;
 	    }
 	}
+      /* len == 0 if called from select.cc:peek_console() */
+      if (len && num_chars >= len)
+	goto out;
     }
 out:
+  if (len == 0)
+    /* If len == 0, cancel reading from console input buffer.
+       Clear readahead buffer. */
+    eat_readahead (-1);
   /* Discard processed recored. */
   DWORD discard_len = min (total_read, i + 1);
   /* If input is signalled, do not discard input here because
      tcflush() is already called from line_edit(). */
   if (stat == input_signalled && !(ti->c_lflag & NOFLSH))
     discard_len = 0;
-  if (discard_len)
+  if (discard_len && (len || stat != input_ok))
     {
       acquire_attach_mutex (mutex_timeout);
       DWORD resume_pid = attach_console (con.owner);

@@ -22,3 +22,5 @@ Fixes:
 - Ensure the cons_master_thread runs only when it is really supposed to.
 
 - Fix NOFLSH behaviour in console a bit.
+
+- Fix typeahead input in console for bash.
