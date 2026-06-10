@@ -29,25 +29,25 @@ EXAMPLE
 	An application function to determine the width of a 21-bit 
 	Unicode character may look like this:
 
-		typedef unsigned int uchar_t;
-		// determine high and low surrogates of Unicode character
-		wchar_t hisurr(uchar_t xc)
-		{
-		  return 0xD800 | (((xc - 0x10000) >> 10) & 0x3FF);
-		}
-		wchar_t losurr(uchar_t xc)
-		{
-		  return 0xDC00 | (xc & 0x3FF);
-		}
-
-		// determine width of 21-bit Unicode character
-		int ucwidth(uchar_t uc)
-		{
-		  if (uc < 0x10000)
-		    return wcwidth(uc);
-		  else
-		    return wcswidth((wchar_t[]){hisurr(uc), losurr(uc)}, 2);
-		}
+.		typedef unsigned int uchar_t;
+.		// determine high and low surrogates of Unicode character
+.		wchar_t hisurr(uchar_t xc)
+.		{
+.		  return 0xD800 | (((xc - 0x10000) >> 10) & 0x3FF);
+.		}
+.		wchar_t losurr(uchar_t xc)
+.		{
+.		  return 0xDC00 | (xc & 0x3FF);
+.		}
+.
+.		// determine width of 21-bit Unicode character
+.		int ucwidth(uchar_t uc)
+.		{
+.		  if (uc < 0x10000)
+.		    return wcwidth(uc);
+.		  else
+.		    return wcswidth((wchar_t[]){hisurr(uc), losurr(uc)}, 2);
+.		}
 
 PORTABILITY
 <<wcwidth>> has been introduced in the Single UNIX Specification Volume 2.
