@@ -1172,7 +1172,7 @@ peek_console (select_record *me, bool)
 	  if (!r || !events_read)
 	    break;
 	}
-      if (fhandler_console::input_winch == fh->process_input_message ()
+      if (fhandler_console::input_winch == fh->process_input_message (0)
 	  && global_sigs[SIGWINCH].sa_handler != SIG_IGN
 	  && global_sigs[SIGWINCH].sa_handler != SIG_DFL)
 	{

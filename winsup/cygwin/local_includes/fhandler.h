@@ -2324,7 +2324,7 @@ private:
     fh->copy_from (this);
     return fh;
   }
-  input_states process_input_message ();
+  input_states process_input_message (size_t len);
   bg_check_types bg_check (int sig, bool dontsignal = false);
   void setup_io_mutex (void);
   DWORD __acquire_input_mutex (const char *fn, int ln, DWORD ms);
