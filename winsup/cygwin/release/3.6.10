@@ -16,3 +16,5 @@ Fixes:
   Addresses: https://cygwin.com/pipermail/cygwin/2026-June/259776.html
 
 - Fix race issue between starting and exiting non-cygwin apps in pty.
+
+- Fix CR/NL conversion in accept_input() for pty.
