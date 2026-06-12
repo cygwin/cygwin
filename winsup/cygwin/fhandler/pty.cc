@@ -690,6 +690,14 @@ fhandler_pty_master::accept_input ()
 	  p = mbbuf;
 	  bytes_left = nlen;
 	}
+
+      char *p0 = p;
+      if (get_ttyp ()->pcon_activated)
+	while ((p0 = (char *) memchr (p0, '\n', bytes_left - (p0 - p))))
+	  *p0 = '\r';
+      else
+	while ((p0 = (char *) memchr (p0, '\r', bytes_left - (p0 - p))))
+	  *p0 = '\n';
     }
 
   if (!bytes_left)
