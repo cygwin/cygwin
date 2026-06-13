@@ -583,6 +583,14 @@ fhandler_pty_master::discard_input ()
   if (!get_ttyp ()->pcon_activated)
     while (::bytes_available (bytes_in_pipe, from_master_nat) && bytes_in_pipe)
       ReadFile (from_master_nat, buf, sizeof(buf), &n, NULL);
+  else
+    {
+      DWORD target_pid = get_ttyp ()->nat_pipe_owner_pid;
+      DWORD resume_pid =
+	fhandler_pty_common::attach_console_temporarily (target_pid);
+      FlushConsoleInputBuffer (h_pcon_in_dupped);
+      fhandler_pty_common::resume_from_temporarily_attach (resume_pid);
+    }
   get_ttyp ()->discard_input = true;
   ReleaseMutex (input_mutex);
 }
@@ -2598,7 +2606,8 @@ fhandler_pty_master::write (const void *ptr, size_t len)
       for (size_t i = 0, j = 0; i < len; i++)
 	{
 	  process_sig_state r = process_sigs (buf[i], get_ttyp (), this);
-	  if (r != done_with_debugger)
+	  if (r != done_with_debugger &&
+	      (r != signalled || (ti.c_lflag & NOFLSH) || buf[i] == '\003'))
 	    {
 	      char c = buf[i];
 	      /* Workaround for pseudo console in Windows 11 */
