@@ -388,6 +388,52 @@ atexit_func (void)
     }
 }
 
+void
+fhandler_pty_slave::req_fixup_pcon_state (void)
+{
+  while (true)
+    {
+      WaitForSingleObject (input_mutex, mutex_timeout);
+      if (!get_ttyp ()->pcon_start_pid)
+	break;
+      /* Another request is on going. */
+      ReleaseMutex (input_mutex);
+      yield ();
+    }
+
+  DWORD n;
+  /* indicates that this "ESC[6n" is just for fixing-up cursor position */
+  get_ttyp ()->req_fixup_pcon_cur_pos = true;
+  get_ttyp ()->req_xfer_input = true; /* indicates that this "ESC[6n"
+					 is just for transfer input */
+  get_ttyp ()->pcon_start = true;
+  get_ttyp ()->pcon_start_pid = myself->pid;
+  WriteFile (get_output_handle (), "\033[6n", 4, &n, NULL);
+  ReleaseMutex (input_mutex);
+  while (get_ttyp ()->pcon_start_pid)
+    /* wait for completion of fixing-up in master::write(). */
+    yield ();
+}
+
+void
+fhandler_pty_master::fixup_pcon_cursor_position (int x, int y)
+{
+  HANDLE pcon_owner = OpenProcess (PROCESS_DUP_HANDLE, FALSE,
+				   get_ttyp ()->nat_pipe_owner_pid);
+  HANDLE h_pcon_out = NULL;
+  DuplicateHandle (pcon_owner, get_ttyp ()->h_pcon_out,
+		   GetCurrentProcess (), &h_pcon_out,
+		   0, TRUE, DUPLICATE_SAME_ACCESS);
+  CloseHandle (pcon_owner);
+  DWORD target_pid = get_ttyp ()->nat_pipe_owner_pid;
+  DWORD resume_pid =
+    fhandler_pty_common::attach_console_temporarily (target_pid);
+  COORD cur_pos = {(SHORT) (x - 1), (SHORT) (y - 1)};
+  SetConsoleCursorPosition (h_pcon_out, cur_pos);
+  fhandler_pty_common::resume_from_temporarily_attach (resume_pid);
+  CloseHandle (h_pcon_out);
+}
+
 #define DEF_HOOK(name) static __typeof__ (name) *name##_Orig
 /* CreateProcess() is hooked for GDB etc. */
 DEF_HOOK (CreateProcessA);
@@ -1162,6 +1208,19 @@ err_no_msg:
 bool
 fhandler_pty_slave::open_setup (int flags)
 {
+  if (get_ttyp ()->pcon_activated)
+    {
+      HANDLE pcon_owner = OpenProcess (PROCESS_DUP_HANDLE, FALSE,
+				       get_ttyp ()->nat_pipe_owner_pid);
+      DuplicateHandle (pcon_owner, get_ttyp ()->h_pcon_in,
+		       GetCurrentProcess (), &get_handle_nat (),
+		       0, TRUE, DUPLICATE_SAME_ACCESS);
+      DuplicateHandle (pcon_owner, get_ttyp ()->h_pcon_out,
+		       GetCurrentProcess (), &get_output_handle_nat (),
+		       0, TRUE, DUPLICATE_SAME_ACCESS);
+      CloseHandle (pcon_owner);
+    }
+
   set_flags ((flags & ~O_TEXT) | O_BINARY);
   myself->set_ctty (this, flags);
   report_tty_counts (this, "opened", "");
@@ -1171,6 +1230,9 @@ fhandler_pty_slave::open_setup (int flags)
 void
 fhandler_pty_slave::cleanup ()
 {
+  if (get_ttyp ()->pcon_activated && get_ttyp ()->getpgid () == myself->pgid)
+    req_fixup_pcon_state ();
+
   /* This used to always call fhandler_pty_common::close when we were execing
      but that caused multiple closes of the handles associated with this pty.
      Since close_all_files is not called until after the cygwin process has
@@ -2488,10 +2550,21 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 	    }
 	  if (state == 2)
 	    {
-	      /* req_xfer_input is true if "ESC[6n" was sent just for
+	      /* req_fixup_pcon_cur_pos is true if "ESC[6n" was sent
+		 for requesting cursor-position-fixup that is needed
+		 when a non-cygwin app executes a cygwin app and the
+		 cygwin app exits.
+		 req_xfer_input is true if "ESC[6n" was sent just for
 		 triggering transfer_input() in master. In this case,
 		 the response sequence should not be written. */
-	      if (!get_ttyp ()->req_xfer_input)
+	      if (get_ttyp ()->req_fixup_pcon_cur_pos)
+		{
+		  int x, y;
+		  sscanf (wpbuf, "\033[%d;%dR", &y, &x);
+		  fixup_pcon_cursor_position (x, y);
+		  get_ttyp ()->req_fixup_pcon_cur_pos = false;
+		}
+	      else if (!get_ttyp ()->req_xfer_input)
 		WriteFile (to_slave_nat, wpbuf, ixput, &n, NULL);
 	      ixput = 0;
 	      state = 0;
@@ -4113,8 +4186,6 @@ fhandler_pty_slave::close_pseudoconsole (tty *ttyp, DWORD force_switch_to)
 	  ttyp->pcon_activated = false;
 	  ttyp->switch_to_nat_pipe = false;
 	  ttyp->nat_pipe_owner_pid = 0;
-	  ttyp->pcon_start = false;
-	  ttyp->pcon_start_pid = 0;
 	}
       if (ttyp->pcon_handle_ready_event)
 	{

@@ -2533,6 +2533,7 @@ class fhandler_pty_slave: public fhandler_pty_common
   void setpgid_aux (pid_t pid);
   static void release_ownership_of_nat_pipe (tty *ttyp, fhandler_termios *fh);
   void replace_nat_handles (HANDLE new_input, HANDLE new_output);
+  void req_fixup_pcon_state (void);
 };
 
 #define __ptsname(buf, unit) __small_sprintf ((buf), "/dev/pty%d", (unit))
@@ -2641,6 +2642,7 @@ public:
   void apply_line_edit_to_transferred_input ();
   line_edit_status line_edit_maybe (const char *p, size_t len, termios&,
 				    ssize_t *n);
+  void fixup_pcon_cursor_position (int x, int y);
 };
 
 class fhandler_dev_null: public fhandler_base

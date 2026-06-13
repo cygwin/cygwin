@@ -145,6 +145,7 @@ private:
   xfer_dir pty_input_state;
   bool discard_input;
   bool stop_fwd_thread;
+  bool req_fixup_pcon_cur_pos;
 
 public:
   HANDLE from_master_nat () const { return _from_master_nat; }
