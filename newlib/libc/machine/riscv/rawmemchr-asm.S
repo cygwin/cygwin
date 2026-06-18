@@ -1,11 +1,7 @@
+#include <sys/asm.h>
+
 #if defined(__riscv_vector) && !defined(__OPTIMIZE_SIZE__) && !defined(PREFER_SIZE_OVER_SPEED)
-.text
-.global rawmemchr
-.type rawmemchr, @function
-rawmemchr:
-#if __riscv_landing_pad
-  lpad 0
-#endif
+ENTRY(rawmemchr)
   andi a1, a1, 0xff
 .Lloop:
   vsetvli t0, zero, e8, m1, ta, ma
@@ -23,5 +19,5 @@ rawmemchr:
 .Lfound:
   add a0, a0, a2
   ret
-.size rawmemchr, .-rawmemchr
+END(rawmemchr)
 #endif

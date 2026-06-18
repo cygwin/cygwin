@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2024  SiFive Inc. All rights reserved.
+/* Copyright (c) 2026  SiFive Inc. All rights reserved.
 
    This copyrighted material is made available to anyone wishing to use,
    modify, copy, or redistribute it subject to the terms and conditions
@@ -9,8 +9,8 @@
    http://www.opensource.org/licenses.
 */
 
-#ifndef _SYS_ASM_H
-#define _SYS_ASM_H
+#ifndef _ASM_H
+#define _ASM_H
 
 /*
  * Macros to handle different pointer/register sizes for 32/64-bit code
@@ -134,4 +134,4 @@ GNU_PROPERTY (FEATURE_1_AND, __VALUE_FOR_FEATURE_1_AND)
 #endif
 #undef __VALUE_FOR_FEATURE_1_AND
 
-#endif /* sys/asm.h */
+#endif /* _ASM_H */

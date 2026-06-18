@@ -12,14 +12,8 @@
 #include <sys/asm.h>
 #include "newlib.h"
 
-.text
-.globl strcmp
-.type  strcmp, @function
-# ifdef __riscv_landing_pad
-.align 2
-# endif /* __riscv_landing_pad  */
-strcmp:
-  LPAD
+ENTRY(strcmp)
+
 #if defined(PREFER_SIZE_OVER_SPEED) || defined(__OPTIMIZE_SIZE__)
 .Lcompare:
   lbu   a2, 0(a0)
@@ -240,7 +234,7 @@ strcmp:
 mask:
 .dword 0x7f7f7f7f7f7f7f7f
 #endif
-.size	strcmp, .-strcmp
+END(strcmp)
 
 #if SZREG == 8 && !defined(__riscv_cmodel_large)
 .section .srodata.cst8,"aM",@progbits,8

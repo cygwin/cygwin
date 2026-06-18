@@ -42,18 +42,9 @@
 #endif
 
 
-.text
-.global memset
-.type  memset, @function
-# ifdef __riscv_landing_pad
-.align 2
-# endif /* __riscv_landing_pad  */
-
 /* void *memset(void *s, int c, size_t n); */
 
-
-memset:
-  LPAD
+ENTRY(memset)
 #if defined(PREFER_SIZE_OVER_SPEED) || defined(__OPTIMIZE_SIZE__)
   mv     a3, a0
   beqz   a2, .Ldone
@@ -323,4 +314,4 @@ memset:
 .Lexit:
   ret
 #endif
-.size  memset, .-memset
+END(memset)

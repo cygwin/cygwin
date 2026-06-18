@@ -1,11 +1,7 @@
+#include <sys/asm.h>
+
 #if defined(__riscv_vector) && !defined(__OPTIMIZE_SIZE__) && !defined(PREFER_SIZE_OVER_SPEED)
-.text
-.global memccpy
-.type memccpy, @function
-memccpy:
-#if __riscv_landing_pad
-  lpad 0
-#endif
+ENTRY(memccpy)
   beqz a3, .Lnot_found
   andi a2, a2, 0xff
   mv a5, a0
@@ -32,5 +28,5 @@ memccpy:
   vse8.v v0, (a5)
   add a0, a5, a6
   ret
-.size memccpy, .-memccpy
+END(memccpy)
 #endif

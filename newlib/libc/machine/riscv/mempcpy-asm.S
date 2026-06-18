@@ -1,11 +1,7 @@
+#include <sys/asm.h>
+
 #if defined(__riscv_vector) && !defined(__OPTIMIZE_SIZE__) && !defined(PREFER_SIZE_OVER_SPEED)
-.text
-.global mempcpy
-.type mempcpy, @function
-mempcpy:
-#if __riscv_landing_pad
-  lpad 0
-#endif
+ENTRY(mempcpy)
   mv     t0, a0                   /* t0 = running dst */
   mv     t1, a1                   /* t1 = running src */
   beqz   a2, .Ldone               /* if n == 0, return */
@@ -49,6 +45,5 @@ mempcpy:
 .Ldone:
   mv a0, t0                   /* return dst + n */
   ret
-
-  .size mempcpy, .-mempcpy
+END(mempcpy)
 #endif

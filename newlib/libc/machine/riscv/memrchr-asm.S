@@ -1,11 +1,7 @@
+#include <sys/asm.h>
+
 #if defined(__riscv_vector) && !defined(__OPTIMIZE_SIZE__) && !defined(PREFER_SIZE_OVER_SPEED)
-.text
-.global memrchr
-.type memrchr, @function
-memrchr:
-#if __riscv_landing_pad
-  lpad 0
-#endif
+ENTRY(memrchr)
   andi a1, a1, 0xff
   add a0, a0, a2
 .Lloop:
@@ -33,5 +29,5 @@ memrchr:
 .Lnohit:
   li a0, 0
   ret
-.size memrchr, .-memrchr
+END(memrchr)
 #endif

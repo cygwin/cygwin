@@ -12,13 +12,7 @@
 #include <sys/asm.h>
 
 /* int setjmp (jmp_buf);  */
-  .globl  setjmp
-  .type   setjmp, @function
-# ifdef __riscv_landing_pad
-  .align 2
-# endif /* __riscv_landing_pad  */
-setjmp:
-        LPAD
+ENTRY(setjmp)
 	REG_S ra,  0*SZREG(a0)
   #if __riscv_xlen == 32 && (__riscv_zilsd) && (__riscv_misaligned_fast)
 	  sd    s0,  1*SZREG(a0)
@@ -80,16 +74,10 @@ setjmp:
 
 	li    a0, 0
 	ret
-	.size	setjmp, .-setjmp
+END(setjmp)
 
 /* volatile void longjmp (jmp_buf, int);  */
-  .globl  longjmp
-  .type   longjmp, @function
-# ifdef __riscv_landing_pad
-  .align 2
-# endif /* __riscv_landing_pad  */
-longjmp:
-        LPAD
+ENTRY(longjmp)
 	REG_L ra,  0*SZREG(a0)
   #if __riscv_xlen == 32 && (__riscv_zilsd) && (__riscv_misaligned_fast)
     ld s0, 1*SZREG(a0)
@@ -170,4 +158,4 @@ longjmp:
 	seqz a0, a1
 	add  a0, a0, a1   # a0 = (a1 == 0) ? 1 : a1
 	ret
-	.size	longjmp, .-longjmp
+END(longjmp)

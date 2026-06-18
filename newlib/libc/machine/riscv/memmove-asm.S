@@ -9,14 +9,10 @@
    http://www.opensource.org/licenses.
 */
 
+#include <sys/asm.h>
+
 #if defined(PREFER_SIZE_OVER_SPEED) || defined(__OPTIMIZE_SIZE__)
-.text
-.global memmove
-.type	memmove, @function
-memmove:
-#if __riscv_landing_pad
-  lpad 0
-#endif
+ENTRY(memmove)
 
   beqz a2, .Ldone		/* in case there are 0 bytes to be copied, return immediately */
 
@@ -40,17 +36,9 @@ memmove:
 .Ldone:
   ret
 
-  .size	memmove, .-memmove
+END(memmove)
 #elif defined(__riscv_vector)
-.text
-.global memmove
-.type memmove, @function
-.option push
-.option arch, +zve32x
-memmove:
-#if __riscv_landing_pad
-  lpad 0
-#endif
+ENTRY(memmove)
   beqz   a2, .Ldone_move          /* n == 0 */
   beq    a0, a1, .Ldone_move      /* dst == src */
 
@@ -135,6 +123,5 @@ memmove:
 
 .Ldone_move:
   ret
-  .size memmove, .-memmove
-  .option pop
+END(memmove)
 #endif

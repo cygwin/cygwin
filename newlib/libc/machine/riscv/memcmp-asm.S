@@ -1,11 +1,7 @@
+#include <sys/asm.h>
+
 #if defined(__riscv_vector) && !defined(__OPTIMIZE_SIZE__) && !defined(PREFER_SIZE_OVER_SPEED)
-.text
-.global memcmp
-.type memcmp, @function
-memcmp:
-#if __riscv_landing_pad
-  lpad 0
-#endif
+ENTRY(memcmp)
   beqz a2, .Lequal
 .Lloop:
   vsetvli a3, a2, e8, m8, ta, ma
@@ -34,5 +30,5 @@ memcmp:
   lbu a4, 0(a1)
   sub a0, a0, a4
   ret
-.size memcmp, .-memcmp
+END(memcmp)
 #endif

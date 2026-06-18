@@ -10,15 +10,13 @@
 */
 
 #include "newlib.h"
+#include "asm.h"
 
 #=========================================================================
 # crt0.S : Entry point for RISC-V user programs
 #=========================================================================
 
-  .text
-  .global _start
-  .type   _start, @function
-_start:
+ENTRY(_start)
   # Initialize global pointer
 .option push
 .option norelax
@@ -105,37 +103,4 @@ _start:
   .weak   __libc_fini_array
   .dword __libc_fini_array
 #endif
-  .size  _start, .-_start
-
-#if defined (__riscv_landing_pad) || defined (__riscv_shadow_stack)
-  .section .note.gnu.property, "a";
-# if __riscv_xlen == 32
-  .p2align 2;
-  .word 4;
-  .word 12;
-# else
-  .p2align 3;
-  .word 4;
-  .word 16;
-# endif
-  .word 5;
-  .asciz "GNU";
-  .word 0xc0000000;
-  .word 4;
-# if defined (__riscv_landing_pad)
-#  if defined (__riscv_shadow_stack)
-  .word 3;
-#  else
-  .word 1;
-#  endif
-# else
-#  if defined (__riscv_shadow_stack)
-  .word 2;
-#  else
-#   error "What?"
-#  endif
-# endif
-# if __riscv_xlen == 64
-  .word 0;
-# endif
-#endif
+END(_start)
