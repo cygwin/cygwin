@@ -110,7 +110,6 @@ $fe:
 
 EOF
     }
-    # TODO: This is only a stub, it needs to be implemented properly for AArch64.
     if ($is_aarch64) {
 	$res = <<EOF;
 	.extern $func
@@ -361,7 +360,6 @@ stabilize_sig_stack:
 	.seh_endproc
 EOF
 	}
-	# TODO: These are only stubs, they need to be implemented properly for AArch64.
 	if ($is_aarch64) {
 	  $res = <<EOF . longjmp () . $res;
 	.include "tlsoffsets"
@@ -840,7 +838,6 @@ longjmp:
 EOF
     }
     if ($is_aarch64) {
-	# TODO: These are only stubs, they need to be implemented properly for AArch64.
 	return <<EOF;
 	.globl	sigsetjmp
 	.seh_proc sigsetjmp
