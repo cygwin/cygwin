@@ -11,3 +11,6 @@ Fixes:
 
 - Add workaround for clipboard access error.
   Addresses: https://cygwin.com/pipermail/cygwin/2026-February/259438.html
+
+- Fix broken cursor position report resonse when a non-cygwin app starts.
+  Addresses: https://cygwin.com/pipermail/cygwin/2026-June/259776.html
