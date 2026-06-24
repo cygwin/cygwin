@@ -28,9 +28,36 @@
    We define a hardfault handler, required to prevent the simulator
    from entering into an infinite loop.  This handler is located at
    address 0xc by default when linking with mprofile-mps2.specs which
-   uses --section-start=.hardfault_handler_addr=0xc.  */
+   uses --section-start=.hardfault_handler_addr=0xc.
+
+   Enable the FPU when __ARM_FP is set.  */
 
 #if  (__ARM_ARCH_PROFILE == 'M')
+    .syntax    unified
+    .thumb
+
+    @ CPU Initialisation
+    .globl     _rdimon_hw_init_hook
+    .type      _rdimon_hw_init_hook, %function
+
+_rdimon_hw_init_hook:
+    /* Enable FPU for M-profile only .  */
+#if __ARM_FP
+    /* Read CPACR */
+    ldr        r0, =0xE000ED88
+    ldr        r1, [R0]
+    /* Enable full access to CP10 and CP11.  */
+    orr        r1, r1, #(0xFF << 20)
+    str        r1, [R0]
+#if __ARM_ARCH >= 800
+    ldr        r0, =0xE002ED88
+    str        r1, [R0]
+#endif
+    dsb
+    isb
+#endif
+    bx lr
+
     /* On M-profile, call abort in case of hardfault: this causes the
        simulator to abort execution instead of going into an infinite
        loop.  */
