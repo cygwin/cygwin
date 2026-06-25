@@ -391,6 +391,7 @@ atexit_func (void)
 void
 fhandler_pty_slave::req_fixup_pcon_state (void)
 {
+  ULONGLONG deadline = GetTickCount64 () + 3000;
   while (true)
     {
       WaitForSingleObject (input_mutex, mutex_timeout);
@@ -398,6 +399,10 @@ fhandler_pty_slave::req_fixup_pcon_state (void)
 	break;
       /* Another request is on going. */
       ReleaseMutex (input_mutex);
+      if (GetTickCount64 () > deadline)
+	/* A previous requester is stuck; give up this sync rather than
+	   spin forever. */
+	return;
       yield ();
     }
 
@@ -410,9 +415,25 @@ fhandler_pty_slave::req_fixup_pcon_state (void)
   get_ttyp ()->pcon_start_pid = myself->pid;
   WriteFile (get_output_handle (), "\033[6n", 4, &n, NULL);
   ReleaseMutex (input_mutex);
-  while (get_ttyp ()->pcon_start_pid)
+  deadline = GetTickCount64 () + 3000;
+  while (get_ttyp ()->pcon_start_pid && GetTickCount64 () <= deadline)
     /* wait for completion of fixing-up in master::write(). */
     yield ();
+  /* If the master never answered (e.g. the terminal is going away),
+     clear our own request so a stale pcon_start_pid cannot wedge the
+     next requester. */
+  if (get_ttyp ()->pcon_start_pid == (pid_t) myself->pid)
+    {
+      WaitForSingleObject (input_mutex, mutex_timeout);
+      if (get_ttyp ()->pcon_start_pid == (pid_t) myself->pid)
+	{
+	  get_ttyp ()->req_fixup_pcon_cur_pos = false;
+	  get_ttyp ()->req_xfer_input = false;
+	  get_ttyp ()->pcon_start = false;
+	  get_ttyp ()->pcon_start_pid = 0;
+	}
+      ReleaseMutex (input_mutex);
+    }
 }
 
 void
@@ -4217,6 +4238,13 @@ fhandler_pty_slave::close_pseudoconsole (tty *ttyp, DWORD force_switch_to)
 	  ttyp->pcon_activated = false;
 	  ttyp->switch_to_nat_pipe = false;
 	  ttyp->nat_pipe_owner_pid = 0;
+	  /* Safety net: if a req_fixup_pcon_state() requester died without
+	     clearing its slot, do not leave pcon_start_pid set forever. */
+	  if (ttyp->pcon_start_pid == myself->pid)
+	    {
+	      ttyp->pcon_start = false;
+	      ttyp->pcon_start_pid = 0;
+	    }
 	}
       if (ttyp->pcon_handle_ready_event)
 	{
