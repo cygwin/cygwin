@@ -418,12 +418,23 @@ fhandler_pty_slave::req_fixup_pcon_state (void)
 void
 fhandler_pty_master::fixup_pcon_cursor_position (int x, int y)
 {
+  /* A malformed or out-of-range reply must not be turned into a wrapped
+     negative COORD. */
+  if (x < 1 || y < 1 || x > 0x7fff || y > 0x7fff)
+    return;
   HANDLE pcon_owner = OpenProcess (PROCESS_DUP_HANDLE, FALSE,
 				   get_ttyp ()->nat_pipe_owner_pid);
+  if (!pcon_owner)
+    /* The nat-pipe owner is gone; nothing to sync to. */
+    return;
   HANDLE h_pcon_out = NULL;
-  DuplicateHandle (pcon_owner, get_ttyp ()->h_pcon_out,
-		   GetCurrentProcess (), &h_pcon_out,
-		   0, TRUE, DUPLICATE_SAME_ACCESS);
+  if (!DuplicateHandle (pcon_owner, get_ttyp ()->h_pcon_out,
+			GetCurrentProcess (), &h_pcon_out,
+			0, TRUE, DUPLICATE_SAME_ACCESS))
+    {
+      CloseHandle (pcon_owner);
+      return;
+    }
   CloseHandle (pcon_owner);
   DWORD target_pid = get_ttyp ()->nat_pipe_owner_pid;
   DWORD resume_pid =
@@ -2580,8 +2591,8 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 	      if (get_ttyp ()->req_fixup_pcon_cur_pos)
 		{
 		  int x, y;
-		  sscanf (wpbuf, "\033[%d;%dR", &y, &x);
-		  fixup_pcon_cursor_position (x, y);
+		  if (sscanf (wpbuf, "\033[%d;%dR", &y, &x) == 2)
+		    fixup_pcon_cursor_position (x, y);
 		  get_ttyp ()->req_fixup_pcon_cur_pos = false;
 		}
 	      else if (!get_ttyp ()->req_xfer_input)
