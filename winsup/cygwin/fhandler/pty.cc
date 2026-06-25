@@ -1212,13 +1212,33 @@ fhandler_pty_slave::open_setup (int flags)
     {
       HANDLE pcon_owner = OpenProcess (PROCESS_DUP_HANDLE, FALSE,
 				       get_ttyp ()->nat_pipe_owner_pid);
-      DuplicateHandle (pcon_owner, get_ttyp ()->h_pcon_in,
-		       GetCurrentProcess (), &get_handle_nat (),
-		       0, TRUE, DUPLICATE_SAME_ACCESS);
-      DuplicateHandle (pcon_owner, get_ttyp ()->h_pcon_out,
-		       GetCurrentProcess (), &get_output_handle_nat (),
-		       0, TRUE, DUPLICATE_SAME_ACCESS);
-      CloseHandle (pcon_owner);
+      if (pcon_owner)
+	{
+	  HANDLE new_in = NULL, new_out = NULL;
+	  bool ok_in = DuplicateHandle (pcon_owner, get_ttyp ()->h_pcon_in,
+				       GetCurrentProcess (), &new_in,
+				       0, TRUE, DUPLICATE_SAME_ACCESS);
+	  bool ok_out = DuplicateHandle (pcon_owner, get_ttyp ()->h_pcon_out,
+				        GetCurrentProcess (), &new_out,
+				        0, TRUE, DUPLICATE_SAME_ACCESS);
+	  if (ok_in && ok_out)
+	    {
+	      /* Close the cyg master-side handles open() installed before
+		 replacing them, so they do not leak. */
+	      CloseHandle (get_handle_nat ());
+	      CloseHandle (get_output_handle_nat ());
+	      set_handle_nat (new_in);
+	      set_output_handle_nat (new_out);
+	    }
+	  else
+	    {
+	      if (new_in)
+		CloseHandle (new_in);
+	      if (new_out)
+		CloseHandle (new_out);
+	    }
+	  CloseHandle (pcon_owner);
+	}
     }
 
   set_flags ((flags & ~O_TEXT) | O_BINARY);
