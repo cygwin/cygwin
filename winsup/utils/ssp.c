@@ -379,11 +379,27 @@ run_program (char *cmdline)
   int tix, i;
   HANDLE hThread;
   char *string;
+  char *cmdline_copy;
 
   memset (&startup, 0, sizeof (startup));
   startup.cb = sizeof (startup);
 
-  if (!CreateProcess (0, cmdline, 0, 0, 0,
+  /* CreateProcess (called with lpApplicationName == NULL) is documented to
+     modify the lpCommandLine buffer in place.  dll_info[0].name below points
+     at the caller's original string, which is read later when printing the
+     DLL-profile table, so hand CreateProcess a private writable copy to
+     scribble on instead; otherwise the program name comes back mangled
+     (observed on aarch64-cygwin as 'test_hello.exe' -> 'st_hello.exxee').
+     The copy is only needed for the CreateProcess call and is intentionally
+     leaked rather than freed, as ssp is short-lived.  */
+  cmdline_copy = strdup (cmdline);
+  if (!cmdline_copy)
+    {
+      fprintf (stderr, "Out of memory duplicating cmdline\n");
+      exit (1);
+    }
+
+  if (!CreateProcess (0, cmdline_copy, 0, 0, 0,
 		     CREATE_NEW_PROCESS_GROUP
 		     | CREATE_SUSPENDED
 		     | DEBUG_PROCESS
@@ -1029,23 +1045,7 @@ main (int argc, char **argv)
 
   fprintf (stderr, "prun: [" CONTEXT_REG_FMT "," CONTEXT_REG_FMT "] Running '%s'\n",
 	  low_pc, high_pc, argv[optind]);
-  {
-    /* CreateProcess (called below with lpApplicationName == NULL) is
-       documented to modify the lpCommandLine buffer in place.  argv[optind]
-       points into our own argv, so passing it directly lets CreateProcess
-       scribble on it; this was observed on aarch64-cygwin as the command
-       line coming back mangled (e.g. 'test_hello.exe' -> 'st_hello.exxee')
-       on later use.  Pass a private writable copy instead.  It is not freed
-       because run_program() stores it in dll_info[0].name, which is read
-       later when printing the DLL-profile table.  */
-    char *cmdline_copy = strdup (argv[optind]);
-    if (!cmdline_copy)
-      {
-	fprintf (stderr, "Out of memory duplicating cmdline\n");
-	exit (1);
-      }
-    run_program (cmdline_copy);
-  }
+  run_program (argv[optind]);
 
   hdr.lpc = low_pc;
   hdr.hpc = high_pc;
