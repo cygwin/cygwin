@@ -742,7 +742,8 @@ setjmp:
 	stp	x23, x24, [x0, #0x28]		// save x23, x24
 	stp	x25, x26, [x0, #0x38]		// save x25, x26
 	stp	x27, x28, [x0, #0x48]		// save x27, x28
-	stp	x29, x30, [x0, #0x58]		// save x29 (FP) and x30 (LR)
+	ldr	x1, [sp]			// load the previous FP from the stack
+	stp	x1, x30, [x0, #0x58]		// save previous FP and x30 (LR)
 
 	add	x1, sp, #0x10			// get the old stack pointer
 	str	x1, [x0, #0x68]			// save SP
