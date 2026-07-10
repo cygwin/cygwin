@@ -228,6 +228,11 @@ public: /* Do NOT remove this public: line, it's a marker for gentls_offsets. */
   {
     return initialized == CYGTLS_INITIALIZED;
   }
+
+#ifdef __aarch64__
+  void sigdelayed_impl(PCONTEXT ctx);
+#endif
+
   bool interrupt_now (CONTEXT *, siginfo_t&, void *, struct sigaction&);
   void interrupt_setup (siginfo_t&, void *, struct sigaction&);
 
