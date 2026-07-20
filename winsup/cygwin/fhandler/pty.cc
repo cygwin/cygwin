@@ -2671,8 +2671,8 @@ fhandler_pty_master::write (const void *ptr, size_t len)
 	      release_attach_mutex ();
 	    }
 	  get_ttyp ()->req_xfer_input = false;
-	  ReleaseMutex (input_mutex);
 	  get_ttyp ()->pcon_start_pid = 0;
+	  ReleaseMutex (input_mutex);
 	}
       if (len == 0)
 	return orig_len;
@@ -3850,6 +3850,7 @@ fhandler_pty_slave::setup_pseudoconsole ()
 	  WaitForSingleObject (input_mutex, mutex_timeout);
 	  get_ttyp ()->req_xfer_input = true; /* indicates that this "ESC[6n"
 						 is just for transfer input */
+	  get_ttyp ()->req_fixup_pcon_cur_pos = true;
 	  get_ttyp ()->pcon_start = true;
 	  get_ttyp ()->pcon_start_pid = myself->pid;
 	  WriteFile (get_output_handle (), "\033[6n", 4, &n, NULL);
