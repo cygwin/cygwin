@@ -1220,6 +1220,39 @@ fhandler_pty_slave::open (int flags, mode_t)
       release_attach_mutex ();
     }
 
+  if (get_ttyp ()->pcon_activated)
+    {
+      HANDLE pcon_owner = OpenProcess (PROCESS_DUP_HANDLE, FALSE,
+				       get_ttyp ()->nat_pipe_owner_pid);
+      if (pcon_owner)
+	{
+	  HANDLE new_in = NULL, new_out = NULL;
+	  bool ok_in = DuplicateHandle (pcon_owner, get_ttyp ()->h_pcon_in,
+				       GetCurrentProcess (), &new_in,
+				       0, TRUE, DUPLICATE_SAME_ACCESS);
+	  bool ok_out = DuplicateHandle (pcon_owner, get_ttyp ()->h_pcon_out,
+				        GetCurrentProcess (), &new_out,
+				        0, TRUE, DUPLICATE_SAME_ACCESS);
+	  if (ok_in && ok_out)
+	    {
+	      /* Replace these before open_with_arch() copies them into the
+		 archetype shared by all pty slave fhandlers. */
+	      CloseHandle (get_handle_nat ());
+	      CloseHandle (get_output_handle_nat ());
+	      set_handle_nat (new_in);
+	      set_output_handle_nat (new_out);
+	    }
+	  else
+	    {
+	      if (new_in)
+		CloseHandle (new_in);
+	      if (new_out)
+		CloseHandle (new_out);
+	    }
+	  CloseHandle (pcon_owner);
+	}
+    }
+
   set_open_status ();
   return 1;
 
@@ -1240,39 +1273,6 @@ err_no_msg:
 bool
 fhandler_pty_slave::open_setup (int flags)
 {
-  if (get_ttyp ()->pcon_activated)
-    {
-      HANDLE pcon_owner = OpenProcess (PROCESS_DUP_HANDLE, FALSE,
-				       get_ttyp ()->nat_pipe_owner_pid);
-      if (pcon_owner)
-	{
-	  HANDLE new_in = NULL, new_out = NULL;
-	  bool ok_in = DuplicateHandle (pcon_owner, get_ttyp ()->h_pcon_in,
-				       GetCurrentProcess (), &new_in,
-				       0, TRUE, DUPLICATE_SAME_ACCESS);
-	  bool ok_out = DuplicateHandle (pcon_owner, get_ttyp ()->h_pcon_out,
-				        GetCurrentProcess (), &new_out,
-				        0, TRUE, DUPLICATE_SAME_ACCESS);
-	  if (ok_in && ok_out)
-	    {
-	      /* Close the cyg master-side handles open() installed before
-		 replacing them, so they do not leak. */
-	      CloseHandle (get_handle_nat ());
-	      CloseHandle (get_output_handle_nat ());
-	      set_handle_nat (new_in);
-	      set_output_handle_nat (new_out);
-	    }
-	  else
-	    {
-	      if (new_in)
-		CloseHandle (new_in);
-	      if (new_out)
-		CloseHandle (new_out);
-	    }
-	  CloseHandle (pcon_owner);
-	}
-    }
-
   set_flags ((flags & ~O_TEXT) | O_BINARY);
   myself->set_ctty (this, flags);
   report_tty_counts (this, "opened", "");
