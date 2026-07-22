@@ -13,6 +13,7 @@ details. */
 #include <stdio.h>
 #include <unistd.h>
 #include <wchar.h>
+#include <assert.h>
 
 #define USE_SYS_TYPES_FD_SET
 #include <winsock.h>
@@ -123,7 +124,7 @@ dtable::get_debugger_info ()
 	    fhandler_base *fh = build_fh_name (std[i]);
 	    if (!fh)
 	      continue;
-	    fds[i] = fh;
+	    fds.set_fhandler (i, fh);
 	    if (!fh->open ((i ? (i == 2 ? O_RDWR : O_WRONLY) : O_RDONLY)
 			   | O_BINARY, 0777))
 	      release (i);
@@ -233,7 +234,7 @@ dtable::find_unused_handle (size_t start)
   do
     {
       for (size_t i = start; i < size; i++)
-	if (fds[i] == NULL)
+	if (fds[i] == NULL && !fds.reserved (i))
 	  {
 	    res = (int) i;
 	    goto out;
@@ -249,8 +250,9 @@ dtable::release (int fd)
 {
   if (fds[fd]->need_fixup_before ())
     dec_need_fixup_before ();
+  assert (fds[fd]);
   fds[fd]->dec_refcnt ();
-  fds[fd] = NULL;
+  fds.set_fhandler (fd, NULL);
   if (fd <= 2)
     set_std_handle (fd);
 }
@@ -263,11 +265,12 @@ cygwin_attach_handle_to_fd (char *name, int fd, HANDLE handle, mode_t bin,
   if (fd == -1)
     fd = cygheap->fdtab.find_unused_handle ();
   fhandler_base *fh = build_fh_name (name);
-  if (!fh)
+  if (!fh || cygheap->fdtab.reserved (fd))
     fd = -1;
   else
     {
-      cygheap->fdtab[fd] = fh;
+      cygheap->fdtab.set_fhandler (fd, fh);
+      assert (cygheap->fdtab[fd]);
       cygheap->fdtab[fd]->inc_refcnt ();
       fh->init (handle, myaccess, bin ?: fh->pc_binmode ());
     }
@@ -340,7 +343,7 @@ dtable::init_std_file_from_handle (int fd, HANDLE handle)
     handle_to_fn (handle, name);
 
   if (!name[0] && !dev)
-    fds[fd] = NULL;
+    fds.set_fhandler (fd, NULL);
   else
     {
       fhandler_base *fh;
@@ -417,7 +420,8 @@ dtable::init_std_file_from_handle (int fd, HANDLE handle)
       if (!fh->open_setup (openflags))
 	api_fatal ("open_setup failed, %E");
       fh->usecount = 0;
-      cygheap->fdtab[fd] = fh;
+      cygheap->fdtab.set_fhandler (fd, fh);
+      assert (cygheap->fdtab[fd]);
       cygheap->fdtab[fd]->inc_refcnt ();
       set_std_handle (fd);
       paranoid_printf ("fd %d, handle %p", fd, handle);
@@ -787,16 +791,16 @@ dtable::dup3 (int oldfd, int newfd, int flags)
 
   if (!not_open (newfd))
     close (newfd);
-  else if ((size_t) newfd >= size
-	   && find_unused_handle (newfd) < 0)
+  else if (((size_t) newfd >= size && find_unused_handle (newfd) < 0)
+	   || reserved (newfd))
     /* couldn't extend fdtab */
     {
       newfh->close ();
       res = -1;
+      set_errno (EBADF);
       goto done;
     }
-
-  fds[newfd] = newfh;
+  fds.set_fhandler (newfd, newfh);
 
   if ((res = newfd) <= 2)
     set_std_handle (res);
@@ -866,8 +870,8 @@ void
 dtable::move_fd (int from, int to)
 {
   // close (to); /* It is assumed that this is close-on-exec */
-  fds[to] = fds[from];
-  fds[from] = NULL;
+  fds.set_fhandler (to, fds[from]);
+  fds.set_fhandler (from, NULL);
 }
 
 void

@@ -17,9 +17,30 @@ details. */
 class suffix_info;
 
 #define BFH_OPTS (PC_NULLEMPTY | PC_FULL | PC_POSIX)
+#define FDTAB_RESERVED ((fhandler_base *) -1)
 class dtable
 {
-  fhandler_base **fds;
+  class dtable_fds
+  {
+    fhandler_base **fds;
+  public:
+    inline void set_fhandler (int fd, fhandler_base *fh) {fds[fd] = fh;}
+    inline fhandler_base *operator [](int fd) const
+    {
+      fhandler_base *fh = fds[fd];
+      return (fh == FDTAB_RESERVED) ? NULL : fh;
+    }
+    operator fhandler_base **() {return fds;}
+    void operator = (fhandler_base **ptr) {fds = ptr;}
+    inline void reserve (int fd) { fds[fd] = FDTAB_RESERVED; }
+    inline void unreserve (int fd)
+    {
+      if (fds[fd] == FDTAB_RESERVED)
+	fds[fd] = NULL;
+    }
+    inline bool reserved (int fd) { return fds[fd] == FDTAB_RESERVED; }
+  };
+  dtable_fds fds;
   fhandler_base **archetypes;
   unsigned narchetypes;
   unsigned farchetype;
@@ -61,7 +82,11 @@ public:
   void init_std_file_from_handle (int fd, HANDLE handle);
   int dup3 (int oldfd, int newfd, int flags);
   void fixup_after_exec ();
-  inline fhandler_base *&operator [](int fd) const { return fds[fd]; }
+  inline void set_fhandler (int fd, fhandler_base *fh)
+  {
+    fds.set_fhandler (fd, fh);
+  }
+  inline fhandler_base *operator [](int fd) const { return fds[fd]; }
   bool select_read (int fd, select_stuff *);
   bool select_write (int fd, select_stuff *);
   bool select_except (int fd, select_stuff *);
@@ -76,6 +101,9 @@ public:
   void fixup_before_fork (DWORD win_proc_id);
   void lock () {lock_process::locker.acquire ();}
   void unlock () {lock_process::locker.release ();}
+  inline void reserve (int fd) { fds.reserve (fd); }
+  inline void unreserve (int fd) { fds.unreserve (fd); }
+  inline bool reserved (int fd) { return fds.reserved (fd); }
 };
 
 fhandler_base *build_fh_dev (const device&, const char * = NULL);
