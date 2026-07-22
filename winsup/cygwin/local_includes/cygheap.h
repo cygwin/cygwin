@@ -569,10 +569,10 @@ class cygheap_fdmanip
   }
   virtual void release () { cygheap->fdtab.release (fd); }
   operator int &() {return fd;}
-  operator fhandler_base* &() {return cygheap->fdtab[fd];}
+  operator fhandler_base* () {return cygheap->fdtab[fd];}
   operator fhandler_socket* () const {return reinterpret_cast<fhandler_socket *> (cygheap->fdtab[fd]);}
   operator fhandler_pipe* () const {return reinterpret_cast<fhandler_pipe *> (cygheap->fdtab[fd]);}
-  void operator = (fhandler_base *fh) {cygheap->fdtab[fd] = fh;}
+  void operator = (fhandler_base *fh) {cygheap->fdtab.set_fhandler (fd, fh);}
   fhandler_base *operator -> () const {return cygheap->fdtab[fd];}
   bool isopen () const
   {
@@ -609,7 +609,7 @@ class cygheap_fdnew : public cygheap_fdmanip
     if (cygheap->fdtab[fd])
       cygheap->fdtab[fd]->inc_refcnt ();
   }
-  void operator = (fhandler_base *fh) {cygheap->fdtab[fd] = fh;}
+  void operator = (fhandler_base *fh) {cygheap->fdtab.set_fhandler (fd, fh);}
 };
 
 class cygheap_fdget : public cygheap_fdmanip

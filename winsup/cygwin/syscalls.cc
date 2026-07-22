@@ -24,6 +24,7 @@ details. */
 #include <dirent.h>
 #include <ntsecapi.h>
 #include <iptypes.h>
+#include <assert.h>
 #include "ntdll.h"
 
 #include <cygwin/version.h>
@@ -146,7 +147,9 @@ dup_finish (int oldfd, int newfd, int flags)
   int res;
   if ((res = cygheap->fdtab.dup3 (oldfd, newfd, flags | O_EXCL)) == newfd)
     {
-      cygheap_fdget (newfd)->inc_refcnt ();
+      cygheap_fdget cfd (newfd);
+      assert ((fhandler_base *) cfd);
+      cfd->inc_refcnt ();
       cygheap->fdtab.unlock ();	/* dup3 exits with lock set on success */
     }
   return res;
@@ -1558,8 +1561,8 @@ open (const char *unix_path, int flags, ...)
 	  cygheap->fdtab.unlock ();
 	  __leave;		/* errno already set */
 	}
-      cygheap->fdtab[fd] = fh; /* tentative setting to mark as used */
-      cygheap->fdtab.unlock();
+      cygheap->fdtab.reserve (fd);
+      cygheap->fdtab.unlock ();
 
       if (fh->dev () == FH_PROCESSFD && fh->pc.follow_fd_symlink ())
 	{
@@ -1588,7 +1591,7 @@ open (const char *unix_path, int flags, ...)
 		    FILE_OPEN_FOR_BACKUP_INTENT);
 
       cygheap->fdtab.lock ();
-      cygheap->fdtab[fd] = fh;
+      cygheap->fdtab.set_fhandler (fd, fh);
       fh->inc_refcnt ();
       cygheap->fdtab.unlock ();
 
@@ -1601,7 +1604,7 @@ open (const char *unix_path, int flags, ...)
     if (res < 0 && fd >= 0)
       {
 	cygheap->fdtab.lock ();
-	cygheap->fdtab[fd] = NULL; /* Mark as unused */
+	cygheap->fdtab.unreserve (fd);
 	cygheap->fdtab.unlock ();
       }
   if (res < 0 && fh)
