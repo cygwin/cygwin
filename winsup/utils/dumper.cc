@@ -839,14 +839,14 @@ dumper::prepare_core_dump ()
       p->section = new_section;
       int section_count = 1;
 
-      bfd_boolean filehdr = 0;
-      bfd_boolean phdrs = 0;
+      bool filehdr = false;
+      bool phdrs = false;
 
       bfd_vma at = 0;
-      bfd_boolean valid_at = 0;
+      bool valid_at = false;
 
       flagword flags = 0;
-      bfd_boolean valid_flags = 1;
+      bool valid_flags = true;
 
       if (p->type == pr_ent_memory)
 	{
