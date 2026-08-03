@@ -1554,7 +1554,10 @@ open (const char *unix_path, int flags, ...)
       cygheap->fdtab.lock();
       fd = cygheap->fdtab.find_unused_handle ();
       if (fd < 0)
-	__leave;		/* errno already set */
+	{
+	  cygheap->fdtab.unlock ();
+	  __leave;		/* errno already set */
+	}
       cygheap->fdtab[fd] = fh; /* tentative setting to mark as used */
       cygheap->fdtab.unlock();
 
