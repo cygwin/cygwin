@@ -460,7 +460,7 @@ fhandler_console::cons_master_thread (handle_set_t *p, tty *ttyp)
 	}
 
       WaitForSingleObject (p->input_mutex, mutex_timeout);
-      /* Ensure accessing input recored is not disabled. */
+      /* Ensure accessing input record is not disabled. */
       if (con.disable_master_thread)
 	{
 	  ReleaseMutex (p->input_mutex);
@@ -1278,7 +1278,6 @@ fhandler_console::input_states
 fhandler_console::process_input_message (size_t len)
 {
   char tmp[60];
-  size_t num_chars = 0;
 
   if (!shared_console_info[unit])
     return input_error;
@@ -1300,6 +1299,13 @@ fhandler_console::process_input_message (size_t len)
       termios_printf ("PeekConsoleInput failed, %E");
       return input_error;
     }
+
+  /* len == 0 if called from select.cc:peek_console() */
+  /* This code is reached only when being passed the input_ready check,
+     however, the check was done outside input_mutex. Therefore, another
+     thread may set input_ready after the check. Check it again here. */
+  if (input_ready && (len == 0 || (get_ttyp ()->ti.c_lflag & ICANON)))
+    return input_ok;
 
   for (i = 0; i < total_read; i ++)
     {
@@ -1666,7 +1672,6 @@ fhandler_console::process_input_message (size_t len)
 	}
 
       num_input_events_processed = i + 1;
-      num_chars += nread;
       if (toadd)
 	{
 	  ssize_t ret;
@@ -1685,21 +1690,17 @@ fhandler_console::process_input_message (size_t len)
 	    }
 	}
       /* len == 0 if called from select.cc:peek_console() */
-      if (len && num_chars >= len)
+      if (input_ready && (len == 0 || con_ra.ralen >= len))
 	goto out;
     }
 out:
-  if (len == 0)
-    /* If len == 0, cancel reading from console input buffer.
-       Clear readahead buffer. */
-    eat_readahead (-1);
-  /* Discard processed recored. */
+  /* Discard processed record. */
   DWORD discard_len = min (total_read, i + 1);
   /* If input is signalled, do not discard input here because
      discard_key_events() is already called from line_edit(). */
   if (stat == input_signalled)
     discard_len = 0;
-  if (discard_len && (len || stat != input_ok))
+  if (discard_len)
     discard_key_events (discard_len);
   return stat;
 }
