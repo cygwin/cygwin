@@ -31,8 +31,8 @@ int __wcwidth (wint_t);
 #else /* _HAVE_HW_MISALIGNED_ACCESS */
 /* Nonzero if either X or Y is not aligned on a "long" boundary.  */
 #define UNALIGNED_X_Y(X, Y) \
-  (((long)(intptr_t)X & (sizeof (long) - 1)) | \
-   ((long)(intptr_t)Y & (sizeof (long) - 1)))
+  (((long)(intptr_t)(X) & (sizeof (long) - 1)) | \
+   ((long)(intptr_t)(Y) & (sizeof (long) - 1)))
 #endif /* _HAVE_HW_MISALIGNED_ACCESS */
 
 /* How many bytes are copied each iteration of the word copy loop.  */
