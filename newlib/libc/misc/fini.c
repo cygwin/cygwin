@@ -14,10 +14,8 @@
 #include <sys/types.h>
 
 #ifdef _HAVE_INITFINI_ARRAY
-extern void (*__fini_array_start []) (void) asm("__fini_array_start")
-	__attribute__((weak));
-extern void (*__fini_array_end []) (void) asm("__fini_array_end")
-	__attribute__((weak));
+extern void (*__fini_array_start []) (void) __attribute__((weak));
+extern void (*__fini_array_end []) (void) __attribute__((weak));
 
 #ifdef _HAVE_INIT_FINI
 extern void _fini (void);
