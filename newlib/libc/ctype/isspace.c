@@ -18,7 +18,8 @@ SYNOPSIS
 DESCRIPTION
 <<isspace>> is a macro which classifies singlebyte charset values by table
 lookup.  It is a predicate returning non-zero for whitespace
-characters, and 0 for other characters.  It is defined only when <<isascii>>(<[c]>) is true or <[c]> is EOF.
+characters, and 0 for other characters.  It is defined only if
+<[c]> is representable as an unsigned char or if <[c]> is EOF.
 
 <<isspace_l>> is like <<isspace>> but performs the check based on the
 locale specified by the locale object locale.  If <[locale]> is
