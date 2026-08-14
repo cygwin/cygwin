@@ -9,6 +9,10 @@
    http://www.opensource.org/licenses.
 */
 
+#if defined(__riscv_vector) && !defined(__OPTIMIZE_SIZE__) && !defined(PREFER_SIZE_OVER_SPEED)
+/* strcpy defined in strcpy-asm.S */
+#else
+
 #include <stdbool.h>
 #include "rv_string.h"
 
@@ -16,3 +20,4 @@ char *strcpy(char *dst, const char *src)
 {
   return __libc_strcpy(dst, src, true);
 }
+#endif
