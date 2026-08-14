@@ -9,6 +9,10 @@
    http://www.opensource.org/licenses.
 */
 
+#if defined(__riscv_vector) && !defined(__OPTIMIZE_SIZE__) && !defined(PREFER_SIZE_OVER_SPEED)
+/* strlen defined in strlen-asm.S */
+#else
+
 #include <sys/types.h>
 #include <string.h>
 #include <stdint.h>
@@ -66,3 +70,4 @@ size_t strlen(const char *str)
   #endif
 #endif /* not PREFER_SIZE_OVER_SPEED */
 }
+#endif /* not __riscv_vector */
