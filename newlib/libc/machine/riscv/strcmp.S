@@ -12,6 +12,8 @@
 #include <sys/asm.h>
 #include "newlib.h"
 
+#if !(defined(__riscv_vector) && !defined(__OPTIMIZE_SIZE__) && !defined(PREFER_SIZE_OVER_SPEED))
+
 ENTRY(strcmp)
 
 #if defined(PREFER_SIZE_OVER_SPEED) || defined(__OPTIMIZE_SIZE__)
@@ -243,3 +245,5 @@ mask:
 .dword 0x7f7f7f7f7f7f7f7f
 #endif
 #endif
+
+#endif /* not __riscv_vector */
