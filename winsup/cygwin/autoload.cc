@@ -85,13 +85,13 @@ bool NO_COPY wsock_started;
    The macro WORD64 stands in for .quad/.xword, and .balign (which means
    "align to N bytes" on all targets, unlike .align) is used for
    alignment.  */
-#define LoadDLLprime(dllname, init_also, no_resolve_on_fork) __asm__ ("\n\
+#define LoadDLLprime(dllname, init_also) __asm__ ("\n\
 .ifndef " #dllname "_primed                              \n\
   .section   .data_cygwin_nocopy,\"w\"                   \n\
   .balign    8                                           \n\
 ." #dllname "_info:                                      \n\
   " WORD64 "   _std_dll_init                             \n\
-  " WORD64 "   " #no_resolve_on_fork "                   \n\
+  " WORD64 "   0                                         \n\
   .long      -1                                          \n\
   .balign    8                                           \n\
   " WORD64 "   " #init_also "                            \n\
@@ -108,12 +108,12 @@ bool NO_COPY wsock_started;
 #define LoadDLLfuncEx(name, dllname, notimp) \
   LoadDLLfuncEx2(name, dllname, notimp, 0)
 #define LoadDLLfuncEx2(name, dllname, notimp, err) \
-  LoadDLLfuncEx3(name, dllname, notimp, err, 0)
+  LoadDLLfuncEx3(name, dllname, notimp, err)
 
 /* Main DLL setup stuff. */
 #if defined(__x86_64__)
-#define LoadDLLfuncEx3(name, dllname, notimp, err, no_resolve_on_fork) \
-  LoadDLLprime (dllname, dll_func_load, no_resolve_on_fork) \
+#define LoadDLLfuncEx3(name, dllname, notimp, err) \
+  LoadDLLprime (dllname, dll_func_load) \
   __asm__ ("						\n\
   .section	." #dllname "_autoload_text,\"wx\"	\n\
   .global	" #name "				\n\
@@ -138,8 +138,8 @@ _win32_" #name ":					\n\
   .text							\n\
 ");
 #elif defined(__aarch64__)
-#define LoadDLLfuncEx3(name, dllname, notimp, err, no_resolve_on_fork) \
-  LoadDLLprime (dllname, dll_func_load, no_resolve_on_fork) \
+#define LoadDLLfuncEx3(name, dllname, notimp, err) \
+  LoadDLLprime (dllname, dll_func_load) \
   __asm__ ( "\n\
   .section   ." #dllname "_autoload_text,\"wx\"          \n\
   .global    " #name "                                   \n\
@@ -438,7 +438,7 @@ std_dll_init (struct func_info *func)
 	yield ();
       }
     while (InterlockedIncrement (&dll->here));
-  else if ((uintptr_t) dll->handle <= 1)
+  else if (!dll->handle)
     {
       fenv_t fpuenv;
       fegetenv (&fpuenv);
@@ -461,7 +461,7 @@ std_dll_init (struct func_info *func)
 	  if (i < RETRY_COUNT)
 	    yield ();
 	}
-      if ((uintptr_t) dll->handle <= 1)
+      if (!dll->handle)
 	{
 	  if ((func->decoration & 1))
 	    dll->handle = INVALID_HANDLE_VALUE;
@@ -534,7 +534,7 @@ wsock_init (struct func_info *func)
   return ret.ll;
 }
 
-LoadDLLprime (ws2_32, _wsock_init, 0)
+LoadDLLprime (ws2_32, _wsock_init)
 
 LoadDLLfunc (CheckTokenMembership, advapi32)
 LoadDLLfunc (CreateProcessAsUserW, advapi32)
@@ -711,25 +711,25 @@ LoadDLLfuncEx2 (CreateProfile, userenv, 1, 1)
 LoadDLLfunc (DestroyEnvironmentBlock, userenv)
 LoadDLLfunc (LoadUserProfileW, userenv)
 
-LoadDLLfuncEx3 (waveInAddBuffer, winmm, 1, 0, 1)
-LoadDLLfuncEx3 (waveInClose, winmm, 1, 0, 1)
-LoadDLLfuncEx3 (waveInGetNumDevs, winmm, 1, 0, 1)
-LoadDLLfuncEx3 (waveInOpen, winmm, 1, 0, 1)
-LoadDLLfuncEx3 (waveInPrepareHeader, winmm, 1, 0, 1)
-LoadDLLfuncEx3 (waveInReset, winmm, 1, 0, 1)
-LoadDLLfuncEx3 (waveInStart, winmm, 1, 0, 1)
-LoadDLLfuncEx3 (waveInUnprepareHeader, winmm, 1, 0, 1)
-LoadDLLfuncEx3 (waveOutClose, winmm, 1, 0, 1)
-LoadDLLfuncEx3 (waveOutGetNumDevs, winmm, 1, 0, 1)
-LoadDLLfuncEx3 (waveOutGetVolume, winmm, 1, 0, 1)
-LoadDLLfuncEx3 (waveOutOpen, winmm, 1, 0, 1)
-LoadDLLfuncEx3 (waveOutPrepareHeader, winmm, 1, 0, 1)
-LoadDLLfuncEx3 (waveOutReset, winmm, 1, 0, 1)
-LoadDLLfuncEx3 (waveOutSetVolume, winmm, 1, 0, 1)
-LoadDLLfuncEx3 (waveOutUnprepareHeader, winmm, 1, 0, 1)
-LoadDLLfuncEx3 (waveOutWrite, winmm, 1, 0, 1)
-LoadDLLfuncEx3 (waveOutMessage, winmm, 1, 0, 1)
-LoadDLLfuncEx3 (waveOutGetDevCapsA, winmm, 1, 0, 1)
+LoadDLLfuncEx3 (waveInAddBuffer, winmm, 1, 0)
+LoadDLLfuncEx3 (waveInClose, winmm, 1, 0)
+LoadDLLfuncEx3 (waveInGetNumDevs, winmm, 1, 0)
+LoadDLLfuncEx3 (waveInOpen, winmm, 1, 0)
+LoadDLLfuncEx3 (waveInPrepareHeader, winmm, 1, 0)
+LoadDLLfuncEx3 (waveInReset, winmm, 1, 0)
+LoadDLLfuncEx3 (waveInStart, winmm, 1, 0)
+LoadDLLfuncEx3 (waveInUnprepareHeader, winmm, 1, 0)
+LoadDLLfuncEx3 (waveOutClose, winmm, 1, 0)
+LoadDLLfuncEx3 (waveOutGetNumDevs, winmm, 1, 0)
+LoadDLLfuncEx3 (waveOutGetVolume, winmm, 1, 0)
+LoadDLLfuncEx3 (waveOutOpen, winmm, 1, 0)
+LoadDLLfuncEx3 (waveOutPrepareHeader, winmm, 1, 0)
+LoadDLLfuncEx3 (waveOutReset, winmm, 1, 0)
+LoadDLLfuncEx3 (waveOutSetVolume, winmm, 1, 0)
+LoadDLLfuncEx3 (waveOutUnprepareHeader, winmm, 1, 0)
+LoadDLLfuncEx3 (waveOutWrite, winmm, 1, 0)
+LoadDLLfuncEx3 (waveOutMessage, winmm, 1, 0)
+LoadDLLfuncEx3 (waveOutGetDevCapsA, winmm, 1, 0)
 
 LoadDLLfunc (accept, ws2_32)
 LoadDLLfunc (bind, ws2_32)
