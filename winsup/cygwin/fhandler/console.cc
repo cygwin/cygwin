@@ -1273,7 +1273,7 @@ wait_retry:
 
       int ret;
       acquire_input_mutex (mutex_timeout);
-      ret = process_input_message (buflen);
+      ret = process_input_message (buflen - copied_chars);
       switch (ret)
 	{
 	case input_error:
