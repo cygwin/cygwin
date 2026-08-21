@@ -19,11 +19,12 @@
 #   $r8             0x08
 #   $r9             0x0c
 #   $r10            0x10
-#   $fp             0x14
-#   $sp             0x18
+#   $sp             0x14
+#   $fp             0x18
 #   stack frame fp  0x1c
 #   stack frame ra  0x20
-#   stack frame sc  0x25
+#   stack frame sc  0x24
+#   $r11            0x28
        
         .text
         .global setjmp
@@ -36,6 +37,7 @@ setjmp:
 	sto.l	0x10($r0), $r10
 	sto.l	0x14($r0), $sp
 	sto.l	0x18($r0), $fp
+	sto.l	0x28($r0), $r11
 	ldo.l   $r1,       0x00($fp)
 	sto.l   0x1c($r0), $r1
 	ldo.l   $r1,       0x04($fp)
@@ -57,6 +59,7 @@ longjmp:
 	ldo.l	$r10, 0x10($r0)
 	ldo.l	$sp, 0x14($r0)
 	ldo.l	$fp, 0x18($r0)
+	ldo.l	$r11, 0x28($r0)
 	ldo.l   $r2, 0x1c($r0)
 	sto.l   0x0($fp), $r2
 	ldo.l   $r2, 0x20($r0)
