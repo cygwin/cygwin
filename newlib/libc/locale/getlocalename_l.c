@@ -63,6 +63,8 @@ _getlocalename_l_r (struct _reent *ptr, int category, struct __locale_t *locobj)
       if (locobj == LC_GLOBAL_LOCALE)
 	return __currentlocale (__get_global_locale (),
 				_REENT_GETLOCALENAME_L_BUF (ptr));
+      else if (locobj == __get_C_locale ())
+	return "C";
       return __currentlocale (locobj, locobj->locale_string);
     }
   if (locobj == LC_GLOBAL_LOCALE)
