@@ -1406,6 +1406,7 @@ wait_retry:
 	      if (res)
 		goto wait_retry;
 	    }
+	  __seterrno ();
 	  goto err;
 	}
 
@@ -1418,6 +1419,7 @@ wait_retry:
 	{
 	case input_error:
 	  release_input_mutex ();
+	  /* errno is already set in process_input_message() */
 	  goto err;
 	case input_processing:
 	  release_input_mutex ();
@@ -1432,9 +1434,28 @@ wait_retry:
 	  if (global_sigs[get_ttyp ()->last_sig].sa_flags & SA_RESTART)
 	    continue;
 	  goto sig_exit;
+	case input_empty:
+	  /* Reaches here when the input buffer is empty even though
+	     the input handle is signalled. */
+	  release_input_mutex ();
+	  if (is_nonblocking ())
+	    {
+	      if (copied_chars)
+		{
+		  fix_input_mode_if_necessary (); /* for win32_input_mode */
+		  buflen = copied_chars;
+		  return;
+		}
+	      set_sig_errno (EAGAIN);
+	      buflen = (size_t) -1;
+	      return;
+	    }
+	  cygwait (40);
+	  continue;
 	default:
 	  /* Should not come here */
 	  release_input_mutex ();
+	  __seterrno ();
 	  goto err;
 	}
     }
@@ -1462,7 +1483,6 @@ wait_retry:
   return;
 
 err:
-  __seterrno ();
   buflen = (size_t) -1;
   return;
 
@@ -1489,10 +1509,12 @@ fhandler_console::process_input_message (size_t len)
   DWORD resume_pid = attach_console (con.owner);
   BOOL r =
     PeekConsoleInputW (get_handle (), input_rec, INREC_SIZE, &total_read);
+  DWORD error = GetLastError ();
   detach_console (resume_pid, con.owner);
   release_attach_mutex ();
   if (!r)
     {
+      __seterrno_from_win_error (error);
       termios_printf ("PeekConsoleInput failed, %E");
       return input_error;
     }
@@ -1503,6 +1525,9 @@ fhandler_console::process_input_message (size_t len)
      thread may set input_ready after the check. Check it again here. */
   if (::input_ready && (len == 0 || (get_ttyp ()->ti.c_lflag & ICANON)))
     return input_ok;
+
+  if (total_read == 0)
+    return input_empty;
 
   for (i = 0; i < total_read; i ++)
     {
