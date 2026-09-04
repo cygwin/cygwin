@@ -1524,14 +1524,24 @@ get_process_state (DWORD dwProcessId, DWORD *num_threads)
 {
   /* This isn't really heavy magic - just go through the processes' threads
      one by one and return a value accordingly.  Errors are silently ignored. */
+  const ULONGLONG cache_time = 20;
+  static NO_COPY muto cache_guard;
   NTSTATUS status;
-  PSYSTEM_PROCESS_INFORMATION p, sp;
-  ULONG n = 0x4000;
+  static PSYSTEM_PROCESS_INFORMATION p = NULL;
+  static ULONGLONG t0 = 0;
+  PSYSTEM_PROCESS_INFORMATION sp;
+  static ULONG n = 0x4000;
   int state =' ';
 
-  p = (PSYSTEM_PROCESS_INFORMATION) malloc (n);
+  cache_guard.init ("get_process_state")->acquire ();
+
+  if (GetTickCount64 () - t0 < cache_time && p)
+    goto reuse_query;
+
   if (!p)
-    return state;
+    p = (PSYSTEM_PROCESS_INFORMATION) malloc (n);
+  if (!p)
+    goto out;
   while (true)
     {
       status = NtQuerySystemInformation (SystemProcessInformation,
@@ -1550,6 +1560,8 @@ get_process_state (DWORD dwProcessId, DWORD *num_threads)
 		    status, RtlNtStatusToDosError (status));
       goto out;
     }
+  t0 = GetTickCount64 ();
+reuse_query:
   state = 'Z';
   sp = p;
   for (;;)
@@ -1579,7 +1591,7 @@ get_process_state (DWORD dwProcessId, DWORD *num_threads)
       sp = (PSYSTEM_PROCESS_INFORMATION) ((char *) sp + sp->NextEntryOffset);
     }
 out:
-  free (p);
+  cache_guard.release ();
   return state;
 }
 
