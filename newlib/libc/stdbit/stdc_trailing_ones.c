@@ -20,13 +20,20 @@ stdc_trailing_ones_uc(unsigned char x)
 	return (__builtin_ctz(~x));
 }
 
+#ifndef __NEWLIB_H__
 /* Avoid triggering undefined behavior if x == ~0. */
 _Static_assert(USHRT_WIDTH < UINT_WIDTH,
     "stdc_trailing_ones_uc needs USHRT_WIDTH < UINT_WIDTH");
+#endif
 
 unsigned int
 stdc_trailing_ones_us(unsigned short x)
 {
+#if defined(__NEWLIB_H__) && USHRT_WIDTH == UINT_WIDTH
+	/* Avoid triggering undefined behavior if x == ~0. */
+	if (x == ~0U)
+		return (USHRT_WIDTH);
+#endif
 	return (__builtin_ctz(~x));
 }
 

@@ -20,14 +20,23 @@ stdc_trailing_zeros_uc(unsigned char x)
 	return (__builtin_ctz(x | 1U << UCHAR_WIDTH));
 }
 
+#ifndef __NEWLIB_H__
 /* Ensure we do not shift 1U out of range. */
 _Static_assert(USHRT_WIDTH < UINT_WIDTH,
     "stdc_trailing_zeros_uc needs USHRT_WIDTH < UINT_WIDTH");
+#endif
 
 unsigned int
 stdc_trailing_zeros_us(unsigned short x)
 {
+#if defined(__NEWLIB_H__) && USHRT_WIDTH == UINT_WIDTH
+	/* Ensure we do not shift 1U out of range. */
+	if (x == 0U)
+		return (USHRT_WIDTH);
+	return (__builtin_ctz(x));
+#else
 	return (__builtin_ctz(x | 1U << USHRT_WIDTH));
+#endif
 }
 
 unsigned int

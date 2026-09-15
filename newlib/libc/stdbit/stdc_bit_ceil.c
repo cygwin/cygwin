@@ -23,16 +23,21 @@ stdc_bit_ceil_uc(unsigned char x)
 	return (1U << (UINT_WIDTH - __builtin_clz(x - 1)));
 }
 
+#ifndef __NEWLIB_H__
 /* Ensure we don't shift 1U out of range. */
 _Static_assert(USHRT_WIDTH < UINT_WIDTH,
     "stdc_bit_ceil_us needs USHRT_WIDTH < UINT_WIDTH");
+#endif
 
 unsigned short
 stdc_bit_ceil_us(unsigned short x)
 {
 	if (x <= 1)
 		return (1);
-
+#if defined(__NEWLIB_H__) && USHRT_WIDTH == UINT_WIDTH
+	if (x > USHRT_MAX/2 + 1)
+		return (0);
+#endif
 	return (1U << (UINT_WIDTH - __builtin_clz(x - 1)));
 }
 

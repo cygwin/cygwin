@@ -22,13 +22,20 @@ stdc_leading_zeros_uc(unsigned char x)
 	return (__builtin_clz((x << offset) + (1U << (offset - 1))));
 }
 
+#ifndef __NEWLIB_H__
 /* Offset must be greater than zero. */
 _Static_assert(USHRT_WIDTH < UINT_WIDTH,
     "stdc_leading_zeros_us needs USHRT_WIDTH < UINT_WIDTH");
+#endif
 
 unsigned int
 stdc_leading_zeros_us(unsigned short x)
 {
+#if defined(__NEWLIB_H__) && USHRT_WIDTH == UINT_WIDTH
+	/* Offset must be greater than zero. */
+	if (x == 0)
+		return (USHRT_WIDTH);
+#endif
 	const int offset = UINT_WIDTH - USHRT_WIDTH;
 
 	return (__builtin_clz((x << offset) + (1U << (offset - 1))));

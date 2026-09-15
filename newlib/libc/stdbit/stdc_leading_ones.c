@@ -22,13 +22,20 @@ stdc_leading_ones_uc(unsigned char x)
 	return (__builtin_clz(~(x << offset)));
 }
 
+#ifndef __NEWLIB_H__
 /* Avoid triggering undefined behavior if x == 0. */
 _Static_assert(USHRT_WIDTH < UINT_WIDTH,
     "stdc_leading_ones_us needs USHRT_WIDTH < UINT_WIDTH");
+#endif
 
 unsigned int
 stdc_leading_ones_us(unsigned short x)
 {
+#if defined(__NEWLIB_H__) && USHRT_WIDTH == UINT_WIDTH
+	/* Avoid triggering undefined behavior if x == 0. */
+	if (x == ~0U)
+		return (USHRT_WIDTH);
+#endif
 	const int offset = UINT_WIDTH - USHRT_WIDTH;
 
 	return (__builtin_clz(~(x << offset)));
