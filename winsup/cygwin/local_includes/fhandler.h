@@ -2186,7 +2186,6 @@ public:
     tty_min tty_min_state;
     dev_console con;
   };
-  bool input_ready;
   enum input_states
   {
     input_error = -1,
@@ -2371,6 +2370,7 @@ private:
   int fstat (struct stat *buf);
   void discard_key_events (size_t n);
   void fix_input_mode_if_necessary ();
+  bool input_ready ();
 
   class console_unit
   {

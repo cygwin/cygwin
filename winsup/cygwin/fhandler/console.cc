@@ -70,6 +70,7 @@ bool NO_COPY fhandler_console::invisible_console;
 /* con_ra is shared in the same process.
    Only one console can exist in a process, therefore, static is suitable. */
 static struct fhandler_base::rabuf_t con_ra;
+static bool input_ready;
 
 /* Write pending buffer for ESC sequence handling
    in xterm compatible mode */
@@ -1309,7 +1310,7 @@ fhandler_console::read (void *pv, size_t& buflen)
       (get_ttyp ()->ti.c_cc[VTIME]*100 ? : INFINITE)));
 
 read_more:
-  while (!input_ready && !get_cons_readahead_valid ())
+  while (!::input_ready && !get_cons_readahead_valid ())
     {
       int bgres;
       if ((bgres = bg_check (SIGTTIN)) <= bg_eof)
@@ -1393,7 +1394,7 @@ wait_retry:
     get_readahead_into_buffer (buf + copied_chars, buflen - copied_chars);
 
   if (!con_ra.ralen)
-    input_ready = false;
+    ::input_ready = false;
   release_input_mutex ();
 
   fix_input_mode_if_necessary (); /* for win32_input_mode */
@@ -1447,7 +1448,7 @@ fhandler_console::process_input_message (size_t len)
   /* This code is reached only when being passed the input_ready check,
      however, the check was done outside input_mutex. Therefore, another
      thread may set input_ready after the check. Check it again here. */
-  if (input_ready && (len == 0 || (get_ttyp ()->ti.c_lflag & ICANON)))
+  if (::input_ready && (len == 0 || (get_ttyp ()->ti.c_lflag & ICANON)))
     return input_ok;
 
   for (i = 0; i < total_read; i ++)
@@ -1826,14 +1827,14 @@ fhandler_console::process_input_message (size_t len)
 	    }
 	  else if (res == line_edit_input_done)
 	    {
-	      input_ready = true;
+	      ::input_ready = true;
 	      stat = input_ok;
 	      if (ti->c_lflag & ICANON)
 		goto out;
 	    }
 	}
       /* len == 0 if called from select.cc:peek_console() */
-      if (input_ready && (len == 0 || con_ra.ralen >= len))
+      if (::input_ready && (len == 0 || con_ra.ralen >= len))
 	goto out;
     }
 out:
@@ -2257,6 +2258,7 @@ fhandler_console::close (int flag)
   if (con_ra.rabuf)
     free (con_ra.rabuf);
   memset (&con_ra, 0, sizeof (con_ra));
+  ::input_ready = false;
 
   if (!have_execed && !invisible_console
       && (!CTTY_IS_VALID (myself->ctty)
@@ -2432,6 +2434,9 @@ fhandler_console::tcflush (int queue)
   if (queue == TCIFLUSH
       || queue == TCIOFLUSH)
     {
+      /* tcflush() may be called inside the input_mutex,
+	 however, mutex of Win32 can be acquired recursively. */
+      acquire_input_mutex (mutex_timeout);
       acquire_attach_mutex (mutex_timeout);
       DWORD resume_pid = attach_console (con.owner);
       BOOL r = FlushConsoleInputBuffer (get_handle ());
@@ -2443,6 +2448,10 @@ fhandler_console::tcflush (int queue)
 	  res = -1;
 	}
       con.num_processed = 0;
+      eat_readahead (-1);
+      ::input_ready = false;
+      con.cons_rapoi = NULL;
+      release_input_mutex ();
     }
   return res;
 }
@@ -2467,7 +2476,7 @@ fhandler_console::tcgetattr (struct termios *t)
 }
 
 fhandler_console::fhandler_console (fh_devices devunit) :
-  fhandler_termios (), input_ready (false), thread_sync_event (NULL),
+  fhandler_termios (), thread_sync_event (NULL),
   input_mutex (NULL), output_mutex (NULL), unit (MAX_CONS_DEV),
   num_input_events_processed (0)
 {
@@ -5024,4 +5033,10 @@ fhandler_console::cons_mode_on_close (handle_set_t *p)
     return tty::cygwin;
 
   return tty::restore; /* otherwise, restore */
+}
+
+bool
+fhandler_console::input_ready ()
+{
+  return ::input_ready;
 }
