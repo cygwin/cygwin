@@ -1140,7 +1140,7 @@ peek_console (select_record *me, bool)
   if (fh->get_cons_readahead_valid ())
     return me->read_ready = true;
 
-  if (fh->input_ready)
+  if (fh->input_ready ())
     return me->read_ready = true;
 
   if (me->read_ready)
@@ -1154,7 +1154,7 @@ peek_console (select_record *me, bool)
   HANDLE h;
   set_handle_or_return_if_not_open (h, me);
 
-  while (!fh->input_ready && !fh->get_cons_readahead_valid ())
+  while (!fh->input_ready () && !fh->get_cons_readahead_valid ())
     {
       if (fh->bg_check (SIGTTIN, true) <= bg_eof)
 	return me->read_ready = true;
@@ -1184,7 +1184,7 @@ peek_console (select_record *me, bool)
 	  return -1;
 	}
     }
-  if (fh->input_ready || fh->get_cons_readahead_valid ())
+  if (fh->input_ready () || fh->get_cons_readahead_valid ())
     return me->read_ready = true;
 
   return me->write_ready;
@@ -1284,7 +1284,7 @@ fhandler_console::select_read (select_stuff *ss)
 
   s->peek = peek_console;
   s->read_selected = true;
-  s->read_ready = input_ready || get_cons_readahead_valid ();
+  s->read_ready = input_ready () || get_cons_readahead_valid ();
   s->cleanup = console_cleanup;
   return s;
 }
