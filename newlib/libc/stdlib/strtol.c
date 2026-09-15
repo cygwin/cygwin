@@ -158,6 +158,7 @@ _strtol_l (struct _reent *rptr, const char *__restrict nptr,
 	    c == '0' && (*s == 'x' || *s == 'X')) {
 		c = s[1];
 		s += 2;
+		++nptr; /* if no more valid chars, we read '0' */
 		base = 16;
 	}
 	if (base == 0)
