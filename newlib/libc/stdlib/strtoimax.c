@@ -85,6 +85,7 @@ _strtoimax_l(struct _reent *rptr, const char * __restrict nptr,
 	if ((base == 0 || base == 16) &&
 	    c == '0' && (*s == 'x' || *s == 'X')) {
 		c = s[1];
+                nptr = s; /* prepares if no valid hex digit follows */
 		s += 2;
 		base = 16;
 	}

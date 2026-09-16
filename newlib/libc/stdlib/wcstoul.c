@@ -151,6 +151,7 @@ _wcstoul_l (struct _reent *rptr, const wchar_t *nptr, wchar_t **endptr,
 	if ((base == 0 || base == 16) &&
 	    c == L'0' && (*s == L'x' || *s == L'X')) {
 		c = s[1];
+                nptr = s; /* prepares if no valid hex digit follows */
 		s += 2;
 		base = 16;
 	}
