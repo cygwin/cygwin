@@ -990,7 +990,7 @@ sigdelayed_init(PCONTEXT ctx)
   const DWORD64 stack_x16 = sp[0];
   const DWORD64 stack_x17 = sp[1];
   const DWORD64 stack_x0 = sp[2];
-  const DWORD64 stack_lr = sp[3];
+  const DWORD64 stack_lr = sp[5];
 
   ctx->X16 = stack_x16; // x16 clobbered by RtlCaptureContext
   ctx->X17 = stack_x17;
@@ -1002,7 +1002,7 @@ sigdelayed_init(PCONTEXT ctx)
      happened to change. */
   static_assert(sizeof(CONTEXT) == 0x390);
 
-  ctx->Sp += sizeof(CONTEXT) + 32; // undo stack pushes from sigdelayed
+  ctx->Sp += sizeof(CONTEXT) + 48; // undo stack pushes from sigdelayed
 
   _my_tls.sigdelayed_impl(ctx);
 }

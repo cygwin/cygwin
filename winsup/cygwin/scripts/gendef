@@ -468,23 +468,25 @@ _sigbe:
 	.global	sigdelayed
 	.seh_proc sigdelayed
 sigdelayed:
-	sub	sp,	sp,	0x390 	// sizeof(ARM64_NT_CONTEXT)
-	.seh_stackalloc 0x390
-	stp	x0,	x30,	[sp, #-16]!
+	sub	sp,	sp,	0x3C0 	// sizeof(ARM64_NT_CONTEXT) + 48
+	.seh_stackalloc 0x3C0
+	stp	x29,	x30,	[sp, #32]
+	.seh_save_fplr 32
+	.seh_endprologue
+
+	str	x0,	[sp, #16]
 
 	// x16 gets clobbered after calling RtlCaptureContext.
 	// Both x16 and x17 are considered volatile registers, so we preserve both.
-	stp	x16,	x17,	[sp, #-16]!
-	.seh_save_regp_x x16, 16
-	.seh_endprologue
+	stp	x16,	x17,	[sp]
 
 	// RtlCaptureContext captures the current CPU state
 	// at the time of calling it, letting us restore it
 	// later with adjusted registers in sigdelayed_impl.
-	add	x0,	sp,	32		// set x0 to the stack space allocated for the context
+	add	x0,	sp,	48		// set x0 to the stack space allocated for the context
 	bl RtlCaptureContext
 
-	add	x0,	sp,	32		// reset x0 in case it got clobbered
+	add	x0,	sp,	48		// reset x0 in case it got clobbered
 	bl sigdelayed_init
 
 	// unreachable
