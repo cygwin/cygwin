@@ -502,11 +502,13 @@ stabilize_sig_stack:
 
 	ldr	x10, [x18, #0x8]		// load TLS block base pointer into x10
 
-	// try to acquire the lock
+	// try to acquire the lock.  The address and the "locked" constant are
+	// recomputed on every iteration: the signal-handler path below branches
+	// back here after using x9/x12 for the incyg counter.
+1:
 	mov	w9, #1				// value to store (1 == locked)
 	ldr	x11, =_cygtls.stacklock		// load the symbol offset
 	add	x12, x10, x11			// x12 = tls_base + &stacklock
-1:
 	ldaxr	w13, [x12]			// load old lock value
 	cbnz	w13, 2f				// if already locked, wait
 	stxr	w14, w9, [x12]			// attempt to acquire the lock
@@ -514,6 +516,7 @@ stabilize_sig_stack:
 	b	3f				// lock acquired, continue
 
 2:
+	clrex					// drop the exclusive monitor
 	yield					// yield to allow other threads to run
 	b	1b				// retry acquiring the lock
 
