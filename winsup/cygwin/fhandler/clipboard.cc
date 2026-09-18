@@ -41,7 +41,10 @@ open_clipboard ()
 	  DWORD err = GetLastError ();
 	  /* Here, ERROR_NOT_FOUND means the clipboard does not contains
 	     valid CF_UNICODETEXT. OpenClipboard() must have succeeded. */
-	  if (err == ERROR_NOT_FOUND)
+	  /* In Windows 10, ERROR_SXS_KEY_NOT_FOUND or NO_ERROR seem
+	     to be returned instead of ERROR_NOT_FOUND. */
+	  if (err == ERROR_NOT_FOUND || err == ERROR_SXS_KEY_NOT_FOUND
+	      || err == NO_ERROR)
 	    return true;
 	  CloseClipboard ();
 	  if (err != ERROR_CLIPBOARD_NOT_OPEN)
