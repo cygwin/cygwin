@@ -111,7 +111,7 @@ jobs:
         ssh-add - <<< "${{ secrets.SSH_KEY }}"
         # deploy documentation files from install directory
         scp -pr install/share/doc/{cygwin-api,cygwin-ug-net,faq}* cygwin-admin@cygwin.com:/sourceware/www/sourceware/htdocs/cygwin/doc/${DEST}/
-      if: ${{ env.HAS_SSH_KEY == 'true' }} && ${{ matrix.target == 'x86_64-pc-cygwin' }}
+      if: ${{ env.HAS_SSH_KEY == 'true' && matrix.target == 'x86_64-pc-cygwin' }}
 
   windows-build:
     runs-on: windows-2022
