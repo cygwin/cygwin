@@ -70,9 +70,9 @@ jobs:
       run: |
         if [ ${{ matrix.target }} == 'aarch64-pc-cygwin' ]
         then
-          EXTRA_CFG=" --without-mingw-progs --disable-cygserver --disable-dumper"
-          export CFLAGS_FOR_TARGET="-Wno-error"
-          (cd winsup/cygwin && sed -i 's/-lkernel32 -lntdll/-lntdll -lonecore/' Makefile.am)
+          EXTRA_CFG=" --without-mingw-progs --disable-dumper"
+          export CFLAGS_FOR_TARGET="-O0 -Wno-error"
+          export CXXFLAGS_FOR_TARGET="-O0 -Wno-error"
         fi
         mkdir build install
         (cd winsup && ./autogen.sh)
