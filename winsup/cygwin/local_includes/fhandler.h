@@ -2034,17 +2034,18 @@ class fhandler_termios: public fhandler_base
     bool ptys_need_cleanup;
     bool cons_need_cleanup;
     bool stdin_is_ptys;
+    bool console_app;
     tty *ptys_ttyp;
   public:
     spawn_worker () :
       ptys_need_cleanup (false), cons_need_cleanup (false),
-      stdin_is_ptys (false), ptys_ttyp (NULL) {}
+      stdin_is_ptys (false), console_app (false), ptys_ttyp (NULL) {}
     void setup (bool iscygwin, HANDLE h_stdin, path_conv &pc,
 		bool nopcon, bool reset_sendsig, const WCHAR *envblock);
     bool need_cleanup () { return ptys_need_cleanup || cons_need_cleanup; }
     void cleanup ();
     bool is_attaching (DWORD pid);
-    void wait_for_resume_if_necessary (path_conv &, PROCESS_INFORMATION &);
+    void wait_for_resume_if_necessary (PROCESS_INFORMATION &);
   };
 };
 

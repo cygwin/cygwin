@@ -779,6 +779,10 @@ fhandler_termios::spawn_worker::setup (bool iscygwin, HANDLE h_stdin,
   fhandler_pty_slave *ptys_primary = NULL;
   fhandler_console *cons_native = NULL;
 
+  /* This may resolve an app execution alias, which allocates cygheap memory.
+     Do it before child_info_spawn::worker() acquires the cygheap lock. */
+  console_app = !iscygwin && is_console_app (pc);
+
   for (int i = 0; i < 3; i ++)
     {
       const int chk_order[] = {1, 0, 2};
@@ -811,7 +815,7 @@ fhandler_termios::spawn_worker::setup (bool iscygwin, HANDLE h_stdin,
 	    ptys->setup_locale ();
 	  }
     }
-  if (!iscygwin && ptys_primary && is_console_app (pc))
+  if (ptys_primary && console_app)
     {
       if (h_stdin == ptys_primary->get_handle_nat ())
 	stdin_is_ptys = true;
@@ -852,9 +856,9 @@ fhandler_termios::spawn_worker::is_attaching (DWORD pid)
 
 void
 fhandler_termios::spawn_worker::wait_for_resume_if_necessary
-			      (path_conv &pc, PROCESS_INFORMATION &pi)
+			      (PROCESS_INFORMATION &pi)
 {
-  if (is_attaching (myself->dwProcessId) && is_console_app (pc))
+  if (is_attaching (myself->dwProcessId) && console_app)
     {
       DWORD t0 = GetTickCount ();
       while (GetTickCount () - t0 < 40 && !is_attaching (pi.dwProcessId)
