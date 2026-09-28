@@ -762,7 +762,7 @@ child_info_spawn::worker (const char *prog_arg, const char *const *argv,
 	  DuplicateHandle (GetCurrentProcess (), wr_proc_pipe, pi.hProcess,
 			   NULL, 0, false, DUPLICATE_SAME_ACCESS);
 	  ResumeThread (pi.hThread);
-	  term_spawn_worker.wait_for_resume_if_necessary (real_path, pi);
+	  term_spawn_worker.wait_for_resume_if_necessary (pi);
 	}
 
       if (mode == _P_OVERLAY)
