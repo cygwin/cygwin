@@ -26,6 +26,9 @@ What's new:
   runs on a pty rather than on the console device originating from the pseudo
   console.
 
+- Support for uid/gid passthrough for NFSv4 clients without involving LDAP.
+
+
 Fixes:
 ------
 
