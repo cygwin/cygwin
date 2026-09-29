@@ -214,7 +214,7 @@ fhandler_base::fstat_by_nfs_ea (struct stat *buf)
      access through another handle invalidates the caching within the
      NFS client.  Skip this for Cygwin-created Symlinks playing FIFOs
      (this sets the filler1 member to NF3FIFO). */
-  if (get_handle () && nfs_attr->filler1 != NF3FIFO)
+  if (get_handle () && pc.fs_is_nfs3() && (nfs_attr->filler1 != NF3FIFO))
     {
       if (get_access () & GENERIC_WRITE)
 	FlushFileBuffers (get_handle ());
@@ -236,11 +236,15 @@ fhandler_base::fstat_by_nfs_ea (struct stat *buf)
 	{
 	  uid_t map_uid = ILLEGAL_UID;
 
-	  domain = cygheap->dom.get_rfc2307_domain ();
-	  if ((ldap_open = (cldap.open (domain) == NO_ERROR)))
-	    map_uid = cldap.remap_uid (nfs_attr->uid);
-	  if (map_uid == ILLEGAL_UID)
-	    map_uid = MAP_UNIX_TO_CYGWIN_ID (nfs_attr->uid);
+          if (pc.fs_is_nfs4())
+            map_uid = nfs_attr->uid;
+          else {
+	    domain = cygheap->dom.get_rfc2307_domain ();
+	    if ((ldap_open = (cldap.open (domain) == NO_ERROR)))
+	      map_uid = cldap.remap_uid (nfs_attr->uid);
+	    if (map_uid == ILLEGAL_UID)
+	      map_uid = MAP_UNIX_TO_CYGWIN_ID (nfs_attr->uid);
+          }
 	  cygheap->ugid_cache.add_uid (nfs_attr->uid, map_uid);
 	  buf->st_uid = map_uid;
 	}
@@ -255,11 +259,15 @@ fhandler_base::fstat_by_nfs_ea (struct stat *buf)
 	{
 	  gid_t map_gid = ILLEGAL_GID;
 
-	  domain = cygheap->dom.get_rfc2307_domain ();
-	  if ((ldap_open || cldap.open (domain) == NO_ERROR))
-	    map_gid = cldap.remap_gid (nfs_attr->gid);
-	  if (map_gid == ILLEGAL_GID)
-	    map_gid = MAP_UNIX_TO_CYGWIN_ID (nfs_attr->gid);
+          if (pc.fs_is_nfs4())
+            map_gid = nfs_attr->gid;
+          else {
+	    domain = cygheap->dom.get_rfc2307_domain ();
+	    if ((ldap_open || cldap.open (domain) == NO_ERROR))
+	      map_gid = cldap.remap_gid (nfs_attr->gid);
+	    if (map_gid == ILLEGAL_GID)
+	      map_gid = MAP_UNIX_TO_CYGWIN_ID (nfs_attr->gid);
+          }
 	  cygheap->ugid_cache.add_gid (nfs_attr->gid, map_gid);
 	  buf->st_gid = map_gid;
 	}

@@ -423,6 +423,8 @@ class path_conv
   bool fs_is_refs () const {return fs.is_refs ();}
   bool fs_is_samba () const {return fs.is_samba ();}
   bool fs_is_nfs () const {return fs.is_nfs ();}
+  bool fs_is_nfs3 () const {return fs.is_nfs () && !fs.has_acls ();}
+  bool fs_is_nfs4 () const {return fs.is_nfs () && fs.has_acls ();}
   bool fs_is_netapp () const {return fs.is_netapp ();}
   bool fs_is_cdrom () const {return fs.is_cdrom ();}
   bool fs_is_mvfs () const {return fs.is_mvfs ();}
