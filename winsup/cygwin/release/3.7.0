@@ -28,6 +28,8 @@ What's new:
 
 - Support for uid/gid passthrough for NFSv4 clients without involving LDAP.
 
+- Add #define for IPTOS_DSCP_VA in <netinet/ip.h>.
+
 
 Fixes:
 ------

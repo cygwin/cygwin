@@ -83,7 +83,7 @@ struct ip {
 #define IP_MAXPACKET	65535	/* maximum packet size */
 
 /*
- * Definitions for DiffServ Codepoints as per RFC2474
+ * Definitions for DiffServ Codepoints as per RFC2474 and RFC5865.
  */
 #define IPTOS_DSCP_CS0		0x00
 #define IPTOS_DSCP_CS1		0x20
@@ -103,6 +103,7 @@ struct ip {
 #define IPTOS_DSCP_AF42		0x90
 #define IPTOS_DSCP_AF43		0x98
 #define IPTOS_DSCP_CS5		0xa0
+#define IPTOS_DSCP_VA		0xb0
 #define IPTOS_DSCP_EF		0xb8
 #define IPTOS_DSCP_CS6		0xc0
 #define IPTOS_DSCP_CS7		0xe0
