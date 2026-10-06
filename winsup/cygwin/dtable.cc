@@ -278,6 +278,22 @@ cygwin_attach_handle_to_fd (char *name, int fd, HANDLE handle, mode_t bin,
   return fd;
 }
 
+/* Anonymous pipes (CreatePipe) have no name, so handle_to_fn reports them
+   as unknown_file, just like an LSP socket.  Ask the named pipe file system
+   first: a socket fails this query, a pipe of any kind succeeds.  Without
+   it, every process started with anonymous pipes as stdio (by cmd.exe
+   pipelines, Python, .NET, Go, ...) calls getsockopt, which loads Winsock
+   and calls WSAStartup just to learn that a pipe is not a socket. */
+static bool
+is_npfs_handle (HANDLE h)
+{
+  IO_STATUS_BLOCK io;
+  FILE_PIPE_LOCAL_INFORMATION fpli;
+
+  return NT_SUCCESS (NtQueryInformationFile (h, &io, &fpli, sizeof fpli,
+					     FilePipeLocalInformation));
+}
+
 void
 dtable::init_std_file_from_handle (int fd, HANDLE handle)
 {
@@ -310,6 +326,7 @@ dtable::init_std_file_from_handle (int fd, HANDLE handle)
 		  handle.  fhandler_socket::set_socket_handle tries to fetch
 		  the underlying base socket, but this might fail. */
 	       || (strcmp (name, unknown_file) == 0
+		   && !is_npfs_handle (handle)
 		   && !::getsockopt ((SOCKET) handle, SOL_SOCKET, SO_RCVBUF,
 				     (char *) &rcv, &len)))
 	{
