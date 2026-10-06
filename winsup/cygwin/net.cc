@@ -756,6 +756,22 @@ cygwin_gethostname (char *name, size_t len)
 {
   __try
     {
+      /* GetComputerNameExA returns the same TCP/IP host name as
+	 GetNetworkParams' FIXED_INFO::HostName, without loading
+	 iphlpapi.dll (and with it nsi, dnsapi and dsparse) into every
+	 process that asks.  bash asks at every start.  Use the physical
+	 name: on a cluster node ComputerNameDnsHostname returns the
+	 cluster's virtual server name instead. */
+      char host[256];
+      DWORD hlen = sizeof host;
+
+      if (GetComputerNameExA (ComputerNamePhysicalDnsHostname, host, &hlen))
+	{
+	  strncpy (name, host, len);
+	  debug_printf ("gethostname %s", name);
+	  return 0;
+	}
+
       PFIXED_INFO info = NULL;
       ULONG size = 0;
 
