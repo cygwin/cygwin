@@ -116,9 +116,12 @@ __call_exitprocs (int code, void *d)
 
 	  ind = p->_ind;
 
-	  fntypes = args->_fntypes;
-	  is_cxa = args->_is_cxa;
-	  fnarg = args->_fnargs[n];
+	  if (args)
+	    {
+	      fntypes = args->_fntypes;
+	      is_cxa = args->_is_cxa;
+	      fnarg = args->_fnargs[n];
+	    }
 
 #ifndef __SINGLE_THREAD__
 	  /* Unlock __atexit_recursive_mutex; otherwise, the function fn() may
