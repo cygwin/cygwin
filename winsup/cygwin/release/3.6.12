@@ -1,0 +1,5 @@
+Fixes:
+------
+
+- Preserve runtime nesting across signal handlers, fixing potential hangs
+  in posix_spawn callers such as CMake.

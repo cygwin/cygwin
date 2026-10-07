@@ -299,6 +299,7 @@ check_PROGRAMS = \
 	winsup.api/pthread/mutex8n \
 	winsup.api/pthread/mutex8r \
 	winsup.api/pthread/once1 \
+	winsup.api/pthread/once2 \
 	winsup.api/pthread/priority1 \
 	winsup.api/pthread/priority2 \
 	winsup.api/pthread/rwlock1 \

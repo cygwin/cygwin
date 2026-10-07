@@ -1909,6 +1909,7 @@ _cygtls::call_signal_handler ()
 
       int this_errno = saved_errno;
       reset_signal_arrived ();
+      unsigned incyg_orig = incyg;
       incyg = 0;
       current_sig = 0;	/* Flag that we can accept another signal */
 
@@ -2082,7 +2083,7 @@ _cygtls::call_signal_handler ()
 	}
       unlock ();
 
-      incyg = 1;
+      incyg = incyg_orig;
 
       set_signal_mask (_my_tls.sigmask, (this_sa_flags & SA_SIGINFO)
 					? context1.uc_sigmask : this_oldmask);
