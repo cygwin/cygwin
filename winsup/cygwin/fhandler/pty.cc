@@ -1120,18 +1120,7 @@ fhandler_pty_slave::reset_switch_to_nat_pipe (void)
 	  mutex_timeout = INFINITE;
 	  if (isHybrid)
 	    {
-	      WaitForSingleObject (input_mutex, mutex_timeout);
-	      if (get_ttyp ()->getpgid () == myself->pgid
-		  && GetStdHandle (STD_INPUT_HANDLE) == get_handle ()
-		  && get_ttyp ()->pty_input_state_eq (tty::to_nat))
-		{
-		  acquire_attach_mutex (mutex_timeout);
-		  transfer_input (tty::to_cyg, get_handle_nat (), get_ttyp (),
-				  input_available_event,
-				  input_transferred_to_cyg);
-		  release_attach_mutex ();
-		}
-	      ReleaseMutex (input_mutex);
+	      fixup_input_state_for_cygwin_app ();
 	      if (get_ttyp ()->master_is_running_as_service
 		  && get_ttyp ()->pcon_activated)
 		/* If the master is running as service, re-attaching to
@@ -2605,7 +2594,11 @@ void
 fhandler_pty_slave::fixup_after_exec ()
 {
   if (!close_on_exec ())
-    fixup_after_fork (NULL);	/* No parent handle required. */
+    {
+      fixup_after_fork (NULL);	/* No parent handle required. */
+      if (get_ttyp ()->pcon_activated)
+	fixup_input_state_for_cygwin_app ();
+    }
 
   /* Hook Console API */
 #define DO_HOOK(module, name) \
@@ -4594,4 +4587,30 @@ fhandler_pty_slave::replace_nat_handles (HANDLE new_input, HANDLE new_output)
     }
   CloseHandle (orig_input_handle_nat);
   CloseHandle (orig_output_handle_nat);
+}
+
+void
+fhandler_pty_slave::fixup_input_state_for_cygwin_app ()
+{
+  DWORD wait = WaitForSingleObject (input_mutex, mutex_timeout);
+  if (wait != WAIT_OBJECT_0 && wait != WAIT_ABANDONED_0)
+    {
+      termios_printf ("input fixup mutex wait returned %u", wait);
+      return;
+    }
+  if (get_ttyp ()->getpgid () == myself->pgid
+      && GetStdHandle (STD_INPUT_HANDLE) == get_handle ()
+      && get_ttyp ()->pty_input_state_eq (tty::to_nat))
+    {
+      wait = acquire_attach_mutex (mutex_timeout);
+      if (wait == WAIT_OBJECT_0 || wait == WAIT_ABANDONED_0)
+	{
+	  transfer_input (tty::to_cyg, get_handle_nat (), get_ttyp (),
+			  input_available_event, input_transferred_to_cyg);
+	  release_attach_mutex ();
+	}
+      else
+	termios_printf ("input fixup attach wait returned %u", wait);
+    }
+  ReleaseMutex (input_mutex);
 }
