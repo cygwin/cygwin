@@ -33,6 +33,7 @@ libltp_a_SOURCES = \
 
 check_PROGRAMS = \
 	winsup.api/checksignal \
+	winsup.api/console-mode \
 	winsup.api/crlf \
 	winsup.api/devdsp \
 	winsup.api/devzero \
