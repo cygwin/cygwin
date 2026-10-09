@@ -2201,15 +2201,16 @@ fhandler_console::open (int flags, mode_t)
     }
 
   WaitForSingleObject (cons_mode_mutex, mutex_timeout);
+  /* close() restores both modes even when stdio is redirected. */
+  prev_input_mode_backup = con.prev_input_mode;
+  prev_output_mode_backup = con.prev_output_mode;
   if (in_is_console && con.curr_input_mode != tty::cygwin)
     {
-      prev_input_mode_backup = con.prev_input_mode;
       GetConsoleMode (get_handle (), &con.prev_input_mode);
       set_input_mode (tty::cygwin, &get_ttyp ()->ti, &handle_set);
     }
   if (out_is_console && con.curr_output_mode != tty::cygwin)
     {
-      prev_output_mode_backup = con.prev_output_mode;
       GetConsoleMode (get_output_handle (), &con.prev_output_mode);
       set_output_mode (tty::cygwin, &get_ttyp ()->ti, &handle_set);
     }
