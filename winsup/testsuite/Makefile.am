@@ -385,4 +385,31 @@ clean-local:
 
 if MINGW_PROGS
 SUBDIRS = mingw
+check_PROGRAMS += testinst/bin/pty-background-native
+testinst_bin_pty_background_native_SOURCES = \
+	winsup.api/pty-background-native.c
+
+testinst_bin_pty_background_native_DEPENDENCIES = \
+	$(filter-out -%,$(LDADD)) \
+	testinst/bin/pty-native-input$(EXEEXT) \
+	testinst/bin/cygwin-console-helper$(EXEEXT) \
+	testinst/usr/share/terminfo/78/xterm
+
+testinst/usr/share/terminfo/78/xterm: /usr/share/terminfo/78/xterm
+	$(MKDIR_P) $(dir $@)
+	$(INSTALL_DATA) $< $@
+
+testinst/bin/pty-native-input$(EXEEXT): mingw/pty-native-input$(EXEEXT)
+	$(INSTALL_PROGRAM) $< $@
+
+testinst/bin/cygwin-console-helper$(EXEEXT): \
+	../utils/mingw/cygwin-console-helper$(EXEEXT)
+	$(INSTALL_PROGRAM) $< $@
+
+mingw/pty-native-input$(EXEEXT): $(srcdir)/mingw/pty-native-input.c
+	$(MAKE) -C mingw pty-native-input$(EXEEXT)
+
+../utils/mingw/cygwin-console-helper$(EXEEXT): \
+	$(top_srcdir)/utils/mingw/cygwin-console-helper.cc
+	$(MAKE) -C ../utils/mingw cygwin-console-helper$(EXEEXT)
 endif

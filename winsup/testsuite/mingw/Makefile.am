@@ -16,7 +16,7 @@ override CC = @MINGW_CC@
 override CXX = @MINGW_CXX@
 AM_CPPFLAGS =
 
-noinst_PROGRAMS = cygrun cygload winchild
+noinst_PROGRAMS = cygrun cygload winchild pty-native-input
 
 cygrun_SOURCES = \
 	../cygrun.c
@@ -29,3 +29,6 @@ winchild_SOURCES = \
 	../winsup.api/posix_spawn/winchild.c
 winchild_LDFLAGS=-municode
 winchild_LDADD=-lntdll
+
+pty_native_input_SOURCES = \
+	pty-native-input.c
