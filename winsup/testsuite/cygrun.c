@@ -23,10 +23,11 @@ main (int argc, char **argv)
   DWORD res;
   DWORD ec = 1;
   DWORD timeout = 60 * 1000;
+  const char *testing = "1";
 
   if (argc < 2)
     {
-      fprintf (stderr, "Usage: cygrun [program]\n");
+      fprintf (stderr, "Usage: cygrun [-notimeout] [-notesting] program\n");
       exit (1);
     }
 
@@ -35,6 +36,8 @@ main (int argc, char **argv)
     {
       if (strcmp (argv[i], "-notimeout") == 0)
 	timeout = INFINITE;
+      else if (strcmp (argv[i], "-notesting") == 0)
+	testing = NULL;
       else
 	break;
     }
@@ -47,7 +50,12 @@ main (int argc, char **argv)
       exit (1);
     }
 
-  SetEnvironmentVariable ("CYGWIN_TESTING", "1");
+  if (!SetEnvironmentVariable ("CYGWIN_TESTING", testing))
+    {
+      fprintf (stderr, "Cannot set testing environment: %lu\n",
+	       GetLastError ());
+      exit (1);
+    }
 
   memset (&sa, 0, sizeof (sa));
   memset (&pi, 0, sizeof (pi));
