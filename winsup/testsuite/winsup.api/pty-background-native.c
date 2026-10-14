@@ -62,6 +62,7 @@ terminal (int master, pid_t child)
   close (master);
   if (!WIFEXITED (status) || WEXITSTATUS (status))
     {
+      fprintf (stderr, "Terminal child status: %d\n", status);
       fwrite (window, 1, used, stderr);
       return 1;
     }
@@ -73,8 +74,8 @@ static int
 worker (pid_t native)
 {
   struct termios raw;
-  assert (tcgetpgrp (0) == getpgrp () && getpgid (native) == native
-	 && native != getpgrp ());
+  assert (tcgetpgrp (0) == getpgrp ());
+  assert (!native || (getpgid (native) == native && native != getpgrp ()));
   assert (!tcgetattr (0, &raw));
   raw.c_lflag &= ~(ICANON | ECHO);
   raw.c_cc[VMIN] = 0;
@@ -99,37 +100,49 @@ worker (pid_t native)
 	       || memcmp (buf, replies[0].reply, used);
   /* Misrouted reports can become keystrokes that edit Vim's first line. */
   if (result)
-    fprintf (stderr, "Bad terminal reply (%zu bytes)\n", used);
+    {
+      fprintf (stderr, "Bad terminal reply (%zu bytes):", used);
+      for (size_t i = 0; i < used; i++)
+	fprintf (stderr, " %02x", (unsigned char) buf[i]);
+      fputc ('\n', stderr);
+    }
   int status;
-  assert (waitpid (native, &status, 0) == native
-	 && WIFEXITED (status) && !WEXITSTATUS (status));
+  if (native)
+    assert (waitpid (native, &status, 0) == native
+	    && WIFEXITED (status) && !WEXITSTATUS (status));
   return result ? 1 : 0;
 }
 
-int
-main (int argc, char **argv)
+static int
+run_case (const char *program, int native_parent)
 {
-  if (argc == 3 && !strcmp (argv[1], "worker"))
-    {
-      int pid;
-      char extra;
-      assert (sscanf (argv[2], "%d%c", &pid, &extra) == 1 && pid > 0);
-      return worker (pid);
-    }
-  assert (argc == 1);
-  if (!GetProcAddress (GetModuleHandleW (L"kernel32.dll"),
-		      "CreatePseudoConsole"))
-    {
-      fprintf (stderr, "ConPTY unavailable\n");
-      return 77;
-    }
-  assert (!setenv ("TERM", "xterm", 1));
   struct winsize size = { 24, 80, 0, 0 };
   int master;
   pid_t child = forkpty (&master, NULL, NULL, &size);
   assert (child >= 0);
   if (child)
     return terminal (master, child);
+
+  if (native_parent)
+    {
+      char path[MAX_PATH], command[MAX_PATH + 32], handles[64];
+      DWORD length = GetModuleFileNameA (NULL, path, sizeof path);
+      assert (length && length < sizeof path);
+      snprintf (command, sizeof command, "\"%s\" worker 0", path);
+      HANDLE input, output;
+      /* Preserve the terminal handles across the native Git process. */
+      assert (DuplicateHandle (GetCurrentProcess (),
+			       GetStdHandle (STD_INPUT_HANDLE),
+			       GetCurrentProcess (), &input,
+			       0, TRUE, DUPLICATE_SAME_ACCESS));
+      assert (DuplicateHandle (GetCurrentProcess (),
+			       GetStdHandle (STD_OUTPUT_HANDLE),
+			       GetCurrentProcess (), &output,
+			       0, TRUE, DUPLICATE_SAME_ACCESS));
+      snprintf (handles, sizeof handles, "%p,%p", input, output);
+      assert (execl ("/bin/pty-native-input.exe", "pty-native-input",
+		     command, handles, (char *) NULL) != -1);
+    }
 
   int ready[2];
   assert (!pipe (ready));
@@ -151,5 +164,34 @@ main (int argc, char **argv)
   assert (!setpgid (native, native));
   char pid[24];
   snprintf (pid, sizeof pid, "%ld", (long) native);
-  assert (execl (argv[0], argv[0], "worker", pid, (char *) NULL) != -1);
+  assert (execl (program, program, "worker", pid, (char *) NULL) != -1);
+  return 1;
+}
+
+int
+main (int argc, char **argv)
+{
+  if (argc == 3 && !strcmp (argv[1], "worker"))
+    {
+      int pid;
+      char extra;
+      assert (sscanf (argv[2], "%d%c", &pid, &extra) == 1 && pid >= 0);
+      return worker (pid);
+    }
+  assert (argc == 1
+	  || (argc == 2 && !strcmp (argv[1], "native-parent")));
+  if (!GetProcAddress (GetModuleHandleW (L"kernel32.dll"),
+		      "CreatePseudoConsole"))
+    {
+      fprintf (stderr, "ConPTY unavailable\n");
+      return 77;
+    }
+  assert (!setenv ("TERM", "xterm", 1));
+  if (argc == 2)
+    return run_case (argv[0], 1);
+  if (run_case (argv[0], 0))
+    return 1;
+  /* Keep the terminal-emulator state independent between scenarios. */
+  assert (execl (argv[0], argv[0], "native-parent", (char *) NULL) != -1);
+  return 1;
 }
