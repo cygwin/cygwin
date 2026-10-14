@@ -1079,6 +1079,13 @@ fhandler_pty_slave::init (HANDLE h, DWORD a, mode_t, int64_t dummy)
 }
 
 void
+fhandler_pty_slave::post_open_setup (int fd)
+{
+  if (fd == 0 && get_ttyp ()->pcon_activated)
+    fixup_input_state_for_cygwin_app ();
+}
+
+void
 fhandler_pty_slave::set_switch_to_nat_pipe (void)
 {
   if (!isHybrid)
