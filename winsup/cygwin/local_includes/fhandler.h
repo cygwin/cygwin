@@ -2477,6 +2477,7 @@ class fhandler_pty_slave: public fhandler_pty_common
 
   int open (int flags, mode_t mode = 0);
   bool open_setup (int flags);
+  void post_open_setup (int fd);
   ssize_t write (const void *ptr, size_t len);
   void read (void *ptr, size_t& len);
   int init (HANDLE, DWORD, mode_t, int64_t = 0);
