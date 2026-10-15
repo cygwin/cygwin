@@ -37,7 +37,9 @@ int main()
   else
     {
       setlocale (LC_CTYPE, "C-UTF-8");
-      CHECK (iswalpha(0x0967));
+      CHECK (iswalpha(0x0905));
+      CHECK (!iswalpha(0x0967));
+      CHECK (iswalnum(0x0967));
       CHECK (!iswalpha(0x128e));
 #if __SIZEOF_WINT_T__ > 2
       /* These two lines may cause compilation warnings on targets
