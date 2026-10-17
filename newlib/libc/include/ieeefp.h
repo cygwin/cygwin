@@ -192,10 +192,19 @@ typedef union
 
 typedef struct ieee_ext
 {
+#if defined (__IEEE_BIG_ENDIAN) && LDBL_MANT_DIG == 64
+  /* 68881 extended: sign and exponent, 16 bits of padding, mantissa.  */
+  __ieee_ext_field_type	 ext_sign  : 1;
+  __ieee_ext_field_type	 ext_exp   : EXT_EXPBITS;
+  __ieee_ext_field_type	 ext_pad   : 16;
+  __ieee_ext_field_type	 ext_frach : EXT_FRACHBITS;
+  __ieee_ext_field_type	 ext_fracl : EXT_FRACLBITS;
+#else
   __ieee_ext_field_type	 ext_fracl : EXT_FRACLBITS;
   __ieee_ext_field_type	 ext_frach : EXT_FRACHBITS;
   __ieee_ext_field_type	 ext_exp   : EXT_EXPBITS;
   __ieee_ext_field_type	 ext_sign  : 1;
+#endif
 } ieee_ext;
 
 typedef union ieee_ext_u
