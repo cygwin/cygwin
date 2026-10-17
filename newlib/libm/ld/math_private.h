@@ -954,7 +954,9 @@ irintl(long double x)
 #define	__ieee754_scalbf scalbf
 
 /* fdlibm kernel function */
-int	__kernel_rem_pio2(double*,double*,int,int,int);
+/* newlib's version (libm/math/k_rem_pio2.c) takes the 2/pi table.  */
+int	__kernel_rem_pio2(double*,double*,int,int,int,const int32_t*);
+extern const int32_t __ipio2l[];
 
 /* double precision kernel functions */
 #ifndef INLINE_REM_PIO2

@@ -126,7 +126,7 @@ __ieee754_rem_pio2l(long double x, long double *y)
 	tx[4] = z;
 	nx = 5;
 	while(tx[nx-1]==zero) nx--;	/* skip zero term */
-	n  =  __kernel_rem_pio2(tx,ty,e0,nx,3);
+	n  =  __kernel_rem_pio2(tx,ty,e0,nx,3,__ipio2l);
 	t = (long double)ty[2] + ty[1];
 	r = t + ty[0];
 	w = ty[0] - (r - t);

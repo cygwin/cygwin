@@ -3143,6 +3143,7 @@ am__objects_153 = libm/common/libm_a-atanl.$(OBJEXT) \
 @HAVE_FPMATH_H_TRUE@	libm/ld/libm_a-e_lgammal.$(OBJEXT) \
 @HAVE_FPMATH_H_TRUE@	libm/ld/libm_a-e_remainderl.$(OBJEXT) \
 @HAVE_FPMATH_H_TRUE@	libm/ld/libm_a-e_sinhl.$(OBJEXT) \
+@HAVE_FPMATH_H_TRUE@	libm/ld/libm_a-k_rem_pio2l_tbl.$(OBJEXT) \
 @HAVE_FPMATH_H_TRUE@	libm/ld/libm_a-s_asinhl.$(OBJEXT) \
 @HAVE_FPMATH_H_TRUE@	libm/ld/libm_a-s_atanl.$(OBJEXT) \
 @HAVE_FPMATH_H_TRUE@	libm/ld/libm_a-s_cbrtl.$(OBJEXT) \
@@ -4979,6 +4980,7 @@ libm_a_CFLAGS_libm_common = -fbuiltin -fno-math-errno
 @HAVE_FPMATH_H_TRUE@	libm/ld/e_lgammal.c \
 @HAVE_FPMATH_H_TRUE@	libm/ld/e_remainderl.c \
 @HAVE_FPMATH_H_TRUE@	libm/ld/e_sinhl.c \
+@HAVE_FPMATH_H_TRUE@	libm/ld/k_rem_pio2l_tbl.c \
 @HAVE_FPMATH_H_TRUE@	libm/ld/s_asinhl.c \
 @HAVE_FPMATH_H_TRUE@	libm/ld/s_atanl.c \
 @HAVE_FPMATH_H_TRUE@	libm/ld/s_cbrtl.c \
@@ -10879,6 +10881,8 @@ libm/ld/libm_a-e_remainderl.$(OBJEXT): libm/ld/$(am__dirstamp) \
 	libm/ld/$(DEPDIR)/$(am__dirstamp)
 libm/ld/libm_a-e_sinhl.$(OBJEXT): libm/ld/$(am__dirstamp) \
 	libm/ld/$(DEPDIR)/$(am__dirstamp)
+libm/ld/libm_a-k_rem_pio2l_tbl.$(OBJEXT): libm/ld/$(am__dirstamp) \
+	libm/ld/$(DEPDIR)/$(am__dirstamp)
 libm/ld/libm_a-s_asinhl.$(OBJEXT): libm/ld/$(am__dirstamp) \
 	libm/ld/$(DEPDIR)/$(am__dirstamp)
 libm/ld/libm_a-s_atanl.$(OBJEXT): libm/ld/$(am__dirstamp) \
@@ -14668,6 +14672,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@libm/ld/$(DEPDIR)/libm_a-e_remainderl.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@libm/ld/$(DEPDIR)/libm_a-e_sinhl.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@libm/ld/$(DEPDIR)/libm_a-fdiml.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@libm/ld/$(DEPDIR)/libm_a-k_rem_pio2l_tbl.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@libm/ld/$(DEPDIR)/libm_a-s_asinhl.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@libm/ld/$(DEPDIR)/libm_a-s_atanl.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@libm/ld/$(DEPDIR)/libm_a-s_cbrtl.Po@am__quote@
@@ -42760,6 +42765,20 @@ libm/ld/libm_a-e_sinhl.obj: libm/ld/e_sinhl.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='libm/ld/e_sinhl.c' object='libm/ld/libm_a-e_sinhl.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libm_a_CPPFLAGS) $(CPPFLAGS) $(libm_a_CFLAGS) $(CFLAGS) -c -o libm/ld/libm_a-e_sinhl.obj `if test -f 'libm/ld/e_sinhl.c'; then $(CYGPATH_W) 'libm/ld/e_sinhl.c'; else $(CYGPATH_W) '$(srcdir)/libm/ld/e_sinhl.c'; fi`
+
+libm/ld/libm_a-k_rem_pio2l_tbl.o: libm/ld/k_rem_pio2l_tbl.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libm_a_CPPFLAGS) $(CPPFLAGS) $(libm_a_CFLAGS) $(CFLAGS) -MT libm/ld/libm_a-k_rem_pio2l_tbl.o -MD -MP -MF libm/ld/$(DEPDIR)/libm_a-k_rem_pio2l_tbl.Tpo -c -o libm/ld/libm_a-k_rem_pio2l_tbl.o `test -f 'libm/ld/k_rem_pio2l_tbl.c' || echo '$(srcdir)/'`libm/ld/k_rem_pio2l_tbl.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) libm/ld/$(DEPDIR)/libm_a-k_rem_pio2l_tbl.Tpo libm/ld/$(DEPDIR)/libm_a-k_rem_pio2l_tbl.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='libm/ld/k_rem_pio2l_tbl.c' object='libm/ld/libm_a-k_rem_pio2l_tbl.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libm_a_CPPFLAGS) $(CPPFLAGS) $(libm_a_CFLAGS) $(CFLAGS) -c -o libm/ld/libm_a-k_rem_pio2l_tbl.o `test -f 'libm/ld/k_rem_pio2l_tbl.c' || echo '$(srcdir)/'`libm/ld/k_rem_pio2l_tbl.c
+
+libm/ld/libm_a-k_rem_pio2l_tbl.obj: libm/ld/k_rem_pio2l_tbl.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libm_a_CPPFLAGS) $(CPPFLAGS) $(libm_a_CFLAGS) $(CFLAGS) -MT libm/ld/libm_a-k_rem_pio2l_tbl.obj -MD -MP -MF libm/ld/$(DEPDIR)/libm_a-k_rem_pio2l_tbl.Tpo -c -o libm/ld/libm_a-k_rem_pio2l_tbl.obj `if test -f 'libm/ld/k_rem_pio2l_tbl.c'; then $(CYGPATH_W) 'libm/ld/k_rem_pio2l_tbl.c'; else $(CYGPATH_W) '$(srcdir)/libm/ld/k_rem_pio2l_tbl.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) libm/ld/$(DEPDIR)/libm_a-k_rem_pio2l_tbl.Tpo libm/ld/$(DEPDIR)/libm_a-k_rem_pio2l_tbl.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='libm/ld/k_rem_pio2l_tbl.c' object='libm/ld/libm_a-k_rem_pio2l_tbl.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libm_a_CPPFLAGS) $(CPPFLAGS) $(libm_a_CFLAGS) $(CFLAGS) -c -o libm/ld/libm_a-k_rem_pio2l_tbl.obj `if test -f 'libm/ld/k_rem_pio2l_tbl.c'; then $(CYGPATH_W) 'libm/ld/k_rem_pio2l_tbl.c'; else $(CYGPATH_W) '$(srcdir)/libm/ld/k_rem_pio2l_tbl.c'; fi`
 
 libm/ld/libm_a-s_asinhl.o: libm/ld/s_asinhl.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libm_a_CPPFLAGS) $(CPPFLAGS) $(libm_a_CFLAGS) $(CFLAGS) -MT libm/ld/libm_a-s_asinhl.o -MD -MP -MF libm/ld/$(DEPDIR)/libm_a-s_asinhl.Tpo -c -o libm/ld/libm_a-s_asinhl.o `test -f 'libm/ld/s_asinhl.c' || echo '$(srcdir)/'`libm/ld/s_asinhl.c

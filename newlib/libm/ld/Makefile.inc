@@ -9,6 +9,7 @@
 	%D%/e_lgammal.c \
 	%D%/e_remainderl.c \
 	%D%/e_sinhl.c \
+	%D%/k_rem_pio2l_tbl.c \
 	%D%/s_asinhl.c \
 	%D%/s_atanl.c \
 	%D%/s_cbrtl.c \

@@ -135,7 +135,7 @@ __ieee754_rem_pio2l(long double x, long double *y)
 	tx[2] = z;
 	nx = 3;
 	while(tx[nx-1]==zero) nx--;	/* skip zero term */
-	n  =  __kernel_rem_pio2(tx,ty,e0,nx,2);
+	n  =  __kernel_rem_pio2(tx,ty,e0,nx,2,__ipio2l);
 	r = (long double)ty[0] + ty[1];
 	w = ty[1] - (r - ty[0]);
 	if(expsign<0) {y[0] = -r; y[1] = -w; return -n;}
