@@ -15,7 +15,8 @@ static const struct
 {
   const char *query, *reply;
 } replies[] = {
-  { "\033[6n", "\033[1;1R" }
+  { "\033[6n", "\033[1;1R" },
+  { "TYPEAHEAD_READY", "1\n2\n" }
 };
 
 /* Emulate MinTTY answering terminal queries, not rendering a screen. */
@@ -128,7 +129,11 @@ run_case (const char *program, int native_parent)
       char path[MAX_PATH], command[MAX_PATH + 32], handles[64];
       DWORD length = GetModuleFileNameA (NULL, path, sizeof path);
       assert (length && length < sizeof path);
-      snprintf (command, sizeof command, "\"%s\" worker 0", path);
+      snprintf (command, sizeof command, "\"%s\" %s", path,
+		native_parent == 2 ? "typeahead-child" : "worker 0");
+      if (native_parent == 2)
+	assert (execl ("/bin/pty-native-input.exe", "pty-native-input",
+		       command, (char *) NULL) != -1);
       HANDLE input, output;
       /* Preserve the terminal handles across the native Git process. */
       assert (DuplicateHandle (GetCurrentProcess (),
@@ -171,6 +176,15 @@ run_case (const char *program, int native_parent)
 int
 main (int argc, char **argv)
 {
+  if (argc == 2 && !strcmp (argv[1], "typeahead-exit"))
+    return 0;
+  /* Exercise startup and exec without reading the next native command. */
+  if (argc == 2 && !strcmp (argv[1], "typeahead-child"))
+    {
+      assert (execl (argv[0], argv[0], "typeahead-exit",
+		     (char *) NULL) != -1);
+      return 1;
+    }
   if (argc == 3 && !strcmp (argv[1], "worker"))
     {
       int pid;
@@ -179,7 +193,8 @@ main (int argc, char **argv)
       return worker (pid);
     }
   assert (argc == 1
-	  || (argc == 2 && !strcmp (argv[1], "native-parent")));
+	  || (argc == 2 && (!strcmp (argv[1], "native-parent")
+			   || !strcmp (argv[1], "typeahead"))));
   if (!GetProcAddress (GetModuleHandleW (L"kernel32.dll"),
 		      "CreatePseudoConsole"))
     {
@@ -188,7 +203,18 @@ main (int argc, char **argv)
     }
   assert (!setenv ("TERM", "xterm", 1));
   if (argc == 2)
-    return run_case (argv[0], 1);
+    {
+      if (!strcmp (argv[1], "native-parent"))
+	{
+	  if (run_case (argv[0], 1))
+	    return 1;
+	  assert (execl (argv[0], argv[0], "typeahead",
+			 (char *) NULL) != -1);
+	  return 1;
+	}
+      assert (!setenv ("CYGWIN", "disable_pcon", 1));
+      return run_case (argv[0], 2);
+    }
   if (run_case (argv[0], 0))
     return 1;
   /* Keep the terminal-emulator state independent between scenarios. */

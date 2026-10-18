@@ -1,9 +1,91 @@
 #include <stdio.h>
 #include <windows.h>
 
+static int
+typeahead (char *command)
+{
+  HANDLE input = GetStdHandle (STD_INPUT_HANDLE);
+  const char ready[] = "TYPEAHEAD_READY";
+  DWORD n;
+  if (GetFileType (input) != FILE_TYPE_PIPE
+      || !WriteFile (GetStdHandle (STD_OUTPUT_HANDLE),
+		     ready, sizeof ready - 1, &n, NULL)
+      || n != sizeof ready - 1)
+    {
+      fprintf (stderr, "Typeahead pipe readiness failed: %lu\n",
+	       GetLastError ());
+      return 1;
+    }
+  /* Emulate cmd reading two queued commands and launching ps for each. */
+  for (int i = 0; i < 2; i++)
+    {
+      DWORD available;
+      ULONGLONG deadline = GetTickCount64 () + 3000;
+      do
+	{
+	  if (!PeekNamedPipe (input, NULL, 0, NULL, &available, NULL))
+	    {
+	      fprintf (stderr, "Cannot inspect queued input: %lu\n",
+		       GetLastError ());
+	      return 1;
+	    }
+	  if (GetTickCount64 () >= deadline)
+	    {
+	      fprintf (stderr, "Queued command %d did not reach native input\n",
+		       i + 1);
+	      return 1;
+	    }
+	  if (available < (i ? 2 : 4))
+	    Sleep (1);
+	}
+      while (available < (i ? 2 : 4));
+      char line[2];
+      if (!ReadFile (input, line, sizeof line, &n, NULL)
+	  || n != sizeof line || line[0] != '1' + i || line[1] != '\n')
+	{
+	  fprintf (stderr, "Cannot read queued command %d: %lu\n",
+		   i + 1, GetLastError ());
+	  return 1;
+	}
+      STARTUPINFOA si = { 0 };
+      PROCESS_INFORMATION pi;
+      si.cb = sizeof si;
+      si.dwFlags = STARTF_USESTDHANDLES;
+      si.hStdInput = input;
+      si.hStdOutput = GetStdHandle (STD_OUTPUT_HANDLE);
+      si.hStdError = GetStdHandle (STD_ERROR_HANDLE);
+      char child_command[MAX_PATH + 32];
+      int len = snprintf (child_command, sizeof child_command, "%s", command);
+      if (len < 0 || (size_t) len >= sizeof child_command)
+	{
+	  fprintf (stderr, "Typeahead child command is too long\n");
+	  return 1;
+	}
+      if (!CreateProcessA (NULL, child_command, NULL, NULL, TRUE, 0,
+			   NULL, NULL, &si, &pi))
+	{
+	  fprintf (stderr, "Cannot launch typeahead child: %lu\n",
+		   GetLastError ());
+	  return 1;
+	}
+      DWORD status;
+      if (WaitForSingleObject (pi.hProcess, 3000) != WAIT_OBJECT_0
+	  || !GetExitCodeProcess (pi.hProcess, &status) || status)
+	{
+	  fprintf (stderr, "Typeahead child did not finish successfully\n");
+	  return 1;
+	}
+      CloseHandle (pi.hProcess);
+      CloseHandle (pi.hThread);
+    }
+  return 0;
+}
+
 int
 main (int argc, char **argv)
 {
+  if (argc == 2)
+    return typeahead (argv[1]);
   SECURITY_ATTRIBUTES sa = { sizeof sa, NULL, TRUE };
   HANDLE input = CreateFileA ("CONIN$", GENERIC_READ,
 			     FILE_SHARE_READ | FILE_SHARE_WRITE, &sa,
