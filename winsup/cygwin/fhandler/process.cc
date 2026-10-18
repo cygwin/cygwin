@@ -1335,7 +1335,9 @@ format_process_status (void *data, char *&destbuf)
 				   "SigIgn:\t%016lx\n",
 			  cmd,
 			  state, state_str,
-			  p->pgid,
+			  p->pid, /* this is the tgid on Linux, but
+				     Cygwin doesn't have LWP -- treat
+				     all processes as leaders */
 			  p->pid,
 			  p->ppid,
 			  p->uid, p->uid, p->uid, p->uid,
@@ -1343,7 +1345,11 @@ format_process_status (void *data, char *&destbuf)
 			  vmsize * kb_per_page, 0UL, vmrss * kb_per_page,
 			  vmdata * kb_per_page, 0UL, vmtext * kb_per_page,
 			  vmlib * kb_per_page,
-			  num_threads,
+			  num_threads, /* should really be the number
+					  of LWP in the same thread
+					  group, not the number of NT
+					  threads attached to this
+					  process */
 			  pnd, blk, ign
 			  );
 }
