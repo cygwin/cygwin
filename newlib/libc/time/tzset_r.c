@@ -227,17 +227,30 @@ _tzset_unlocked_r (struct _reent *reent_ptr)
       mm = 0;
       ss = 0;
       n = 0;
+      sign = 1;
       
       if (*tzenv == '/')
-	if (sscanf (tzenv, "/%hu%n:%hu%n:%hu%n", &hh, &n, &mm, &n, &ss, &n) <= 0)
-	  {
-	    /* error in time format, restore tz rules to default and return */
-	    tz->__tzrule[0] = default_tzrule;
-	    tz->__tzrule[1] = default_tzrule;
-            return;
-          }
+	{
+	  /* POSIX.1-2024 allows a signed time, e.g. "M3.5.0/-1" */
+	  ++tzenv;
+	  if (*tzenv == '-')
+	    {
+	      sign = -1;
+	      ++tzenv;
+	    }
+	  else if (*tzenv == '+')
+	    ++tzenv;
 
-      tz->__tzrule[i].s = ss + SECSPERMIN * mm + SECSPERHOUR  * hh;
+	  if (sscanf (tzenv, "%hu%n:%hu%n:%hu%n", &hh, &n, &mm, &n, &ss, &n) <= 0)
+	    {
+	      /* error in time format, restore tz rules to default and return */
+	      tz->__tzrule[0] = default_tzrule;
+	      tz->__tzrule[1] = default_tzrule;
+	      return;
+	    }
+	}
+
+      tz->__tzrule[i].s = sign * (ss + SECSPERMIN * mm + SECSPERHOUR  * hh);
       
       tzenv += n;
     }
