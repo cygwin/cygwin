@@ -635,6 +635,8 @@ HAS_NDS32_FPU_DP_FALSE
 HAS_NDS32_FPU_DP_TRUE
 HAS_NDS32_FPU_SP_FALSE
 HAS_NDS32_FPU_SP_TRUE
+AMDGCN_SIMT_FALSE
+AMDGCN_SIMT_TRUE
 MACH_ADD_SETJMP_FALSE
 MACH_ADD_SETJMP_TRUE
 HAVE_FPMATH_H_FALSE
@@ -6222,6 +6224,46 @@ else
 fi
 
 
+if test "${libm_machine_dir}" = "amdgcn"; then
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for amdgcn SIMT mode" >&5
+$as_echo_n "checking for amdgcn SIMT mode... " >&6; }
+if ${newlib_cv_amdgcn_simt+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#ifndef __SIMT__
+# error "Not SIMT mode"
+#endif
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_cpp "$LINENO"; then :
+  newlib_cv_amdgcn_simt="yes"
+else
+  newlib_cv_amdgcn_simt="no"
+fi
+rm -f conftest.err conftest.i conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $newlib_cv_amdgcn_simt" >&5
+$as_echo "$newlib_cv_amdgcn_simt" >&6; }
+fi
+
+ if test "$newlib_cv_amdgcn_simt" = "yes"; then
+  AMDGCN_SIMT_TRUE=
+  AMDGCN_SIMT_FALSE='#'
+else
+  AMDGCN_SIMT_TRUE='#'
+  AMDGCN_SIMT_FALSE=
+fi
+
+
 if test "${libm_machine_dir}" = "nds32"; then
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for nds32 FPU SP extension" >&5
 $as_echo_n "checking for nds32 FPU SP extension... " >&6; }
@@ -8072,6 +8114,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${MACH_ADD_SETJMP_TRUE}" && test -z "${MACH_ADD_SETJMP_FALSE}"; then
   as_fn_error $? "conditional \"MACH_ADD_SETJMP\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${AMDGCN_SIMT_TRUE}" && test -z "${AMDGCN_SIMT_FALSE}"; then
+  as_fn_error $? "conditional \"AMDGCN_SIMT\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${HAS_NDS32_FPU_SP_TRUE}" && test -z "${HAS_NDS32_FPU_SP_FALSE}"; then

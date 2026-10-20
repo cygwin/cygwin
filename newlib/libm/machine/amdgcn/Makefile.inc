@@ -1,3 +1,4 @@
+if !AMDGCN_SIMT
 %C%_src = \
 	%D%/v64_mathcnst.c \
 	%D%/v64_reent.c \
@@ -89,3 +90,4 @@
 	%D%/v64sf_tgamma.c
 
 libm_a_SOURCES += $(%C%_src)
+endif

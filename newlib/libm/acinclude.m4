@@ -1,5 +1,6 @@
 dnl We have to include these unconditionally since machines might want to use
 dnl AM_CONDITIONAL in their subdirs.
+m4_include([libm/machine/amdgcn/acinclude.m4])
 m4_include([libm/machine/nds32/acinclude.m4])
 m4_include([libm/machine/xtensa/acinclude.m4])
 

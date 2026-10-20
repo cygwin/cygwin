@@ -24,7 +24,7 @@ exit_with_int (int val)
 #if defined(__has_builtin) && __has_builtin(__builtin_gcn_kernarg_ptr)
   asm ("s_load_dwordx2	%0, %1, 16 glc\n\t"
        "s_waitcnt	0"
-       : "=Sg"(return_value) : "r"(__builtin_gcn_kernarg_ptr()));
+       : "=Sg"(return_value) : "Sg"(__builtin_gcn_kernarg_ptr()));
 #else
   asm ("s_load_dwordx2	%0, s[8:9], 16 glc\n\t"
        "s_waitcnt	0" : "=Sg"(return_value));
