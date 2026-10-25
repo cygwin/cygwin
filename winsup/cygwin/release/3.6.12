@@ -3,3 +3,6 @@ Fixes:
 
 - Preserve runtime nesting across signal handlers, fixing potential hangs
   in posix_spawn callers such as CMake.
+
+- Update the Windows timezone mapping in tzset(1) with the new names for
+  permanent DST timezones in parts of Canada.
