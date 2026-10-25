@@ -358,9 +358,6 @@ extern double lgamma (double);
 extern double erf (double);
 extern double erfc (double);
 extern double log2 (double);
-#if !defined(__cplusplus)
-#define log2(x) (log (x) / _M_LN2)
-#endif
 
 #ifndef __math_68881
 extern double hypot (double, double);
