@@ -1,0 +1,102 @@
+#!/bin/bash
+#
+# update hook to enforce that for commits which change files under winsup/ the
+# author is in winsup/CONTRIBUTORS (and therefore has announced their commits
+# are appropriately licensed)
+#
+# (you can also run this directly on a checked out tree, e.g.:
+#
+#  ./winsup/scripts/update refs/heads/main 'main@{1 year ago}' main
+#
+# or from a post-commit hook, e.g:
+#
+#  ./winsup/scripts/update $(git symbolic-ref --short HEAD) HEAD^ HEAD
+# )
+
+refname="$1"
+oldrev="$2"
+newrev="$3"
+
+# redirect output to stderr
+exec 1>&2
+
+# if push-option "bypass-license-check" is given, don't bother
+if [ "${GIT_PUSH_OPTION_COUNT:-0}" -ge 1 ]
+then
+    for (( cnt = 0 ; cnt < "${GIT_PUSH_OPTION_COUNT}" ; ++cnt ))
+    do
+	var="GIT_PUSH_OPTION_${cnt}"
+	if [ "${!var}" = "bypass-license-check" ]
+	then
+	    exit 0
+	fi
+    done
+fi
+
+# ignore tag updates
+case "$refname"
+in
+    refs/tags/.*)
+	exit 0
+    ;;
+esac
+
+# get list of commits
+if [ "$oldrev" = "0000000000000000000000000000000000000000" ]
+then
+    # new branch: commits introduced by this push
+    revs=$(git rev-list "$newrev" --not --all)
+else
+    # normal update: commits between old and new
+    revs=$(git rev-list "$oldrev..$newrev")
+fi
+
+# iterate over commits
+not_contrib=
+mangled=
+for rev in $revs
+do
+    # ignore commits which don't touch winsup/ files
+    if ! git diff-tree --no-commit-id --name-only -r "${rev}" | grep -q '^winsup/'
+    then
+	continue
+    fi
+
+    author=$(git log -1 ${rev} | grep "^Author: " | sed -s 's/^.*: //')
+    author_name=$(echo ${author} | sed -sE 's/(.*)( via.*)|() <.*>/\1/')
+    author_email=$(echo ${author} | sed -sE 's/.*<(.*)>/\1/')
+
+    # check if email authorship has been mangled by from rewriting
+    if [ "${author_email}" == "cygwin-patches@cygwin.com" ]
+    then
+	echo "commit ${rev}: author '${author}' mangled by From: rewriting"
+	mangled=1
+	continue
+    fi
+
+    # check author is listed in CONTRIBUTORS
+    if ! git show ${rev}:winsup/CONTRIBUTORS | grep -iq "^${author_name}.*${author_email}$"
+    then
+	echo "commit ${rev}: ${author} not found in winsup/CONTRIBUTORS"
+	not_contrib=1
+    fi
+
+    # XXX: also check for Signed-off-by: trailer?
+done
+
+fail=0
+
+if [ "${mangled}" ]
+then
+    fail=1
+fi
+
+if [ "${not_contrib}" ]
+then
+    echo
+    echo "Ask the commit author to make a declarition on licensing, then update winsup/CONTRIBUTORS"
+    echo "or bypass this check with --push-option=bypass-license-check"
+    fail=1
+fi
+
+exit ${fail}
