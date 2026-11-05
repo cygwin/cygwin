@@ -73,6 +73,14 @@ __malloc_lock (struct _reent *reent)
 {
   void *id = reent;
 
+#ifdef __SIMT__
+  /* The lanes of a wavefront cannot take turns at this lock, because they
+     run in lockstep, so the allocator runs one lane at a time (see
+     simt-malloc.c).  Catch any other caller rather than deadlock.  */
+  if (__builtin_gcn_simt_vote_any (!__builtin_gcn_simt_first_lane_p ()))
+    abort ();
+#endif
+
   if (id == __heap_lock_id)
     {
       if (__heap_lock_cnt < 1)

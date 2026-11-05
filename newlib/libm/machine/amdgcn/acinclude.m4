@@ -10,3 +10,8 @@ if test "${libm_machine_dir}" = "amdgcn"; then
 fi
 
 AM_CONDITIONAL(AMDGCN_SIMT, test "$newlib_cv_amdgcn_simt" = "yes")
+
+dnl In SIMT mode, libc/machine/amdgcn/simt-malloc.c provides malloc.
+if test "$newlib_cv_amdgcn_simt" = "yes"; then
+  NEWLIB_CFLAGS="${NEWLIB_CFLAGS} -DMALLOC_PROVIDED"
+fi

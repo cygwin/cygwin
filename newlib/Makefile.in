@@ -667,6 +667,7 @@ check_PROGRAMS =
 @HAVE_LIBC_MACHINE_AMDGCN_TRUE@	libc/machine/amdgcn/abort.c \
 @HAVE_LIBC_MACHINE_AMDGCN_TRUE@	libc/machine/amdgcn/atexit.c \
 @HAVE_LIBC_MACHINE_AMDGCN_TRUE@	libc/machine/amdgcn/mlock.c \
+@HAVE_LIBC_MACHINE_AMDGCN_TRUE@	libc/machine/amdgcn/simt-malloc.c \
 @HAVE_LIBC_MACHINE_AMDGCN_TRUE@	libc/machine/amdgcn/getreent.c \
 @HAVE_LIBC_MACHINE_AMDGCN_TRUE@	libc/machine/amdgcn/signal.c
 
@@ -1965,6 +1966,7 @@ am__objects_51 = libc/ssp/libc_a-chk_fail.$(OBJEXT) \
 @HAVE_LIBC_MACHINE_AMDGCN_TRUE@	libc/machine/amdgcn/libc_a-abort.$(OBJEXT) \
 @HAVE_LIBC_MACHINE_AMDGCN_TRUE@	libc/machine/amdgcn/libc_a-atexit.$(OBJEXT) \
 @HAVE_LIBC_MACHINE_AMDGCN_TRUE@	libc/machine/amdgcn/libc_a-mlock.$(OBJEXT) \
+@HAVE_LIBC_MACHINE_AMDGCN_TRUE@	libc/machine/amdgcn/libc_a-simt-malloc.$(OBJEXT) \
 @HAVE_LIBC_MACHINE_AMDGCN_TRUE@	libc/machine/amdgcn/libc_a-getreent.$(OBJEXT) \
 @HAVE_LIBC_MACHINE_AMDGCN_TRUE@	libc/machine/amdgcn/libc_a-signal.$(OBJEXT)
 @HAVE_LIBC_MACHINE_ARC_TRUE@am__objects_79 = libc/machine/arc/libc_a-memcmp.$(OBJEXT) \
@@ -8346,6 +8348,9 @@ libc/machine/amdgcn/libc_a-atexit.$(OBJEXT):  \
 libc/machine/amdgcn/libc_a-mlock.$(OBJEXT):  \
 	libc/machine/amdgcn/$(am__dirstamp) \
 	libc/machine/amdgcn/$(DEPDIR)/$(am__dirstamp)
+libc/machine/amdgcn/libc_a-simt-malloc.$(OBJEXT):  \
+	libc/machine/amdgcn/$(am__dirstamp) \
+	libc/machine/amdgcn/$(DEPDIR)/$(am__dirstamp)
 libc/machine/amdgcn/libc_a-getreent.$(OBJEXT):  \
 	libc/machine/amdgcn/$(am__dirstamp) \
 	libc/machine/amdgcn/$(DEPDIR)/$(am__dirstamp)
@@ -13083,6 +13088,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@libc/machine/amdgcn/$(DEPDIR)/libc_a-getreent.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@libc/machine/amdgcn/$(DEPDIR)/libc_a-mlock.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@libc/machine/amdgcn/$(DEPDIR)/libc_a-signal.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@libc/machine/amdgcn/$(DEPDIR)/libc_a-simt-malloc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@libc/machine/arc/$(DEPDIR)/libc_a-memcmp-bs-norm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@libc/machine/arc/$(DEPDIR)/libc_a-memcmp-stub.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@libc/machine/arc/$(DEPDIR)/libc_a-memcmp.Po@am__quote@
@@ -34085,6 +34091,20 @@ libc/machine/amdgcn/libc_a-mlock.obj: libc/machine/amdgcn/mlock.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='libc/machine/amdgcn/mlock.c' object='libc/machine/amdgcn/libc_a-mlock.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libc_a_CPPFLAGS) $(CPPFLAGS) $(libc_a_CFLAGS) $(CFLAGS) -c -o libc/machine/amdgcn/libc_a-mlock.obj `if test -f 'libc/machine/amdgcn/mlock.c'; then $(CYGPATH_W) 'libc/machine/amdgcn/mlock.c'; else $(CYGPATH_W) '$(srcdir)/libc/machine/amdgcn/mlock.c'; fi`
+
+libc/machine/amdgcn/libc_a-simt-malloc.o: libc/machine/amdgcn/simt-malloc.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libc_a_CPPFLAGS) $(CPPFLAGS) $(libc_a_CFLAGS) $(CFLAGS) -MT libc/machine/amdgcn/libc_a-simt-malloc.o -MD -MP -MF libc/machine/amdgcn/$(DEPDIR)/libc_a-simt-malloc.Tpo -c -o libc/machine/amdgcn/libc_a-simt-malloc.o `test -f 'libc/machine/amdgcn/simt-malloc.c' || echo '$(srcdir)/'`libc/machine/amdgcn/simt-malloc.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) libc/machine/amdgcn/$(DEPDIR)/libc_a-simt-malloc.Tpo libc/machine/amdgcn/$(DEPDIR)/libc_a-simt-malloc.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='libc/machine/amdgcn/simt-malloc.c' object='libc/machine/amdgcn/libc_a-simt-malloc.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libc_a_CPPFLAGS) $(CPPFLAGS) $(libc_a_CFLAGS) $(CFLAGS) -c -o libc/machine/amdgcn/libc_a-simt-malloc.o `test -f 'libc/machine/amdgcn/simt-malloc.c' || echo '$(srcdir)/'`libc/machine/amdgcn/simt-malloc.c
+
+libc/machine/amdgcn/libc_a-simt-malloc.obj: libc/machine/amdgcn/simt-malloc.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libc_a_CPPFLAGS) $(CPPFLAGS) $(libc_a_CFLAGS) $(CFLAGS) -MT libc/machine/amdgcn/libc_a-simt-malloc.obj -MD -MP -MF libc/machine/amdgcn/$(DEPDIR)/libc_a-simt-malloc.Tpo -c -o libc/machine/amdgcn/libc_a-simt-malloc.obj `if test -f 'libc/machine/amdgcn/simt-malloc.c'; then $(CYGPATH_W) 'libc/machine/amdgcn/simt-malloc.c'; else $(CYGPATH_W) '$(srcdir)/libc/machine/amdgcn/simt-malloc.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) libc/machine/amdgcn/$(DEPDIR)/libc_a-simt-malloc.Tpo libc/machine/amdgcn/$(DEPDIR)/libc_a-simt-malloc.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='libc/machine/amdgcn/simt-malloc.c' object='libc/machine/amdgcn/libc_a-simt-malloc.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libc_a_CPPFLAGS) $(CPPFLAGS) $(libc_a_CFLAGS) $(CFLAGS) -c -o libc/machine/amdgcn/libc_a-simt-malloc.obj `if test -f 'libc/machine/amdgcn/simt-malloc.c'; then $(CYGPATH_W) 'libc/machine/amdgcn/simt-malloc.c'; else $(CYGPATH_W) '$(srcdir)/libc/machine/amdgcn/simt-malloc.c'; fi`
 
 libc/machine/amdgcn/libc_a-getreent.o: libc/machine/amdgcn/getreent.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libc_a_CPPFLAGS) $(CPPFLAGS) $(libc_a_CFLAGS) $(CFLAGS) -MT libc/machine/amdgcn/libc_a-getreent.o -MD -MP -MF libc/machine/amdgcn/$(DEPDIR)/libc_a-getreent.Tpo -c -o libc/machine/amdgcn/libc_a-getreent.o `test -f 'libc/machine/amdgcn/getreent.c' || echo '$(srcdir)/'`libc/machine/amdgcn/getreent.c

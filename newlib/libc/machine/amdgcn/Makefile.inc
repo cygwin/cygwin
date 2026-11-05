@@ -3,5 +3,6 @@ libc_a_SOURCES += \
 	%D%/abort.c \
 	%D%/atexit.c \
 	%D%/mlock.c \
+	%D%/simt-malloc.c \
 	%D%/getreent.c \
 	%D%/signal.c

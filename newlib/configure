@@ -6264,6 +6264,10 @@ else
 fi
 
 
+if test "$newlib_cv_amdgcn_simt" = "yes"; then
+  NEWLIB_CFLAGS="${NEWLIB_CFLAGS} -DMALLOC_PROVIDED"
+fi
+
 if test "${libm_machine_dir}" = "nds32"; then
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for nds32 FPU SP extension" >&5
 $as_echo_n "checking for nds32 FPU SP extension... " >&6; }
