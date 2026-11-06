@@ -794,16 +794,14 @@ child_info_spawn::worker (const char *prog_arg, const char *const *argv,
 	     not available. */
 	  DuplicateHandle (GetCurrentProcess (), child.shared_handle (),
 			   pi.hProcess, NULL, 0, 0, DUPLICATE_SAME_ACCESS);
+	  /* We have to create a new winpid symlink on behalf of the child
+	     process. For Cygwin processes we also have to create a reference
+	     in the child. */
+	  child.create_winpid_symlink ();
 	  if (!real_path.iscygexec ())
-	    {
-	      /* If the child process is not a Cygwin process, we have to
-		 create a new winpid symlink and induce it into the child
-		 process as well to keep it over the lifetime of the child. */
-	      child.create_winpid_symlink ();
-	      DuplicateHandle (GetCurrentProcess (),
-			       child.shared_winpid_handle (),
-			       pi.hProcess, NULL, 0, 0, DUPLICATE_SAME_ACCESS);
-	    }
+	    DuplicateHandle (GetCurrentProcess (),
+			     child.shared_winpid_handle (),
+			     pi.hProcess, NULL, 0, 0, DUPLICATE_SAME_ACCESS);
 	  child->start_time = time (NULL); /* Register child's starting time. */
 	  child->nice = myself->nice;
 	  child->sched_policy = myself->sched_policy;
