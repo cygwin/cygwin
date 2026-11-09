@@ -162,9 +162,9 @@ quoted (char *cmd, int winshell)
   if (!winshell)
     {
       char *p;
-      strcpy (cmd, cmd + 1);
+      memmove (cmd, cmd + 1, strlen (cmd));
       if (*(p = strchrnul (cmd, quote)))
-	strcpy (p, p + 1);
+	memmove (p, p + 1, strlen (p));
       return p;
     }
 
