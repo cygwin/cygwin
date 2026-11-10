@@ -73,7 +73,7 @@ tzmap.h:
 
 BUILT_SOURCES = tzmap.h
 
-AM_LDFLAGS = -static -Wl,--enable-auto-import -Wl,--disable-high-entropy-va
+AM_LDFLAGS = -static -static-libgcc -Wl,--enable-auto-import -Wl,--disable-high-entropy-va
 LDADD = -lnetapi32
 
 cygpath_CXXFLAGS = -fno-threadsafe-statics $(AM_CXXFLAGS)
