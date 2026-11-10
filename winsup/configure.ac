@@ -158,7 +158,7 @@ if test "x$build_dumper" != "xno"; then
   # are, based on what's present in the build environment
   BFD_LIBS="-lintl -liconv -liberty -lz"
   AC_CHECK_LIB([sframe], [sframe_decode], [BFD_LIBS="${BFD_LIBS} -lsframe"])
-  AC_CHECK_LIB([zstd], [ZSTD_isError], [BFD_LIBS="${BFD_LIBS} -lzstd"])
+  AC_CHECK_LIB([zstd], [ZSTD_isError], [BFD_LIBS="${BFD_LIBS} -Wl,-Bdynamic -lzstd -Wl,-Bstatic"])
   AC_SUBST([BFD_LIBS])
 fi
 
