@@ -129,7 +129,12 @@ List_insert (fast_mutex &mx, list_node *&head, list_node *node)
     return;
   mx.lock ();
   do
-    node->next = head;
+    {
+      node->next = head;
+      node->prev = NULL;
+      if (head)
+	head->prev = node;
+    }
   while (InterlockedCompareExchangePointer ((PVOID volatile *) &head,
 					    node, node->next) != node->next);
   mx.unlock ();
@@ -141,7 +146,12 @@ List_insert_nolock (list_node *&head, list_node *node)
   if (!node)
     return;
   do
-    node->next = head;
+    {
+      node->next = head;
+      node->prev = NULL;
+      if (head)
+	head->prev = node;
+    }
   while (InterlockedCompareExchangePointer ((PVOID volatile *) &head,
 					    node, node->next) != node->next);
 }
@@ -152,19 +162,12 @@ List_remove (fast_mutex &mx, list_node *&head, list_node *node)
   if (!node)
     return;
   mx.lock ();
-  if (head)
-    {
-      if (InterlockedCompareExchangePointer ((PVOID volatile *) &head,
-					     node->next, node) != node)
-	{
-	  list_node *cur = head;
-
-	  while (cur->next && node != cur->next)
-	    cur = cur->next;
-	  if (node == cur->next)
-	    cur->next = cur->next->next;
-	}
-    }
+  if (InterlockedCompareExchangePointer ((PVOID volatile *) &head,
+					 node->next, node) != node)
+    if (node->prev)
+      node->prev->next = node->next;
+  if (node->next)
+    node->next->prev = node->prev;
   mx.unlock ();
 }
 
@@ -334,6 +337,7 @@ public:
   ~pthread_mutex ();
 
   class pthread_mutex *next;
+  class pthread_mutex *prev;
   static void fixup_after_fork ()
   {
     mutexes.fixup_after_fork ();
@@ -453,6 +457,7 @@ public:
 
   /* List support calls */
   class pthread *next;
+  class pthread *prev;
   static void fixup_after_fork ()
   {
     threads.fixup_after_fork ();
@@ -554,6 +559,7 @@ public:
   ~pthread_cond ();
 
   class pthread_cond * next;
+  class pthread_cond * prev;
   static void fixup_after_fork ()
   {
     conds.fixup_after_fork ();
@@ -627,9 +633,11 @@ public:
   struct RWLOCK_READER
   {
     struct RWLOCK_READER *next;
+    struct RWLOCK_READER *prev;
     pthread_t thread;
     uint32_t n;
-    RWLOCK_READER (): next (NULL), thread (pthread::self ()), n (0) {}
+    RWLOCK_READER ():
+      next (NULL), prev (NULL), thread (pthread::self ()), n (0) {}
   } *readers;
   fast_mutex readers_mx;
 
@@ -649,6 +657,7 @@ public:
   ~pthread_rwlock ();
 
   class pthread_rwlock * next;
+  class pthread_rwlock * prev;
   static void fixup_after_fork ()
   {
     rwlocks.fixup_after_fork ();
@@ -724,6 +733,7 @@ public:
   ~semaphore ();
 
   class semaphore * next;
+  class semaphore * prev;
   static void fixup_before_fork ()
   {
     semaphores.for_each (&semaphore::_fixup_before_fork);
@@ -755,8 +765,10 @@ private:
 class callback
 {
 public:
+  callback (): next (NULL), prev (NULL) {}
   void (*cb)(void);
   class callback * next;
+  class callback * prev;
 };
 
 struct MTinterface
