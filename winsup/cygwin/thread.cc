@@ -413,7 +413,8 @@ List<pthread> pthread::threads;
 pthread::pthread ():verifyable_object (PTHREAD_MAGIC), win32_obj_id (0),
 		    valid (false), suspended (false), canceled (false),
 		    cancelstate (0), canceltype (0), cancel_event (0),
-		    joiner (NULL), next (NULL), cleanup_stack (NULL)
+		    joiner (NULL), next (NULL), prev (NULL),
+		    cleanup_stack (NULL)
 {
   if (this != pthread_null::get_null_pthread ())
     threads.insert (this);
@@ -1163,7 +1164,7 @@ pthread_cond::init_mutex ()
 pthread_cond::pthread_cond (pthread_condattr *attr) :
   verifyable_object (PTHREAD_COND_MAGIC),
   shared (0), clock_id (CLOCK_REALTIME), waiting (0), pending (0),
-  sem_wait (NULL), mtx_cond(NULL), next (NULL)
+  sem_wait (NULL), mtx_cond(NULL), next (NULL), prev (NULL)
 {
   pthread_mutex *verifyable_mutex_obj;
 
@@ -1379,7 +1380,7 @@ pthread_rwlock::pthread_rwlock (pthread_rwlockattr *attr) :
   verifyable_object (PTHREAD_RWLOCK_MAGIC),
   shared (0), waiting_readers (0), waiting_writers (0), writer (NULL),
   readers (NULL), readers_mx (), mtx (NULL), cond_readers (NULL), cond_writers (NULL),
-  next (NULL)
+  next (NULL), prev (NULL)
 {
   pthread_mutex *verifyable_mutex_obj = &mtx;
   pthread_cond *verifyable_cond_obj;
@@ -1789,6 +1790,7 @@ pthread_mutex::init_mutex ()
 
 pthread_mutex::pthread_mutex (pthread_mutexattr *attr) :
   verifyable_object (0),	/* set magic to zero initially */
+  next (NULL), prev (NULL),
   lock_counter (0),
   win32_obj_id (NULL), owner (_new_mutex),
 #ifdef DEBUGGING
@@ -2557,7 +2559,8 @@ semaphore::semaphore (int pshared, unsigned int value)
   startvalue (value),
   fd (-1),
   hash (0ULL),
-  sem (NULL)
+  sem (NULL),
+  next (NULL), prev (NULL)
 {
   SECURITY_ATTRIBUTES sa = (pshared != PTHREAD_PROCESS_PRIVATE)
 			   ? sec_all : sec_none_nih;
@@ -2577,7 +2580,8 @@ semaphore::semaphore (unsigned long long shash, LUID sluid, int sfd,
   fd (sfd),
   hash (shash),
   luid (sluid),
-  sem (ssem)
+  sem (ssem),
+  next (NULL), prev (NULL)
 {
   char name[MAX_PATH];
 
